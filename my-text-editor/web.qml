@@ -172,6 +172,8 @@ Rectangle {
             barSize: root.barSize
             tabsModel: tabsModel
             currentTabIndex: root.currentTabIndex
+            isSplit: root.isSplit
+            backgroundTabIndex: root.isSplit ? (root.activePane === 0 ? root.secondaryTabIndex : root.primaryTabIndex) : -1
 
             onNewClicked: root.createNewTab()
             onTabSelected: (index) => root.switchToTab(index)

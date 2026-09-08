@@ -80,6 +80,11 @@ Item {
                 border.color: (mainBar.isSplitMode && mainBar.isActivePane) ? "#333333" : "transparent"
                 border.width: 1
 
+                opacity: (mainBar.isSplitMode && !mainBar.isActivePane) ? 0.60 : 1.0
+                Behavior on opacity {
+                    NumberAnimation { duration: 150 }
+                }
+
                 ColumnLayout {
                     id: contentColumn
                     anchors.fill: parent
@@ -106,7 +111,7 @@ Item {
                             text: mainBar.fileName
                             font.pixelSize: 18
                             font.bold: true
-                            color: "#ffffff"
+                            color: (mainBar.isSplitMode && !mainBar.isActivePane) ? "#888888" : "#ffffff"
                             placeholderText: "Без названия"
                             placeholderTextColor: "#444444"
                             selectByMouse: true

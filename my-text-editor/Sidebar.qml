@@ -14,6 +14,8 @@ Rectangle {
     // Модель вкладок и активный индекс
     property var tabsModel: null
     property int currentTabIndex: 0
+    property bool isSplit: false
+    property int backgroundTabIndex: -1
 
     // Сигналы для вкладок
     signal newClicked()
@@ -135,17 +137,18 @@ Rectangle {
                     height: sideBar.barSize
                     
                     readonly property bool isActive: index === sideBar.currentTabIndex
+                    readonly property bool isBackgroundOpen: sideBar.isSplit && (index === sideBar.backgroundTabIndex)
                     property bool isEditing: false
 
-                    color: isActive ? "#2c2c2c" : (tabHover.hovered ? "#262626" : "transparent")
+                    color: isActive ? "#2c2c2c" : (isBackgroundOpen ? "#1e1e1e" : (tabHover.hovered ? "#262626" : "transparent"))
                     opacity: tabHover.isDraggingTab ? 0.45 : 1.0
 
-                    // Полоска акцента слева для активной вкладки
+                    // Полоска акцента слева (яркая для активной, блекло-серая для фоновой)
                     Rectangle {
                         width: 3
                         height: parent.height
-                        color: "#ffffff"
-                        visible: tabItem.isActive
+                        color: tabItem.isActive ? "#ffffff" : "#666666"
+                        visible: tabItem.isActive || tabItem.isBackgroundOpen
                     }
 
                     // ЛКМ — выбор, ПКМ — закрыть, Зажатие ЛКМ и перетаскивание — оторвать/вернуть окно
@@ -252,7 +255,7 @@ Rectangle {
                             Layout.preferredWidth: sideBar.barSize
                             Layout.fillHeight: true
                             text: (index + 1).toString()
-                            color: tabItem.isActive ? "#ffffff" : "#666666"
+                            color: tabItem.isActive ? "#ffffff" : (tabItem.isBackgroundOpen ? "#888888" : "#555555")
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                             font.family: "Consolas, 'Cascadia Code', monospace"
@@ -266,9 +269,9 @@ Rectangle {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             Layout.rightMargin: 12
-                            text: model.title === "" ? "Без названия" : model.title
-                            color: model.title === "" ? "#555555" : (tabItem.isActive ? "#ffffff" : "#aaaaaa")
-                            font.italic: model.title === ""
+                            text: (typeof model !== "undefined" && model && model.title !== undefined && model.title !== "") ? model.title : "Без названия"
+                            color: (typeof model !== "undefined" && model && model.title === "") ? "#555555" : (tabItem.isActive ? "#ffffff" : (tabItem.isBackgroundOpen ? "#aaaaaa" : "#666666"))
+                            font.italic: typeof model !== "undefined" && model && model.title === ""
                             verticalAlignment: Text.AlignVCenter
                             elide: Text.ElideRight
                             font.pixelSize: 13
