@@ -88,16 +88,21 @@ Item {
                     // Верхняя панель заголовка листа (название + кнопка закрытия для сплита)
                     RowLayout {
                         Layout.fillWidth: true
+                        Layout.fillHeight: false
                         Layout.topMargin: 12
                         Layout.leftMargin: 16
                         Layout.rightMargin: 16
-                        Layout.preferredHeight: 38
+                        Layout.preferredHeight: 40
+                        Layout.maximumHeight: 40
+                        Layout.minimumHeight: 40
                         spacing: 8
 
                         TextField {
                             id: titleField
                             Layout.fillWidth: true
-                            Layout.fillHeight: true
+                            Layout.fillHeight: false
+                            Layout.preferredHeight: 38
+                            Layout.alignment: Qt.AlignVCenter
                             text: mainBar.fileName
                             font.pixelSize: 18
                             font.bold: true
@@ -131,6 +136,8 @@ Item {
                         Button {
                             id: closePaneBtn
                             visible: mainBar.showCloseButton
+                            Layout.fillHeight: false
+                            Layout.alignment: Qt.AlignVCenter
                             implicitWidth: 28
                             implicitHeight: 28
                             hoverEnabled: true
@@ -155,6 +162,9 @@ Item {
                     // Тонкая разделительная линия
                     Rectangle {
                         Layout.fillWidth: true
+                        Layout.fillHeight: false
+                        Layout.preferredHeight: 1
+                        Layout.maximumHeight: 1
                         Layout.leftMargin: 16
                         Layout.rightMargin: 16
                         height: 1
