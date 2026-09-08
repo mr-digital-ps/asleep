@@ -16,6 +16,8 @@ Window {
     // Сигналы для связи с главным окном
     signal reattachRequested(int index, string content, string title)
     signal dropRequested(int index, real globalX, real globalY, string content, string title)
+    signal dragMoved(int index, real globalX, real globalY)
+    signal dragEnded()
     signal textChanged(int index, string content)
     signal titleChanged(int index, string title)
     signal windowClosed(int index, string content, string title)
@@ -85,6 +87,8 @@ Window {
                     if (isDragging) {
                         detachedWin.x = Math.round(startWinX + dx)
                         detachedWin.y = Math.round(startWinY + dy)
+                        let p = headerDragArea.mapToGlobal(mouse.x, mouse.y)
+                        detachedWin.dragMoved(detachedWin.tabIndex, p.x, p.y)
                     }
                 }
 
@@ -92,7 +96,15 @@ Window {
                     if (isDragging) {
                         isDragging = false
                         let p = headerDragArea.mapToGlobal(mouse.x, mouse.y)
+                        detachedWin.dragEnded()
                         detachedWin.dropRequested(detachedWin.tabIndex, p.x, p.y, mainBar.text, detachedWin.fileName)
+                    }
+                }
+
+                onCanceled: {
+                    if (isDragging) {
+                        isDragging = false
+                        detachedWin.dragEnded()
                     }
                 }
 

@@ -9,13 +9,18 @@ Item {
     property int barSize: 36
     property string fileName: "Новый документ"
     property bool isCenteredMode: true // По умолчанию центрированный лист
+    property bool isSplitMode: false
+    property bool isActivePane: false
+    property bool showCloseButton: false
 
     // Доступ к редактору для внешних скриптов
     property alias editorArea: editorArea
     property alias text: editorArea.text
 
-    // Сигнал изменения названия пользователем
+    // Сигналы
     signal titleChangedByUser(string newTitle)
+    signal closeRequested()
+    signal paneActivated()
 
     // =========================================================================
     // ХОЛСТ РЕДАКТОРА С УМНЫМИ ЗОНАМИ ПЕРЕМЕЩЕНИЯ ОКНА
@@ -72,48 +77,78 @@ Item {
                 anchors.top: parent.top
 
                 color: "#181818"
+                border.color: (mainBar.isSplitMode && mainBar.isActivePane) ? "#333333" : "transparent"
+                border.width: 1
 
                 ColumnLayout {
                     id: contentColumn
                     anchors.fill: parent
                     spacing: 0
 
-                    // Поле редактирования названия файла над текстом
-                    TextField {
-                        id: titleField
+                    // Верхняя панель заголовка листа (название + кнопка закрытия для сплита)
+                    RowLayout {
                         Layout.fillWidth: true
                         Layout.topMargin: 12
                         Layout.leftMargin: 16
                         Layout.rightMargin: 16
                         Layout.preferredHeight: 38
-                        text: mainBar.fileName
-                        font.pixelSize: 18
-                        font.bold: true
-                        color: "#ffffff"
-                        placeholderText: "Без названия"
-                        placeholderTextColor: "#444444"
-                        selectByMouse: true
-                        background: null
+                        spacing: 8
 
-                        // Запоминаем текст до редактирования, чтобы вернуть его по Escape
-                        property string originalText: ""
+                        TextField {
+                            id: titleField
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            text: mainBar.fileName
+                            font.pixelSize: 18
+                            font.bold: true
+                            color: "#ffffff"
+                            placeholderText: "Без названия"
+                            placeholderTextColor: "#444444"
+                            selectByMouse: true
+                            background: null
 
-                        onActiveFocusChanged: {
-                            if (activeFocus) {
-                                originalText = text
+                            property string originalText: ""
+
+                            onActiveFocusChanged: {
+                                if (activeFocus) {
+                                    originalText = text
+                                    mainBar.paneActivated()
+                                }
+                            }
+
+                            Keys.onEscapePressed: {
+                                text = originalText
+                                mainBar.titleChangedByUser(originalText)
+                                focus = false
+                            }
+
+                            onTextEdited: {
+                                mainBar.titleChangedByUser(text)
                             }
                         }
 
-                        // Escape отменяет изменение названия
-                        Keys.onEscapePressed: {
-                            text = originalText
-                            mainBar.titleChangedByUser(originalText)
-                            focus = false
-                        }
+                        // Кнопка закрытия панели (видна только в режиме сплита для закрываемой панели)
+                        Button {
+                            id: closePaneBtn
+                            visible: mainBar.showCloseButton
+                            implicitWidth: 28
+                            implicitHeight: 28
+                            hoverEnabled: true
 
-                        // onTextEdited срабатывает при вводе (включая очистку до пустого названия)
-                        onTextEdited: {
-                            mainBar.titleChangedByUser(text)
+                            background: Rectangle {
+                                radius: 4
+                                color: closePaneBtn.down ? "#333333" : (closePaneBtn.hovered ? "#262626" : "transparent")
+                            }
+
+                            contentItem: Text {
+                                text: "✕"
+                                color: closePaneBtn.hovered ? "#ffffff" : "#666666"
+                                font.pixelSize: 13
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            onClicked: mainBar.closeRequested()
                         }
                     }
 
@@ -141,6 +176,12 @@ Item {
                         placeholderTextColor: "#666666"
 
                         background: null
+
+                        onActiveFocusChanged: {
+                            if (activeFocus) {
+                                mainBar.paneActivated()
+                            }
+                        }
 
                         // Клик ПКМ по тексту переключает ширину (полная / средняя)
                         MouseArea {

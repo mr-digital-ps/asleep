@@ -1,4 +1,86 @@
-// tabs.js — логика управления вкладками и плавающими окнами
+// tabs.js — логика управления вкладками, плавающими окнами и сплит-режимом (Split View)
+
+// =============================================================================
+// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ И ОПРЕДЕЛЕНИЕ ЗОН СБРОСА (DOCK ZONES)
+// =============================================================================
+
+function calculateDropZone(root, gx, gy) {
+    let appWin = root.Window.window
+    if (!appWin) return ""
+
+    let isInsideApp = (gx >= appWin.x && gx <= (appWin.x + appWin.width) &&
+                       gy >= appWin.y && gy <= (appWin.y + appWin.height))
+    if (!isInsideApp) return ""
+
+    let sideW = root.sideBar ? root.sideBar.currentWidth : 280
+    if (gx <= (appWin.x + sideW)) {
+        return "sidebar"
+    }
+
+    let editorLeft = appWin.x + sideW
+    let editorWidth = appWin.width - sideW
+    if (editorWidth <= 0) return "center"
+
+    let relX = (gx - editorLeft) / editorWidth
+
+    if (relX < 0.28) {
+        return "left"
+    } else if (relX > 0.72) {
+        return "right"
+    } else {
+        return "center"
+    }
+}
+
+function getAnotherAvailableTab(root, excludeIndex) {
+    for (let i = 0; i < root.tabsModel.count; i++) {
+        if (i !== excludeIndex && !root.tabsModel.get(i).isDetached) {
+            return i
+        }
+    }
+    return -1
+}
+
+function syncCurrentPaneText(root) {
+    if (root.splitLayout) {
+        if (root.primaryTabIndex >= 0 && root.primaryTabIndex < root.tabsModel.count) {
+            if (!root.tabsModel.get(root.primaryTabIndex).isDetached) {
+                root.tabsModel.setProperty(root.primaryTabIndex, "content", root.splitLayout.primaryBar.text)
+            }
+        }
+        if (root.isSplit && root.secondaryTabIndex >= 0 && root.secondaryTabIndex < root.tabsModel.count) {
+            if (!root.tabsModel.get(root.secondaryTabIndex).isDetached) {
+                root.tabsModel.setProperty(root.secondaryTabIndex, "content", root.splitLayout.secondaryBar.text)
+            }
+        }
+    }
+}
+
+function syncEditorsFromModel(root) {
+    if (!root.splitLayout) return
+
+    if (root.primaryTabIndex >= 0 && root.primaryTabIndex < root.tabsModel.count) {
+        let pTab = root.tabsModel.get(root.primaryTabIndex)
+        if (root.splitLayout.primaryBar.text !== pTab.content) {
+            root.splitLayout.primaryBar.text = pTab.content
+        }
+        root.primaryFileName = pTab.title
+        root.currentFileName = pTab.title
+        root.currentFileUrl = pTab.fileUrl
+    }
+
+    if (root.isSplit && root.secondaryTabIndex >= 0 && root.secondaryTabIndex < root.tabsModel.count) {
+        let sTab = root.tabsModel.get(root.secondaryTabIndex)
+        if (root.splitLayout.secondaryBar.text !== sTab.content) {
+            root.splitLayout.secondaryBar.text = sTab.content
+        }
+        root.secondaryFileName = sTab.title
+    }
+}
+
+// =============================================================================
+// ПЕРЕТАСКИВАНИЕ И ПЛАВАЮЩИЕ ОКНА
+// =============================================================================
 
 // 1. Начало перетаскивания вкладки в сайдбаре
 function handleDragStarted(root, index, gx, gy) {
@@ -21,28 +103,32 @@ function handleDragStarted(root, index, gx, gy) {
     }
 }
 
-// 1.1 Обработка сброса плавающего окна при перетаскивании за его заголовок
+// 1.1 Интерактивное перемещение плавающего окна за его заголовок
+function handleWindowDragMoved(root, index, gx, gy) {
+    root.dropZone = calculateDropZone(root, gx, gy)
+}
+
+function handleWindowDragEnded(root) {
+    root.dropZone = ""
+}
+
+// 1.2 Сброс плавающего окна при отпускании заголовка
 function handleDetachedWindowDrop(root, index, gx, gy, content, title) {
-    let appWin = root.Window.window
-    if (!appWin) return
+    let zone = calculateDropZone(root, gx, gy)
+    root.dropZone = ""
 
-    let sideW = root.sideBar ? root.sideBar.currentWidth : 280
-    let isInsideApp = (gx >= appWin.x && gx <= (appWin.x + appWin.width) &&
-                       gy >= appWin.y && gy <= (appWin.y + appWin.height))
-
-    if (isInsideApp) {
-        let inSidebar = (gx <= (appWin.x + sideW))
-        if (inSidebar) {
-            // Бросили в Sidebar: просто как бы закрывается (встраивается без переключения редактора)
-            reattachTab(root, index, content, title, false)
-        } else {
-            // Бросили в TextArea: заменяет его с собой (встраивается и сразу открывается в редакторе)
-            reattachTab(root, index, content, title, true)
-        }
+    if (zone === "sidebar") {
+        reattachTab(root, index, content, title, false)
+    } else if (zone === "left") {
+        splitDock(root, index, content, title, "left")
+    } else if (zone === "right") {
+        splitDock(root, index, content, title, "right")
+    } else if (zone === "center") {
+        reattachTab(root, index, content, title, true)
     }
 }
 
-// 2. Движение мыши: как только курсор вышел за пределы окна — открываем и двигаем окно
+// 2. Движение мыши при перетаскивании вкладки из сайдбара
 function handleDragMoved(root, index, gx, gy, sideBar) {
     let appWin = root.Window.window
     if (!appWin) return
@@ -61,7 +147,8 @@ function handleDragMoved(root, index, gx, gy, sideBar) {
     }
 
     if (isOutsideApp) {
-        // Курсор вышел за пределы приложения
+        root.dropZone = ""
+        // Курсор вышел за пределы приложения — создаем или перемещаем плавающее окно
         if (!root.activeDraggingWindow) {
             if (root.detachedWindows[index]) {
                 root.activeDraggingWindow = root.detachedWindows[index]
@@ -72,8 +159,13 @@ function handleDragMoved(root, index, gx, gy, sideBar) {
                 root.activeDraggingWindow.raise()
             } else {
                 let tabData = root.tabsModel.get(index)
-                let curContent = (index === root.currentTabIndex) ? root.editorArea.text : tabData.content
-                let curTitle = (index === root.currentTabIndex) ? root.currentFileName : tabData.title
+                let curContent = tabData.content
+                if (index === root.primaryTabIndex && root.splitLayout) {
+                    curContent = root.splitLayout.primaryBar.text
+                } else if (root.isSplit && index === root.secondaryTabIndex && root.splitLayout) {
+                    curContent = root.splitLayout.secondaryBar.text
+                }
+                let curTitle = tabData.title
 
                 let win = root.detachedWinComponent.createObject(root, {
                     tabIndex: index,
@@ -97,46 +189,62 @@ function handleDragMoved(root, index, gx, gy, sideBar) {
                 root.tabsModel.setProperty(index, "content", curContent)
                 root.tabsModel.setProperty(index, "title", curTitle)
 
-                if (index === root.currentTabIndex) {
+                // Если оторвали вкладку, открытую в сплите
+                if (root.isSplit) {
+                    if (index === root.secondaryTabIndex) {
+                        closeSplit(root)
+                    } else if (index === root.primaryTabIndex) {
+                        root.primaryTabIndex = root.secondaryTabIndex
+                        root.secondaryTabIndex = -1
+                        root.isSplit = false
+                        root.activePane = 0
+                        syncEditorsFromModel(root)
+                    }
+                } else if (index === root.currentTabIndex) {
                     switchToNextAvailableTab(root)
                 }
             }
         }
 
-        // Плавное следование за курсором
         if (root.activeDraggingWindow) {
             root.activeDraggingWindow.x = Math.round(gx - root.activeDraggingWindow.width / 2)
             root.activeDraggingWindow.y = Math.round(gy - 18)
         }
     } else {
         // Курсор внутри приложения
+        root.dropZone = calculateDropZone(root, gx, gy)
         if (root.activeDraggingWindow) {
             let idx = root.activeDraggingIndex
             let win = root.activeDraggingWindow
             root.activeDraggingWindow = null
 
-            // Проверяем: попадает в Sidebar или в TextArea?
-            let inSidebar = (gx <= (appWin.x + sideW))
-            if (inSidebar) {
-                // Если попадает в sidebar: просто как бы закрывается (встраивается без переключения редактора)
+            let zone = root.dropZone
+            root.dropZone = ""
+
+            if (zone === "sidebar") {
                 reattachTab(root, idx, win.mainBarText, win.fileName, false)
+            } else if (zone === "left") {
+                splitDock(root, idx, win.mainBarText, win.fileName, "left")
+            } else if (zone === "right") {
+                splitDock(root, idx, win.mainBarText, win.fileName, "right")
             } else {
-                // Если попадает в TextArea: заменяет его с собой (встраивается и сразу открывается в редакторе)
                 reattachTab(root, idx, win.mainBarText, win.fileName, true)
             }
         }
     }
 }
 
-// 3. Завершение перетаскивания
+// 3. Завершение перетаскивания вкладки из сайдбара
 function handleDragEnded(root, index, gx, gy) {
     if (root.dragTrackerTimer && root.dragTrackerTimer.running) {
         root.dragTrackerTimer.running = false
     }
 
+    let zone = calculateDropZone(root, gx, gy)
+    root.dropZone = ""
+
     if (root.activeDraggingWindow) {
         let appWin = root.Window.window
-        let sideW = root.sideBar ? root.sideBar.currentWidth : 280
         let isInsideApp = appWin && (gx >= appWin.x && gx <= (appWin.x + appWin.width) &&
                                      gy >= appWin.y && gy <= (appWin.y + appWin.height))
 
@@ -146,9 +254,12 @@ function handleDragEnded(root, index, gx, gy) {
         root.activeDraggingIndex = -1
 
         if (isInsideApp) {
-            let inSidebar = (gx <= (appWin.x + sideW))
-            if (inSidebar) {
+            if (zone === "sidebar") {
                 reattachTab(root, idx, win.mainBarText, win.fileName, false)
+            } else if (zone === "left") {
+                splitDock(root, idx, win.mainBarText, win.fileName, "left")
+            } else if (zone === "right") {
+                splitDock(root, idx, win.mainBarText, win.fileName, "right")
             } else {
                 reattachTab(root, idx, win.mainBarText, win.fileName, true)
             }
@@ -180,7 +291,11 @@ function pollCursorState(root, sideBar) {
     }
 }
 
-// 5. Встроить вкладку назад в главное окно
+// =============================================================================
+// ВСТРАИВАНИЕ (DOCKING) И СПЛИТ-РЕЖИМ (SPLIT VIEW)
+// =============================================================================
+
+// Встроить вкладку назад в главное окно (обычный режим замены)
 function reattachTab(root, index, content, title, activateInEditor) {
     if (index < 0 || index >= root.tabsModel.count) return
 
@@ -194,14 +309,124 @@ function reattachTab(root, index, content, title, activateInEditor) {
         win.destroy()
     }
 
-    // Если activateInEditor !== false: заменяем открытый документ в TextArea на этот
-    // Если false: просто закрываем окно и возвращаем в сайдбар
     if (activateInEditor !== false) {
         switchToTab(root, index)
     }
 }
 
-// 6. Программный отрыв вкладки
+// Встроить вкладку в разделенный экран (Split View: слева или справа)
+function splitDock(root, index, content, title, side) {
+    if (index < 0 || index >= root.tabsModel.count) return
+
+    if (content !== undefined) root.tabsModel.setProperty(index, "content", content)
+    if (title !== undefined) root.tabsModel.setProperty(index, "title", title)
+    root.tabsModel.setProperty(index, "isDetached", false)
+
+    if (root.detachedWindows[index]) {
+        let win = root.detachedWindows[index]
+        delete root.detachedWindows[index]
+        win.destroy()
+    }
+
+    syncCurrentPaneText(root)
+
+    root.isSplit = true
+    if (side === "left") {
+        let oldPrimary = root.primaryTabIndex
+        root.primaryTabIndex = index
+        root.secondaryTabIndex = (oldPrimary !== index) ? oldPrimary : getAnotherAvailableTab(root, index)
+        root.activePane = 0
+    } else {
+        let oldPrimary = root.primaryTabIndex
+        if (oldPrimary === index) {
+            let other = getAnotherAvailableTab(root, index)
+            if (other !== -1) {
+                root.primaryTabIndex = other
+            }
+        }
+        root.secondaryTabIndex = index
+        root.activePane = 1
+    }
+
+    root.currentTabIndex = (root.activePane === 0) ? root.primaryTabIndex : root.secondaryTabIndex
+    syncEditorsFromModel(root)
+}
+
+// Закрыть сплит-режим и вернуться к одной панели
+function closeSplit(root) {
+    syncCurrentPaneText(root)
+    root.isSplit = false
+
+    if (root.activePane === 1 && root.secondaryTabIndex >= 0) {
+        root.primaryTabIndex = root.secondaryTabIndex
+        root.currentTabIndex = root.secondaryTabIndex
+    } else {
+        root.currentTabIndex = root.primaryTabIndex
+    }
+
+    root.secondaryTabIndex = -1
+    root.activePane = 0
+    syncEditorsFromModel(root)
+}
+
+// Переключить сплит-режим (шорткат Ctrl+\)
+function toggleSplit(root) {
+    if (root.isSplit) {
+        closeSplit(root)
+    } else {
+        let curPrimary = root.primaryTabIndex
+        let otherIdx = getAnotherAvailableTab(root, curPrimary)
+        if (otherIdx === -1) {
+            let nextNum = root.tabsModel.count + 1
+            root.tabsModel.append({
+                title: "Документ " + nextNum,
+                fileUrl: "",
+                content: "",
+                isDetached: false
+            })
+            otherIdx = root.tabsModel.count - 1
+        }
+        root.isSplit = true
+        root.primaryTabIndex = curPrimary
+        root.secondaryTabIndex = otherIdx
+        root.activePane = 1
+        root.currentTabIndex = otherIdx
+        syncEditorsFromModel(root)
+    }
+}
+
+// Установить активную панель фокуса (0: левая, 1: правая)
+function setActivePane(root, paneIndex) {
+    root.activePane = paneIndex
+    if (paneIndex === 0 && root.primaryTabIndex >= 0) {
+        root.currentTabIndex = root.primaryTabIndex
+    } else if (paneIndex === 1 && root.secondaryTabIndex >= 0) {
+        root.currentTabIndex = root.secondaryTabIndex
+    }
+}
+
+// Синхронизация ввода текста в реальном времени
+function handlePrimaryTextChanged(root, text) {
+    if (root.primaryTabIndex >= 0 && root.primaryTabIndex < root.tabsModel.count) {
+        if (!root.tabsModel.get(root.primaryTabIndex).isDetached) {
+            root.tabsModel.setProperty(root.primaryTabIndex, "content", text)
+        }
+    }
+}
+
+function handleSecondaryTextChanged(root, text) {
+    if (root.isSplit && root.secondaryTabIndex >= 0 && root.secondaryTabIndex < root.tabsModel.count) {
+        if (!root.tabsModel.get(root.secondaryTabIndex).isDetached) {
+            root.tabsModel.setProperty(root.secondaryTabIndex, "content", text)
+        }
+    }
+}
+
+// =============================================================================
+// ЖИЗНЕННЫЙ ЦИКЛ ВКЛАДОК
+// =============================================================================
+
+// Программный отрыв вкладки
 function detachTab(root, index, spawnX, spawnY) {
     if (index < 0 || index >= root.tabsModel.count) return
 
@@ -211,9 +436,7 @@ function detachTab(root, index, spawnX, spawnY) {
         return
     }
 
-    if (index === root.currentTabIndex) {
-        root.tabsModel.setProperty(index, "content", root.editorArea.text)
-    }
+    syncCurrentPaneText(root)
 
     let tabData = root.tabsModel.get(index)
     root.tabsModel.setProperty(index, "isDetached", true)
@@ -235,26 +458,33 @@ function detachTab(root, index, spawnX, spawnY) {
 
     root.detachedWindows[index] = win
 
-    if (index === root.currentTabIndex) {
+    if (root.isSplit) {
+        if (index === root.secondaryTabIndex) {
+            closeSplit(root)
+        } else if (index === root.primaryTabIndex) {
+            root.primaryTabIndex = root.secondaryTabIndex
+            root.secondaryTabIndex = -1
+            root.isSplit = false
+            root.activePane = 0
+            syncEditorsFromModel(root)
+        }
+    } else if (index === root.currentTabIndex) {
         switchToNextAvailableTab(root)
     }
 }
 
-// 7. Обновление контента открепленного окна
 function updateDetachedContent(root, index, content) {
     if (index >= 0 && index < root.tabsModel.count) {
         root.tabsModel.setProperty(index, "content", content)
     }
 }
 
-// 8. Обновление заголовка открепленного окна
 function updateDetachedTitle(root, index, title) {
     if (index >= 0 && index < root.tabsModel.count) {
         root.tabsModel.setProperty(index, "title", title)
     }
 }
 
-// 9. Переключение на следующую доступную вкладку
 function switchToNextAvailableTab(root) {
     for (let i = 0; i < root.tabsModel.count; i++) {
         if (!root.tabsModel.get(i).isDetached) {
@@ -265,7 +495,6 @@ function switchToNextAvailableTab(root) {
     createNewTab(root)
 }
 
-// 10. Переключение вкладки
 function switchToTab(root, index) {
     if (index < 0 || index >= root.tabsModel.count) return
 
@@ -277,23 +506,27 @@ function switchToTab(root, index) {
         return
     }
 
-    if (root.currentTabIndex >= 0 && root.currentTabIndex < root.tabsModel.count && !root.tabsModel.get(root.currentTabIndex).isDetached) {
-        root.tabsModel.setProperty(root.currentTabIndex, "content", root.editorArea.text)
+    syncCurrentPaneText(root)
+
+    if (root.isSplit) {
+        if (root.activePane === 1) {
+            root.secondaryTabIndex = index
+        } else {
+            root.primaryTabIndex = index
+        }
+    } else {
+        root.primaryTabIndex = index
     }
 
     root.currentTabIndex = index
-
     let tab = root.tabsModel.get(index)
     root.currentFileName = tab.title
     root.currentFileUrl = tab.fileUrl
-    root.editorArea.text = tab.content
+    syncEditorsFromModel(root)
 }
 
-// 11. Создание новой вкладки
 function createNewTab(root) {
-    if (root.tabsModel.count > 0 && root.currentTabIndex < root.tabsModel.count && !root.tabsModel.get(root.currentTabIndex).isDetached) {
-        root.tabsModel.setProperty(root.currentTabIndex, "content", root.editorArea.text)
-    }
+    syncCurrentPaneText(root)
 
     let nextNum = root.tabsModel.count + 1
     root.tabsModel.append({
@@ -305,7 +538,6 @@ function createNewTab(root) {
     switchToTab(root, root.tabsModel.count - 1)
 }
 
-// 12. Закрытие вкладки
 function closeTab(root, index) {
     if (root.detachedWindows[index]) {
         let win = root.detachedWindows[index]
@@ -320,8 +552,24 @@ function closeTab(root, index) {
         root.tabsModel.setProperty(0, "isDetached", false)
         root.currentFileName = "Новый документ"
         root.currentFileUrl = ""
-        root.editorArea.text = ""
+        root.isSplit = false
+        root.primaryTabIndex = 0
+        root.secondaryTabIndex = -1
+        root.activePane = 0
+        syncEditorsFromModel(root)
         return
+    }
+
+    // Если закрывается вкладка в режиме сплита
+    if (root.isSplit) {
+        if (index === root.secondaryTabIndex) {
+            closeSplit(root)
+        } else if (index === root.primaryTabIndex) {
+            root.primaryTabIndex = root.secondaryTabIndex
+            root.secondaryTabIndex = -1
+            root.isSplit = false
+            root.activePane = 0
+        }
     }
 
     root.tabsModel.remove(index)
@@ -338,6 +586,18 @@ function closeTab(root, index) {
     }
     root.detachedWindows = newWindows
 
+    if (root.primaryTabIndex >= root.tabsModel.count) {
+        root.primaryTabIndex = root.tabsModel.count - 1
+    } else if (root.primaryTabIndex > index) {
+        root.primaryTabIndex--
+    }
+
+    if (root.secondaryTabIndex >= root.tabsModel.count) {
+        root.secondaryTabIndex = root.tabsModel.count - 1
+    } else if (root.secondaryTabIndex > index) {
+        root.secondaryTabIndex--
+    }
+
     if (root.currentTabIndex >= root.tabsModel.count) {
         root.currentTabIndex = root.tabsModel.count - 1
     } else if (root.currentTabIndex > index) {
@@ -347,12 +607,17 @@ function closeTab(root, index) {
     switchToNextAvailableTab(root)
 }
 
-// 13. Переименование вкладки
 function renameTab(root, index, newTitle) {
     if (index < 0 || index >= root.tabsModel.count) return
     root.tabsModel.setProperty(index, "title", newTitle)
-    if (index === root.currentTabIndex) {
-        root.currentFileName = newTitle
+
+    if (index === root.primaryTabIndex) {
+        root.primaryFileName = newTitle
+        if (root.activePane === 0) root.currentFileName = newTitle
+    }
+    if (root.isSplit && index === root.secondaryTabIndex) {
+        root.secondaryFileName = newTitle
+        if (root.activePane === 1) root.currentFileName = newTitle
     }
     if (root.detachedWindows[index]) {
         root.detachedWindows[index].fileName = newTitle

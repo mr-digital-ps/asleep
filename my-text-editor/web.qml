@@ -13,8 +13,21 @@ Rectangle {
     // Переменные текущего активного файла
     property string currentFileUrl: ""
     property string currentFileName: "Новый документ"
-    property alias editorArea: mainBar.editorArea
     property int barSize: 36
+
+    // =========================================================================
+    // РЕЖИМ СПЛИТА (SPLIT VIEW)
+    // =========================================================================
+    property bool isSplit: false
+    property int primaryTabIndex: 0
+    property int secondaryTabIndex: -1
+    property int activePane: 0 // 0: primary, 1: secondary
+    property string dropZone: "" // "left" | "right" | "center" | "sidebar" | ""
+    property string primaryFileName: "Новый документ"
+    property string secondaryFileName: "Новый документ"
+
+    property alias editorArea: splitLayout.activeEditorArea
+    property alias splitLayout: splitLayout
 
     // =========================================================================
     // МОДЕЛЬ ВКЛАДОК И ОТКРЕПЛЕННЫХ ОКОН
@@ -48,6 +61,8 @@ Rectangle {
         DetachedWindow {
             onReattachRequested: (index, content, title) => Tabs.reattachTab(root, index, content, title, true)
             onDropRequested: (index, gx, gy, content, title) => Tabs.handleDetachedWindowDrop(root, index, gx, gy, content, title)
+            onDragMoved: (index, gx, gy) => Tabs.handleWindowDragMoved(root, index, gx, gy)
+            onDragEnded: () => Tabs.handleWindowDragEnded(root)
             onTextChanged: (index, content) => Tabs.updateDetachedContent(root, index, content)
             onTitleChanged: (index, title) => Tabs.updateDetachedTitle(root, index, title)
         }
@@ -62,26 +77,18 @@ Rectangle {
         onTriggered: Tabs.pollCursorState(root, sideBar)
     }
 
-    // Делегированные методы управления вкладками (реализованы в tabs.js)
+    // Делегированные методы управления вкладками и сплитом
     function createNewTab() { Tabs.createNewTab(root) }
     function switchToTab(index) { Tabs.switchToTab(root, index) }
     function closeTab(index) { Tabs.closeTab(root, index) }
     function renameTab(index, newTitle) { Tabs.renameTab(root, index, newTitle) }
     function detachTab(index, spawnX, spawnY) { Tabs.detachTab(root, index, spawnX, spawnY) }
     function reattachTab(index, content, title) { Tabs.reattachTab(root, index, content, title) }
+    function toggleSplit() { Tabs.toggleSplit(root) }
+    function closeSplit() { Tabs.closeSplit(root) }
     function handleTabDragStarted(index, gx, gy) { Tabs.handleDragStarted(root, index, gx, gy) }
     function handleTabDragMoved(index, gx, gy) { Tabs.handleDragMoved(root, index, gx, gy, sideBar) }
     function handleTabDragEnded(index, gx, gy) { Tabs.handleDragEnded(root, index, gx, gy) }
-
-    // Сохранение в реальном времени при вводе текста в главном окне
-    Connections {
-        target: editorArea
-        function onTextChanged() {
-            if (tabsModel.count > 0 && currentTabIndex < tabsModel.count && !tabsModel.get(currentTabIndex).isDetached) {
-                tabsModel.setProperty(currentTabIndex, "content", editorArea.text)
-            }
-        }
-    }
 
     // =========================================================================
     // ДИАЛОГИ И ШОРТКАТЫ
@@ -94,24 +101,22 @@ Rectangle {
             let content = backend.read_file(selectedFile)
             let name = backend.get_filename(selectedFile)
 
-            // Если текущая вкладка пустая — открываем в ней
-            let curTab = tabsModel.get(currentTabIndex)
-            if (curTab && !curTab.isDetached && curTab.fileUrl === "" && editorArea.text === "") {
-                tabsModel.setProperty(currentTabIndex, "title", name)
-                tabsModel.setProperty(currentTabIndex, "fileUrl", selectedFile)
-                tabsModel.setProperty(currentTabIndex, "content", content)
-                currentFileName = name
-                currentFileUrl = selectedFile
-                editorArea.text = content
+            let targetIndex = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
+            let curTab = (targetIndex >= 0 && targetIndex < tabsModel.count) ? tabsModel.get(targetIndex) : null
+
+            if (curTab && !curTab.isDetached && curTab.fileUrl === "" && root.editorArea.text === "") {
+                tabsModel.setProperty(targetIndex, "title", name)
+                tabsModel.setProperty(targetIndex, "fileUrl", selectedFile)
+                tabsModel.setProperty(targetIndex, "content", content)
+                Tabs.syncEditorsFromModel(root)
             } else {
-                // Иначе создаем новую вкладку с открытым файлом
                 tabsModel.append({
                     title: name,
                     fileUrl: selectedFile,
                     content: content,
                     isDetached: false
                 })
-                switchToTab(tabsModel.count - 1)
+                root.switchToTab(tabsModel.count - 1)
             }
         }
     }
@@ -121,13 +126,15 @@ Rectangle {
         title: "Сохранить файл как..."
         fileMode: FileDialog.SaveFile
         onAccepted: {
-            backend.save_file(selectedFile, editorArea.text)
+            let targetIndex = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
+            backend.save_file(selectedFile, root.editorArea.text)
             currentFileUrl = selectedFile
             currentFileName = backend.get_filename(selectedFile)
-            if (tabsModel.count > 0 && currentTabIndex < tabsModel.count) {
-                tabsModel.setProperty(currentTabIndex, "title", currentFileName)
-                tabsModel.setProperty(currentTabIndex, "fileUrl", currentFileUrl)
-                tabsModel.setProperty(currentTabIndex, "content", editorArea.text)
+            if (tabsModel.count > 0 && targetIndex >= 0 && targetIndex < tabsModel.count) {
+                tabsModel.setProperty(targetIndex, "title", currentFileName)
+                tabsModel.setProperty(targetIndex, "fileUrl", currentFileUrl)
+                tabsModel.setProperty(targetIndex, "content", root.editorArea.text)
+                Tabs.syncEditorsFromModel(root)
             }
         }
     }
@@ -145,6 +152,11 @@ Rectangle {
     Shortcut {
         sequences: [StandardKey.New]
         onActivated: root.createNewTab()
+    }
+
+    Shortcut {
+        sequence: "Ctrl+\\"
+        onActivated: root.toggleSplit()
     }
 
     // =========================================================================
@@ -175,14 +187,24 @@ Rectangle {
             onToggleMaximizeClicked: Logic.toggleMaximize(Window.window)
         }
 
-        // 2. Главная область: Холст с листом документа
-        MainBar {
-            id: mainBar
+        // 2. Главная область: Холст с поддержкой разделения экрана (Split View)
+        EditorSplitLayout {
+            id: splitLayout
             Layout.fillWidth: true
             Layout.fillHeight: true
             barSize: root.barSize
-            fileName: root.currentFileName
-            onTitleChangedByUser: (newTitle) => root.renameTab(root.currentTabIndex, newTitle)
+            isSplit: root.isSplit
+            activePane: root.activePane
+            dropZone: root.dropZone
+            primaryFileName: root.primaryFileName
+            secondaryFileName: root.secondaryFileName
+
+            onPrimaryTitleChanged: (newTitle) => Tabs.renameTab(root, root.primaryTabIndex, newTitle)
+            onSecondaryTitleChanged: (newTitle) => Tabs.renameTab(root, root.secondaryTabIndex, newTitle)
+            onPrimaryTextChanged: (text) => Tabs.handlePrimaryTextChanged(root, text)
+            onSecondaryTextChanged: (text) => Tabs.handleSecondaryTextChanged(root, text)
+            onCloseSplitRequested: () => Tabs.closeSplit(root)
+            onPaneActivated: (paneIndex) => Tabs.setActivePane(root, paneIndex)
         }
     }
 }

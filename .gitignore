@@ -8,3 +8,5 @@ wheels/
 
 # Virtual environments
 .venv
+
+.backup_my-text-editor-pre-split/
