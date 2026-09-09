@@ -716,17 +716,6 @@ function turnDetachedIntoAppWindow(root, index, fileUrl, title, content, gx, gy,
     root.spawnClonedAppWindow(fileUrl, title, content, gx, gy, gw, gh)
 
     // 3. Удаляем вкладку из родительского окна
-    if (root.tabsModel.count <= 1) {
-        root.tabsModel.setProperty(0, "title", "Новый документ")
-        root.tabsModel.setProperty(0, "fileUrl", "")
-        root.tabsModel.setProperty(0, "content", "")
-        root.tabsModel.setProperty(0, "isDetached", false)
-        root.currentFileName = "Новый документ"
-        root.currentFileUrl = ""
-        root.primaryFileName = "Новый документ"
-        syncEditorsFromModel(root)
-    } else {
-        closeTab(root, index)
-    }
+    closeTab(root, index)
 }
 
