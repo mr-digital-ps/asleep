@@ -234,7 +234,7 @@ Rectangle {
                     width: filesListView.width
                     height: sideBar.barSize
 
-                    readonly property bool isActive: (typeof model !== "undefined" && model && model.fileUrl) ? (model.fileUrl === sideBar.currentFileUrl) : false
+                    readonly property bool isActive: (typeof model !== "undefined" && model && model.fileUrl && sideBar.currentFileUrl) ? (model.fileUrl === sideBar.currentFileUrl) : false
                     readonly property bool isBackgroundOpen: {
                         if (typeof model === "undefined" || !model || !model.fileUrl) return false
                         if (fileItem.isActive) return false
@@ -384,6 +384,7 @@ Rectangle {
                             Layout.fillHeight: true
                             text: (index + 1 < 10 ? "0" : "") + (index + 1)
                             color: fileItem.isActive ? "#ffffff" : (fileItem.isBackgroundOpen ? "#888888" : "#444444")
+                            Behavior on color { ColorAnimation { duration: 120 } }
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                             font.family: "Consolas, Courier New, monospace"
@@ -399,6 +400,7 @@ Rectangle {
                             Layout.rightMargin: 12
                             text: (typeof model !== "undefined" && model && model.name) ? model.name : ""
                             color: fileItem.isActive ? "#ffffff" : (fileItem.isBackgroundOpen ? "#bbbbbb" : (fileHover.hovered ? "#dddddd" : "#777777"))
+                            Behavior on color { ColorAnimation { duration: 120 } }
                             font.bold: fileItem.isActive
                             verticalAlignment: Text.AlignVCenter
                             elide: Text.ElideRight

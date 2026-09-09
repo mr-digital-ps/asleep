@@ -15,6 +15,7 @@ Item {
     // Свойства документов
     property string primaryFileName: "Новый документ"
     property string secondaryFileName: "Новый документ"
+    property bool isPrimaryEmpty: false
 
     // Доступ к редакторам
     property alias primaryBar: primaryBar
@@ -29,6 +30,8 @@ Item {
     signal secondaryTextChanged(string newText)
     signal primaryDetachRequested()
     signal secondaryDetachRequested()
+    signal primaryCloseRequested()
+    signal secondaryCloseRequested()
     signal closeSplitRequested()
     signal paneActivated(int paneIndex)
 
@@ -44,6 +47,7 @@ Item {
             fileName: splitLayout.primaryFileName
             isSplitMode: splitLayout.isSplit
             isActivePane: splitLayout.activePane === 0
+            isEmpty: splitLayout.isPrimaryEmpty
             showCloseButton: false
 
             anchors.left: parent.left
@@ -53,6 +57,7 @@ Item {
 
             onTitleChangedByUser: (newTitle) => splitLayout.primaryTitleChanged(newTitle)
             onDetachRequested: splitLayout.primaryDetachRequested()
+            onCloseRequested: splitLayout.primaryCloseRequested()
             onPaneActivated: {
                 splitLayout.activePane = 0
                 splitLayout.paneActivated(0)
@@ -122,7 +127,7 @@ Item {
 
             onTitleChangedByUser: (newTitle) => splitLayout.secondaryTitleChanged(newTitle)
             onDetachRequested: splitLayout.secondaryDetachRequested()
-            onCloseRequested: splitLayout.closeSplitRequested()
+            onCloseRequested: splitLayout.secondaryCloseRequested()
             onPaneActivated: {
                 splitLayout.activePane = 1
                 splitLayout.paneActivated(1)

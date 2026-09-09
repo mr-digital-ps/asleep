@@ -17,6 +17,7 @@ Item {
     property bool isSplitMode: false
     property bool isActivePane: false
     property bool showCloseButton: false
+    property bool isEmpty: false
 
     // Доступ к редактору для внешних скриптов
     property alias editorArea: editorArea
@@ -28,6 +29,12 @@ Item {
     signal paneActivated()
     signal detachRequested()
 
+    // Перехват кликов по панели для мгновенной активации нужной половины сплита
+    TapHandler {
+        gesturePolicy: TapHandler.WithinBounds
+        onTapped: mainBar.paneActivated()
+    }
+
     // =========================================================================
     // ХОЛСТ РЕДАКТОРА С УМНЫМИ ЗОНАМИ ПЕРЕМЕЩЕНИЯ ОКНА
     // =========================================================================
@@ -36,7 +43,6 @@ Item {
         anchors.fill: parent
         clip: true
         contentWidth: availableWidth
-        contentHeight: Math.max(availableHeight, contentColumn.implicitHeight + mainBar.scrollBeyondSpace + 40)
         ScrollBar.vertical.policy: ScrollBar.AlwaysOff
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
@@ -77,11 +83,13 @@ Item {
 
         Item {
             width: editorScroll.availableWidth
-            implicitHeight: Math.max(editorScroll.availableHeight, contentColumn.implicitHeight + mainBar.scrollBeyondSpace + 40)
+            height: Math.max(editorScroll.availableHeight, contentColumn.implicitHeight + mainBar.scrollBeyondSpace + 40)
+            implicitHeight: height
 
             // Поле для отображения страницы (на полную или среднюю/настраиваемую ширину)
             Rectangle {
                 id: paperSheet
+                visible: !mainBar.isEmpty
 
                 // Настраиваемая ширина по центру либо на полную ширину
                 width: mainBar.isCenteredMode ? Math.min(parent.width, Math.max(mainBar.minSheetWidth, mainBar.customSheetWidth)) : parent.width
@@ -139,6 +147,19 @@ Item {
                                 }
                             }
 
+                            Keys.onShortcutOverride: (event) => {
+                                if (event.key === Qt.Key_W && (event.modifiers & Qt.ControlModifier)) {
+                                    event.accepted = false
+                                }
+                            }
+
+                            Keys.onPressed: (event) => {
+                                if (event.key === Qt.Key_W && (event.modifiers & Qt.ControlModifier)) {
+                                    mainBar.closeRequested()
+                                    event.accepted = true
+                                }
+                            }
+
                             Keys.onEscapePressed: {
                                 text = originalText
                                 mainBar.titleChangedByUser(originalText)
@@ -181,7 +202,10 @@ Item {
                                 anchors.fill: parent
                                 acceptedButtons: Qt.LeftButton
                                 cursorShape: Qt.ArrowCursor
-                                onPressed: Window.window.startSystemMove()
+                                onPressed: {
+                                    mainBar.paneActivated()
+                                    Window.window.startSystemMove()
+                                }
                                 onDoubleClicked: {
                                     if (Window.window.visibility === Window.Maximized) {
                                         Window.window.showNormal()
@@ -258,6 +282,23 @@ Item {
                                     mainBar.paneActivated()
                                 }
                             }
+
+                            Keys.onShortcutOverride: (event) => {
+                                if (event.key === Qt.Key_W && (event.modifiers & Qt.ControlModifier)) {
+                                    event.accepted = false
+                                }
+                            }
+
+                            Keys.onPressed: (event) => {
+                                if (event.key === Qt.Key_W && (event.modifiers & Qt.ControlModifier)) {
+                                    mainBar.closeRequested()
+                                    event.accepted = true
+                                }
+                            }
+
+                            onPressed: {
+                                mainBar.paneActivated()
+                            }
                         }
 
                         // Правая полоса перетаскивания (Grip Margin)
@@ -270,7 +311,10 @@ Item {
                                 anchors.fill: parent
                                 acceptedButtons: Qt.LeftButton
                                 cursorShape: Qt.ArrowCursor
-                                onPressed: Window.window.startSystemMove()
+                                onPressed: {
+                                    mainBar.paneActivated()
+                                    Window.window.startSystemMove()
+                                }
                                 onDoubleClicked: {
                                     if (Window.window.visibility === Window.Maximized) {
                                         Window.window.showNormal()
@@ -398,14 +442,17 @@ Item {
         anchors.bottomMargin: 16
         x: Math.round(paperSheet.x + paperSheet.width - 36)
         z: 10
-        visible: editorScroll.contentItem.contentHeight > editorScroll.availableHeight
+        visible: !mainBar.isEmpty && (editorScroll.contentItem.contentHeight > editorScroll.availableHeight)
 
         // Зона перетаскивания окна по правой полосе
         MouseArea {
             anchors.fill: parent
             acceptedButtons: Qt.LeftButton
             cursorShape: Qt.ArrowCursor
-            onPressed: Window.window.startSystemMove()
+            onPressed: {
+                mainBar.paneActivated()
+                Window.window.startSystemMove()
+            }
             onDoubleClicked: {
                 if (Window.window.visibility === Window.Maximized) {
                     Window.window.showNormal()

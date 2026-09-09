@@ -98,6 +98,15 @@ Rectangle {
         for (let i = 0; i < tabsModel.count; i++) {
             let tab = tabsModel.get(i)
             if (tab.fileUrl === fileUrl) {
+                if (root.isSplit) {
+                    if (i === root.primaryTabIndex) {
+                        Tabs.setActivePane(root, 0)
+                        return
+                    } else if (i === root.secondaryTabIndex) {
+                        Tabs.setActivePane(root, 1)
+                        return
+                    }
+                }
                 root.switchToTab(i)
                 return
             }
@@ -107,7 +116,7 @@ Rectangle {
         let targetIndex = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
         let curTab = (targetIndex >= 0 && targetIndex < tabsModel.count) ? tabsModel.get(targetIndex) : null
 
-        if (curTab && !curTab.isDetached && curTab.fileUrl === "" && root.editorArea.text === "") {
+        if (curTab && !curTab.isDetached && curTab.fileUrl === "" && root.editorArea && root.editorArea.text === "") {
             tabsModel.setProperty(targetIndex, "title", fileName)
             tabsModel.setProperty(targetIndex, "fileUrl", fileUrl)
             tabsModel.setProperty(targetIndex, "content", content)
@@ -155,6 +164,7 @@ Rectangle {
     function reattachTab(index, content, title) { Tabs.reattachTab(root, index, content, title) }
     function toggleSplit() { Tabs.toggleSplit(root) }
     function closeSplit() { Tabs.closeSplit(root) }
+    function setActivePane(paneIndex) { Tabs.setActivePane(root, paneIndex) }
     function handleTabDragStarted(index, gx, gy) { Tabs.handleDragStarted(root, index, gx, gy) }
     function handleTabDragMoved(index, gx, gy) { Tabs.handleDragMoved(root, index, gx, gy, sideBar) }
     function handleTabDragEnded(index, gx, gy) { Tabs.handleDragEnded(root, index, gx, gy) }
@@ -381,16 +391,23 @@ Rectangle {
         onActivated: root.toggleSidebar()
     }
 
+    function closeActiveTab() {
+        if (root.tabsModel.count === 0) return
+        let targetIdx = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
+        if (targetIdx >= 0 && targetIdx < root.tabsModel.count) {
+            root.closeTab(targetIdx)
+        } else if (root.currentTabIndex >= 0 && root.currentTabIndex < root.tabsModel.count) {
+            root.closeTab(root.currentTabIndex)
+        } else {
+            root.closeTab(root.tabsModel.count - 1)
+        }
+    }
+
     // Закрытие активного сплита или вкладки (вместо кнопки крестика)
     Shortcut {
         sequences: ["Ctrl+W", StandardKey.Close]
-        onActivated: {
-            if (root.isSplit) {
-                root.closeSplit()
-            } else {
-                root.closeTab(root.currentTabIndex)
-            }
-        }
+        context: Qt.ApplicationShortcut
+        onActivated: root.closeActiveTab()
     }
 
     // Переключение ширины листа (вместо занятого Alt+Z)
@@ -420,10 +437,17 @@ Rectangle {
             isSidebarVisible: root.isSidebarVisible
             tabsModel: tabsModel
             filesModel: folderFilesModel
-            currentTabIndex: root.currentTabIndex
+            currentTabIndex: (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
             currentFolderUrl: root.currentFolderUrl
             currentFolderName: root.currentFolderName
-            currentFileUrl: root.currentFileUrl
+            currentFileUrl: {
+                let idx = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
+                if (idx >= 0 && idx < tabsModel.count) {
+                    let tab = tabsModel.get(idx)
+                    if (tab && tab.fileUrl) return tab.fileUrl
+                }
+                return root.currentFileUrl || ""
+            }
             isSplit: root.isSplit
             backgroundTabIndex: root.isSplit ? (root.activePane === 0 ? root.secondaryTabIndex : root.primaryTabIndex) : -1
             backgroundFileUrl: {
@@ -431,7 +455,7 @@ Rectangle {
                 let bgIdx = (root.activePane === 0 ? root.secondaryTabIndex : root.primaryTabIndex)
                 if (bgIdx >= 0 && bgIdx < root.tabsModel.count) {
                     let tab = root.tabsModel.get(bgIdx)
-                    return tab ? tab.fileUrl : ""
+                    return (tab && tab.fileUrl) ? tab.fileUrl : ""
                 }
                 return ""
             }
@@ -507,12 +531,16 @@ Rectangle {
             primaryFileName: root.primaryFileName
             secondaryFileName: root.secondaryFileName
 
+            isPrimaryEmpty: root.tabsModel.count === 0 || root.primaryTabIndex < 0
+
             onPrimaryTitleChanged: (newTitle) => Tabs.renameTab(root, root.primaryTabIndex, newTitle)
             onSecondaryTitleChanged: (newTitle) => Tabs.renameTab(root, root.secondaryTabIndex, newTitle)
             onPrimaryDetachRequested: Tabs.detachTab(root, root.primaryTabIndex)
             onSecondaryDetachRequested: Tabs.detachTab(root, root.secondaryTabIndex)
             onPrimaryTextChanged: (text) => Tabs.handlePrimaryTextChanged(root, text)
             onSecondaryTextChanged: (text) => Tabs.handleSecondaryTextChanged(root, text)
+            onPrimaryCloseRequested: root.closeTab(root.primaryTabIndex)
+            onSecondaryCloseRequested: root.closeTab(root.secondaryTabIndex)
             onCloseSplitRequested: () => Tabs.closeSplit(root)
             onPaneActivated: (paneIndex) => Tabs.setActivePane(root, paneIndex)
         }
