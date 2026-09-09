@@ -295,26 +295,91 @@ function openInNewWindow(root, fileUrl, fileName, wx, wy) {
     root.spawnClonedAppWindow(fileUrl, fileName, content, wx, wy, 850, 600)
 }
 
+function pollCursorState(root, sideBar) {
+    if (typeof backend !== "undefined" && backend && typeof backend.get_cursor_state === "function") {
+        let state = backend.get_cursor_state()
+        if (!state.leftPressed) {
+            if (root.dragTrackerTimer) root.dragTrackerTimer.running = false
+            handleFileDragEnded(root, root.draggingFileUrl, root.draggingFileName, state.x, state.y)
+            return
+        }
+        handleFileDragMoved(root, state.x, state.y)
+    }
+}
+
 function handleFileDragMoved(root, gx, gy) {
+    let appWin = root.Window.window
+    if (!appWin) return
+
+    let sideW = root.sideBar ? (root.sideBar.isSidebarVisible ? root.sideBar.currentWidth : 0) : 180
+    let isInsideCurrentWin = (gx >= appWin.x && gx <= (appWin.x + appWin.width) &&
+                              gy >= appWin.y && gy <= (appWin.y + appWin.height))
+
+    if (isInsideCurrentWin) {
+        // Мышь внутри текущего окна
+        if (typeof backend !== "undefined" && backend && typeof backend.clear_all_drop_zones === "function") {
+            backend.clear_all_drop_zones()
+        }
+
+        let localX = gx - appWin.x
+        if (localX > sideW) {
+            // Мышь над рабочей областью редактора (справа от сайдбара)
+            let editorW = appWin.width - sideW
+            let relXInEditor = (localX - sideW) / Math.max(1, editorW)
+
+            if (relXInEditor < 0.35) {
+                root.dropZone = "left"
+            } else if (relXInEditor > 0.65) {
+                root.dropZone = "right"
+            } else {
+                root.dropZone = "center"
+            }
+        } else {
+            root.dropZone = ""
+        }
+        return
+    }
+
+    // Мышь снаружи текущего окна — сбрасываем подсветку текущего окна
+    root.dropZone = ""
+
+    // Проверяем, находится ли курсор над другим окном приложения
     if (typeof backend !== "undefined" && backend && typeof backend.find_target_window_at === "function") {
-        let appWin = root.Window.window
         let res = backend.find_target_window_at(gx, gy, appWin)
         if (res && res.found && res.targetWin) {
             backend.set_window_drop_zone(res.targetWin, res.zone)
             return
         }
     }
+
     if (typeof backend !== "undefined" && backend && typeof backend.clear_all_drop_zones === "function") {
         backend.clear_all_drop_zones()
     }
 }
 
 function handleFileDragEnded(root, fileUrl, fileName, gx, gy) {
+    if (root.dragTrackerTimer) {
+        root.dragTrackerTimer.running = false
+    }
     if (typeof backend !== "undefined" && backend && typeof backend.clear_all_drop_zones === "function") {
         backend.clear_all_drop_zones()
     }
 
+    if (!fileUrl && root.draggingFileUrl) {
+        fileUrl = root.draggingFileUrl
+        fileName = root.draggingFileName
+    }
+    root.draggingFileUrl = ""
+    root.draggingFileName = ""
+
+    let savedZone = root.dropZone
+    root.dropZone = ""
+
     let appWin = root.Window.window
+    let sideW = root.sideBar ? (root.sideBar.isSidebarVisible ? root.sideBar.currentWidth : 0) : 180
+    let isInsideCurrentWin = appWin && (gx >= appWin.x && gx <= (appWin.x + appWin.width) &&
+                                         gy >= appWin.y && gy <= (appWin.y + appWin.height))
+
     let content = ""
     let srcIndex = -1
 
@@ -336,11 +401,19 @@ function handleFileDragEnded(root, fileUrl, fileName, gx, gy) {
         content = backend.read_file(fileUrl)
     }
 
-    // 1. Проверяем, сброшен ли файл на другое окно приложения
+    // 1. Сброс внутри текущего окна:
+    if (isInsideCurrentWin) {
+        let localX = gx - appWin.x
+        if (localX > sideW) {
+            dockFileInCurrentWindow(root, fileUrl, fileName, content, savedZone || "right")
+        }
+        return
+    }
+
+    // 2. Сброс на другое окно приложения:
     if (typeof backend !== "undefined" && backend && typeof backend.find_target_window_at === "function") {
         let res = backend.find_target_window_at(gx, gy, appWin)
         if (res && res.found && res.targetRoot) {
-            // Встраиваем файл в целевое окно
             res.targetRoot.dockExternalTab(fileUrl, fileName, content, res.zone)
             if (srcIndex !== -1) {
                 closeTab(root, srcIndex)
@@ -349,17 +422,49 @@ function handleFileDragEnded(root, fileUrl, fileName, gx, gy) {
         }
     }
 
-    // 2. Проверяем, сброшен ли файл обратно в текущее окно
-    if (appWin && gx >= appWin.x && gx <= appWin.x + appWin.width &&
-                   gy >= appWin.y && gy <= appWin.y + appWin.height) {
-        // Остался в текущем окне
-        return
-    }
-
-    // 3. Сброшен на пустой рабочий стол или второй монитор — спавним полноценное окно!
+    // 3. Сброс на пустой рабочий стол или второй монитор — спавним полноценное окно!
     root.spawnClonedAppWindow(fileUrl, fileName, content, Math.round(gx - 400), Math.round(gy - 30), 850, 600)
     if (srcIndex !== -1) {
         closeTab(root, srcIndex)
+    }
+}
+
+// Встраивание файла в сплит-экран текущего окна
+function dockFileInCurrentWindow(root, fileUrl, fileName, content, zone) {
+    if (!fileUrl && !fileName) return
+
+    // 1. Проверяем, есть ли уже этот файл в модели вкладок
+    let tabIndex = -1
+    for (let i = 0; i < root.tabsModel.count; i++) {
+        if (root.tabsModel.get(i).fileUrl === fileUrl) {
+            tabIndex = i
+            break
+        }
+    }
+
+    if (tabIndex === -1) {
+        root.tabsModel.append({
+            title: fileName,
+            fileUrl: fileUrl,
+            content: content || ""
+        })
+        tabIndex = root.tabsModel.count - 1
+    }
+
+    if (zone === "left" || zone === "right") {
+        root.isSplit = true
+        if (zone === "left") {
+            let oldPrimary = root.primaryTabIndex
+            root.primaryTabIndex = tabIndex
+            root.secondaryTabIndex = (oldPrimary !== -1 && oldPrimary !== tabIndex) ? oldPrimary : getAnotherAvailableTab(root, tabIndex)
+            root.activePane = 0
+        } else {
+            root.secondaryTabIndex = tabIndex
+            root.activePane = 1
+        }
+        syncEditorsFromModel(root)
+    } else {
+        switchToTab(root, tabIndex)
     }
 }
 

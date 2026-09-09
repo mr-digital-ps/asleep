@@ -92,7 +92,7 @@ Rectangle {
             let globalPoint = fileHover.mapToGlobal(mouse.x, mouse.y)
 
             if (!isDraggingFile) {
-                if (dist > 15) {
+                if (dist > 8) {
                     isDraggingFile = true
                     wasDragged = true
                     fileItem.fileSelected(fileItem.fileUrl, fileItem.fileName)

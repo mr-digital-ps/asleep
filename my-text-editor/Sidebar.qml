@@ -104,6 +104,15 @@ Rectangle {
         ToolTip.text: titleText
     }
 
+    // Фоновое перемещение окна по клику на свободном месте сайдбара
+    MouseArea {
+        anchors.fill: parent
+        z: 0
+        acceptedButtons: Qt.LeftButton
+        onPressed: Window.window.startSystemMove()
+        onDoubleClicked: sideBar.toggleMaximizeClicked()
+    }
+
     // Главная колонка сайдбара
     ColumnLayout {
         anchors.fill: parent

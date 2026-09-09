@@ -26,9 +26,17 @@ ScrollView {
     clip: true
     contentWidth: availableWidth
 
+    background: MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.LeftButton
+        onPressed: Window.window.startSystemMove()
+        onDoubleClicked: filesScroll.toggleMaximizeClicked()
+    }
+
     ListView {
         id: filesListView
         width: filesScroll.availableWidth
+        height: Math.max(filesScroll.availableHeight, contentHeight)
         model: filesScroll.filesModel
         spacing: 1
         boundsBehavior: Flickable.StopAtBounds
@@ -37,6 +45,7 @@ ScrollView {
         MouseArea {
             anchors.fill: parent
             z: -1
+            acceptedButtons: Qt.LeftButton
             onPressed: Window.window.startSystemMove()
             onDoubleClicked: filesScroll.toggleMaximizeClicked()
         }

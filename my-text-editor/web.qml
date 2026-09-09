@@ -47,9 +47,21 @@ Rectangle {
     // =========================================================================
     property int currentTabIndex: 0
     property var externalWindowFiles: []
+    property string draggingFileUrl: ""
+    property string draggingFileName: ""
+
+    // Таймер аппаратного отслеживания курсора во время перетаскивания (60 FPS)
+    Timer {
+        id: dragTrackerTimer
+        interval: 16
+        repeat: true
+        running: false
+        onTriggered: Tabs.pollCursorState(root, sideBar)
+    }
 
     property alias tabsModel: tabsModel
     property alias folderFilesModel: folderFilesModel
+    property alias dragTrackerTimer: dragTrackerTimer
     property alias sideBar: sideBar
 
     ListModel {
@@ -472,6 +484,11 @@ Rectangle {
                         root.currentFileName = res.fileName
                     }
                 }
+            }
+            onTabDragStarted: (url, name, gx, gy) => {
+                root.draggingFileUrl = url
+                root.draggingFileName = name
+                dragTrackerTimer.running = true
             }
             onTabDragMoved: (gx, gy) => root.handleFileDragMoved(gx, gy)
             onTabDragEnded: (fUrl, fName, gx, gy) => root.handleFileDragEnded(fUrl, fName, gx, gy)
