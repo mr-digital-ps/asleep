@@ -146,6 +146,10 @@ Item {
     }
 
     function focusPane(paneIndex) {
+        var targetBar = (paneIndex === 1) ? secondaryBar : primaryBar
+        if (targetBar && (targetBar.isTitleFocused || (targetBar.titleField && (targetBar.titleField.activeFocus || targetBar.titleField.focus)))) {
+            return
+        }
         if (paneIndex === 1 && secondaryBar && secondaryBar.editorArea) {
             secondaryBar.editorArea.forceActiveFocus()
         } else if (primaryBar && primaryBar.editorArea) {

@@ -22,6 +22,8 @@ Item {
     // Доступ к редактору для внешних скриптов
     property alias editorArea: editorArea
     property alias text: editorArea.text
+    property alias titleField: titleField
+    property bool isTitleFocused: titleField ? titleField.activeFocus : false
 
     // Сигналы
     signal titleChangedByUser(string newTitle)
@@ -41,7 +43,10 @@ Item {
     // Перехват кликов по панели для мгновенной активации нужной половины сплита
     TapHandler {
         gesturePolicy: TapHandler.WithinBounds
-        onTapped: mainBar.paneActivated()
+        onTapped: {
+            if (titleField && titleField.activeFocus) return
+            mainBar.paneActivated()
+        }
     }
 
     // =========================================================================
@@ -152,6 +157,17 @@ Item {
 
                             property string originalText: ""
 
+                            Timer {
+                                id: titleDebounceTimer
+                                interval: 800
+                                repeat: false
+                                onTriggered: titleField.commitTitle()
+                            }
+
+                            onTextEdited: {
+                                titleDebounceTimer.restart()
+                            }
+
                             Binding {
                                 target: titleField
                                 property: "text"
@@ -160,6 +176,7 @@ Item {
                             }
 
                             function commitTitle() {
+                                titleDebounceTimer.stop()
                                 let clean = text.trim()
                                 if (clean !== "" && clean !== originalText) {
                                     originalText = clean
@@ -170,9 +187,14 @@ Item {
                             onActiveFocusChanged: {
                                 if (activeFocus) {
                                     originalText = text
-                                    mainBar.paneActivated()
                                 } else {
                                     commitTitle()
+                                }
+                            }
+
+                            onPressed: {
+                                if (mainBar.isSplitMode && !mainBar.isActivePane) {
+                                    mainBar.paneActivated()
                                 }
                             }
 
@@ -190,6 +212,7 @@ Item {
                             }
 
                             Keys.onReturnPressed: (event) => {
+                                titleDebounceTimer.stop()
                                 commitTitle()
                                 editorArea.forceActiveFocus()
                                 editorArea.cursorPosition = 0
@@ -197,6 +220,7 @@ Item {
                             }
 
                             Keys.onEnterPressed: (event) => {
+                                titleDebounceTimer.stop()
                                 commitTitle()
                                 editorArea.forceActiveFocus()
                                 editorArea.cursorPosition = 0
@@ -204,6 +228,7 @@ Item {
                             }
 
                             Keys.onDownPressed: (event) => {
+                                titleDebounceTimer.stop()
                                 commitTitle()
                                 editorArea.forceActiveFocus()
                                 editorArea.cursorPosition = 0
@@ -211,6 +236,7 @@ Item {
                             }
 
                             Keys.onEscapePressed: {
+                                titleDebounceTimer.stop()
                                 text = originalText
                                 focus = false
                             }
