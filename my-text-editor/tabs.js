@@ -4,6 +4,11 @@
 // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ МОДЕЛИ
 // =============================================================================
 
+function stripExt(name) {
+    if (!name) return ""
+    return name.replace(/\.md$/i, "")
+}
+
 function findTabIndex(root, fileUrl) {
     if (!fileUrl) return -1
     for (let i = 0; i < root.tabsModel.count; i++) {
@@ -72,7 +77,7 @@ function syncEditorsFromModel(root) {
         if (root.splitLayout.primaryBar && root.splitLayout.primaryBar.text !== pTab.content) {
             root.splitLayout.primaryBar.text = pTab.content
         }
-        root.primaryFileName = pTab.title || "Без названия"
+        root.primaryFileName = stripExt(pTab.title || "Без названия")
     } else {
         root.primaryFileName = ""
         if (root.splitLayout.primaryBar) root.splitLayout.primaryBar.text = ""
@@ -83,7 +88,7 @@ function syncEditorsFromModel(root) {
         if (root.splitLayout.secondaryBar && root.splitLayout.secondaryBar.text !== sTab.content) {
             root.splitLayout.secondaryBar.text = sTab.content
         }
-        root.secondaryFileName = sTab.title || "Без названия"
+        root.secondaryFileName = stripExt(sTab.title || "Без названия")
     } else {
         root.secondaryFileName = ""
         if (root.splitLayout.secondaryBar) root.splitLayout.secondaryBar.text = ""
@@ -92,7 +97,7 @@ function syncEditorsFromModel(root) {
     let activeIdx = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
     if (activeIdx >= 0 && activeIdx < root.tabsModel.count) {
         let aTab = root.tabsModel.get(activeIdx)
-        root.currentFileName = aTab.title || ""
+        root.currentFileName = stripExt(aTab.title || "")
         root.currentFileUrl = aTab.fileUrl || ""
         root.currentTabIndex = activeIdx
     } else {
@@ -113,7 +118,7 @@ function setActivePane(root, paneIndex) {
     root.currentTabIndex = targetIndex
     if (targetIndex >= 0 && targetIndex < root.tabsModel.count) {
         let tab = root.tabsModel.get(targetIndex)
-        root.currentFileName = tab.title || ""
+        root.currentFileName = stripExt(tab.title || "")
         root.currentFileUrl = tab.fileUrl || ""
     } else {
         root.currentFileName = ""
@@ -159,7 +164,7 @@ function createNewTab(root) {
     if (typeof backend !== "undefined" && backend && root.currentFolderUrl) {
         let res = backend.create_file_in_folder(root.currentFolderUrl, initialTitle)
         if (res && res.success) {
-            initialTitle = res.fileName
+            initialTitle = stripExt(res.fileName)
             initialUrl = res.fileUrl
         }
     }
@@ -167,7 +172,7 @@ function createNewTab(root) {
     if (root.tabsModel.count === 0 || root.primaryTabIndex < 0) {
         root.tabsModel.clear()
         root.tabsModel.append({
-            title: initialTitle,
+            title: stripExt(initialTitle),
             fileUrl: initialUrl,
             content: "",
             isDetached: false
@@ -241,16 +246,19 @@ function closeTab(root, index) {
 function renameTab(root, index, newTitle) {
     if (index < 0 || index >= root.tabsModel.count) return
     let tab = root.tabsModel.get(index)
-    let finalTitle = newTitle
+    let cleanNewTitle = stripExt(newTitle)
+    let finalTitle = cleanNewTitle
 
     if (typeof backend !== "undefined" && backend && tab.fileUrl) {
-        let res = backend.rename_file(tab.fileUrl, newTitle)
+        let res = backend.rename_file(tab.fileUrl, cleanNewTitle)
         if (res && res.success) {
-            finalTitle = res.fileName
+            finalTitle = stripExt(res.fileName)
             root.tabsModel.setProperty(index, "fileUrl", res.fileUrl)
             if (index === root.currentTabIndex) {
                 root.currentFileUrl = res.fileUrl
             }
+        } else if (res && !res.success) {
+            finalTitle = stripExt(res.fileName || tab.title)
         }
     }
 
@@ -516,12 +524,12 @@ function dockFileInCurrentWindow(root, fileUrl, fileName, content, zone) {
         // В сплите допустимы только левая или правая панель
         let targetZone = (zone === "left" || (zone !== "right" && root.activePane === 0)) ? "left" : "right"
         if (targetZone === "left") {
-            root.tabsModel.setProperty(root.primaryTabIndex, "title", fileName)
+            root.tabsModel.setProperty(root.primaryTabIndex, "title", stripExt(fileName))
             root.tabsModel.setProperty(root.primaryTabIndex, "fileUrl", fileUrl)
             root.tabsModel.setProperty(root.primaryTabIndex, "content", content || "")
             root.activePane = 0
         } else {
-            root.tabsModel.setProperty(root.secondaryTabIndex, "title", fileName)
+            root.tabsModel.setProperty(root.secondaryTabIndex, "title", stripExt(fileName))
             root.tabsModel.setProperty(root.secondaryTabIndex, "fileUrl", fileUrl)
             root.tabsModel.setProperty(root.secondaryTabIndex, "content", content || "")
             root.activePane = 1
@@ -535,7 +543,7 @@ function dockFileInCurrentWindow(root, fileUrl, fileName, content, zone) {
         if (root.tabsModel.count === 0 || root.primaryTabIndex < 0) {
             root.tabsModel.clear()
             root.tabsModel.append({
-                title: fileName,
+                title: stripExt(fileName),
                 fileUrl: fileUrl,
                 content: content || "",
                 isDetached: false
@@ -551,7 +559,7 @@ function dockFileInCurrentWindow(root, fileUrl, fileName, content, zone) {
 
         if (root.tabsModel.count === 1) {
             root.tabsModel.append({
-                title: fileName,
+                title: stripExt(fileName),
                 fileUrl: fileUrl,
                 content: content || "",
                 isDetached: false

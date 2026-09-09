@@ -151,7 +151,7 @@ Item {
                             Layout.fillHeight: true
                             Layout.alignment: Qt.AlignVCenter
                             horizontalAlignment: Text.AlignLeft
-                            text: mainBar.fileName
+                            text: mainBar.stripExt(mainBar.fileName)
                             font.pixelSize: 18
                             font.bold: true
                             color: (mainBar.isSplitMode && !mainBar.isActivePane) ? "#888888" : "#ffffff"
@@ -191,6 +191,7 @@ Item {
 
                             onActiveFocusChanged: {
                                 if (activeFocus) {
+                                    text = mainBar.stripExt(text)
                                     originalText = text
                                 } else {
                                     commitTitle()

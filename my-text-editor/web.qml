@@ -42,6 +42,11 @@ Rectangle {
     property string primaryFileName: "Новый документ"
     property string secondaryFileName: "Новый документ"
 
+    function stripExt(name) {
+        if (!name) return ""
+        return name.replace(/\.md$/i, "")
+    }
+
     property alias editorArea: splitLayout.activeEditorArea
     property alias splitLayout: splitLayout
 
@@ -124,13 +129,14 @@ Rectangle {
         // Сохраняем текущий текст перед открытием нового файла
         Tabs.syncCurrentPaneText(root)
 
+        let cleanName = root.stripExt(fileName)
         let content = backend.read_file(fileUrl)
 
         // Если экран был пуст (все вкладки закрыты)
         if (root.tabsModel.count === 0 || root.primaryTabIndex < 0) {
             root.tabsModel.clear()
             root.tabsModel.append({
-                title: fileName,
+                title: cleanName,
                 fileUrl: fileUrl,
                 content: content,
                 isDetached: false
@@ -147,14 +153,14 @@ Rectangle {
         // Прямое открытие в текущей активной панели без накопления скрытых вкладок
         let activeIdx = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
         if (activeIdx >= 0 && activeIdx < root.tabsModel.count) {
-            root.tabsModel.setProperty(activeIdx, "title", fileName)
+            root.tabsModel.setProperty(activeIdx, "title", cleanName)
             root.tabsModel.setProperty(activeIdx, "fileUrl", fileUrl)
             root.tabsModel.setProperty(activeIdx, "content", content)
             Tabs.syncEditorsFromModel(root)
             Tabs.setActivePane(root, root.activePane)
         } else {
             root.tabsModel.append({
-                title: fileName,
+                title: cleanName,
                 fileUrl: fileUrl,
                 content: content,
                 isDetached: false
@@ -325,12 +331,13 @@ Rectangle {
         }
 
         if (initUrl || initTitle) {
-            tabsModel.setProperty(0, "title", initTitle || "Документ")
+            let cleanInit = root.stripExt(initTitle || "Документ")
+            tabsModel.setProperty(0, "title", cleanInit)
             tabsModel.setProperty(0, "fileUrl", initUrl || "")
             tabsModel.setProperty(0, "content", initContent || "")
-            root.currentFileName = initTitle || "Документ"
+            root.currentFileName = cleanInit
             root.currentFileUrl = initUrl || ""
-            root.primaryFileName = initTitle || "Документ"
+            root.primaryFileName = cleanInit
             Tabs.syncEditorsFromModel(root)
             return true
         }
@@ -356,21 +363,23 @@ Rectangle {
                 // Если есть файлы в папке — открываем первый файл
                 let firstFile = folderFilesModel.get(0)
                 let content = backend.read_file(firstFile.fileUrl)
-                tabsModel.setProperty(0, "title", firstFile.name)
+                let cleanFirst = root.stripExt(firstFile.name)
+                tabsModel.setProperty(0, "title", cleanFirst)
                 tabsModel.setProperty(0, "fileUrl", firstFile.fileUrl)
                 tabsModel.setProperty(0, "content", content)
-                root.currentFileName = firstFile.name
+                root.currentFileName = cleanFirst
                 root.currentFileUrl = firstFile.fileUrl
-                root.primaryFileName = firstFile.name
+                root.primaryFileName = cleanFirst
                 Tabs.syncEditorsFromModel(root)
             } else {
                 let res = backend.create_file_in_folder(root.currentFolderUrl, "Новый документ")
                 if (res && res.success) {
-                    tabsModel.setProperty(0, "title", res.fileName)
+                    let cleanNew = root.stripExt(res.fileName)
+                    tabsModel.setProperty(0, "title", cleanNew)
                     tabsModel.setProperty(0, "fileUrl", res.fileUrl)
-                    root.currentFileName = res.fileName
+                    root.currentFileName = cleanNew
                     root.currentFileUrl = res.fileUrl
-                    root.primaryFileName = res.fileName
+                    root.primaryFileName = cleanNew
                     root.reloadFolderFiles()
                 }
             }
