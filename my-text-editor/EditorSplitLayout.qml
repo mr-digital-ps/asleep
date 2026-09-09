@@ -145,6 +145,14 @@ Item {
         }
     }
 
+    function focusPane(paneIndex) {
+        if (paneIndex === 1 && secondaryBar && secondaryBar.editorArea) {
+            secondaryBar.editorArea.forceActiveFocus()
+        } else if (primaryBar && primaryBar.editorArea) {
+            primaryBar.editorArea.forceActiveFocus()
+        }
+    }
+
     // =========================================================================
     // ПОЛУПРОЗРАЧНЫЙ ОВЕРЛЕЙ ПРЕДПРОСМОТРА ЗОНЫ ДОКИНГА (DROP PREVIEW OVERLAY)
     // =========================================================================
@@ -174,10 +182,10 @@ Item {
             Behavior on x { NumberAnimation { duration: 120 } }
             Behavior on width { NumberAnimation { duration: 120 } }
 
-            color: "#18ffffff"
-            border.color: "#55ffffff"
-            border.width: 1
-            radius: 6
+            color: "#253b82f6"
+            border.color: "#3b82f6"
+            border.width: 2
+            radius: 8
 
             RowLayout {
                 anchors.centerIn: parent

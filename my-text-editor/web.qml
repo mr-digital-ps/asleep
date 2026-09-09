@@ -52,6 +52,7 @@ Rectangle {
     property var externalWindowFiles: []
     property string draggingFileUrl: ""
     property string draggingFileName: ""
+    property var draggedNewWin: null
 
     // Таймер аппаратного отслеживания курсора во время перетаскивания (60 FPS)
     Timer {
@@ -196,7 +197,9 @@ Rectangle {
         }
         if (win && win.closing) {
             win.closing.connect(function() {
-                root.unregisterExternalFile(fUrl)
+                if (root && typeof root.unregisterExternalFile === "function") {
+                    root.unregisterExternalFile(fUrl)
+                }
             })
         }
     }

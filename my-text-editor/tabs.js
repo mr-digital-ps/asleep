@@ -1,4 +1,53 @@
-// tabs.js — чистая логика управления вкладками, сплит-режимом и меж-оконным объединением
+// tabs.js — чистая, надежная архитектура управления вкладками, сплит-режимом и окнами
+
+// =============================================================================
+// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ МОДЕЛИ
+// =============================================================================
+
+function findTabIndex(root, fileUrl) {
+    if (!fileUrl) return -1
+    for (let i = 0; i < root.tabsModel.count; i++) {
+        let t = root.tabsModel.get(i)
+        if (t && t.fileUrl === fileUrl) {
+            return i
+        }
+    }
+    return -1
+}
+
+function findOtherTabIndex(root, excludeIdx) {
+    for (let i = 0; i < root.tabsModel.count; i++) {
+        if (i !== excludeIdx) return i
+    }
+    let nextNum = root.tabsModel.count + 1
+    root.tabsModel.append({
+        title: "Документ " + nextNum,
+        fileUrl: "",
+        content: "",
+        isDetached: false
+    })
+    return root.tabsModel.count - 1
+}
+
+function getFileContent(root, fileUrl) {
+    if (!fileUrl) return ""
+    for (let i = 0; i < root.tabsModel.count; i++) {
+        let t = root.tabsModel.get(i)
+        if (t && t.fileUrl === fileUrl) {
+            if (i === root.primaryTabIndex && root.splitLayout && root.splitLayout.primaryBar) {
+                return root.splitLayout.primaryBar.text
+            } else if (i === root.secondaryTabIndex && root.splitLayout && root.splitLayout.secondaryBar) {
+                return root.splitLayout.secondaryBar.text
+            } else {
+                return t.content || ""
+            }
+        }
+    }
+    if (typeof backend !== "undefined" && backend && typeof backend.read_file === "function") {
+        return backend.read_file(fileUrl)
+    }
+    return ""
+}
 
 // =============================================================================
 // СИНХРОНИЗАЦИЯ МОДЕЛИ И РЕДАКТОРОВ
@@ -23,7 +72,7 @@ function syncEditorsFromModel(root) {
         if (root.splitLayout.primaryBar && root.splitLayout.primaryBar.text !== pTab.content) {
             root.splitLayout.primaryBar.text = pTab.content
         }
-        root.primaryFileName = pTab.title
+        root.primaryFileName = pTab.title || "Без названия"
     } else {
         root.primaryFileName = ""
         if (root.splitLayout.primaryBar) root.splitLayout.primaryBar.text = ""
@@ -34,7 +83,7 @@ function syncEditorsFromModel(root) {
         if (root.splitLayout.secondaryBar && root.splitLayout.secondaryBar.text !== sTab.content) {
             root.splitLayout.secondaryBar.text = sTab.content
         }
-        root.secondaryFileName = sTab.title
+        root.secondaryFileName = sTab.title || "Без названия"
     } else {
         root.secondaryFileName = ""
         if (root.splitLayout.secondaryBar) root.splitLayout.secondaryBar.text = ""
@@ -57,6 +106,26 @@ function syncEditorsFromModel(root) {
 // ПЕРЕКЛЮЧЕНИЕ, СОЗДАНИЕ И ЗАКРЫТИЕ ВКЛАДОК
 // =============================================================================
 
+function setActivePane(root, paneIndex) {
+    root.activePane = paneIndex
+
+    let targetIndex = (paneIndex === 1) ? root.secondaryTabIndex : root.primaryTabIndex
+    root.currentTabIndex = targetIndex
+    if (targetIndex >= 0 && targetIndex < root.tabsModel.count) {
+        let tab = root.tabsModel.get(targetIndex)
+        root.currentFileName = tab.title || ""
+        root.currentFileUrl = tab.fileUrl || ""
+    } else {
+        root.currentFileName = ""
+        root.currentFileUrl = ""
+    }
+
+    // Фокусируем активный редактор для мгновенного ввода и индикации
+    if (root.splitLayout && typeof root.splitLayout.focusPane === "function") {
+        root.splitLayout.focusPane(paneIndex)
+    }
+}
+
 function switchToTab(root, index) {
     if (index < 0 || index >= root.tabsModel.count) return
 
@@ -74,9 +143,10 @@ function switchToTab(root, index) {
 
     root.currentTabIndex = index
     let tab = root.tabsModel.get(index)
-    root.currentFileName = tab.title
-    root.currentFileUrl = tab.fileUrl
+    root.currentFileName = tab.title || ""
+    root.currentFileUrl = tab.fileUrl || ""
     syncEditorsFromModel(root)
+    setActivePane(root, root.activePane)
 }
 
 function createNewTab(root) {
@@ -97,7 +167,8 @@ function createNewTab(root) {
     root.tabsModel.append({
         title: initialTitle,
         fileUrl: initialUrl,
-        content: ""
+        content: "",
+        isDetached: false
     })
     switchToTab(root, root.tabsModel.count - 1)
 }
@@ -196,23 +267,6 @@ function renameTab(root, index, newTitle) {
 // УПРАВЛЕНИЕ РЕЖИМОМ СПЛИТА (SPLIT VIEW)
 // =============================================================================
 
-function setActivePane(root, paneIndex) {
-    root.activePane = paneIndex
-    if (root.splitLayout) {
-        root.splitLayout.activePane = paneIndex
-    }
-    let targetIndex = (paneIndex === 1) ? root.secondaryTabIndex : root.primaryTabIndex
-    root.currentTabIndex = targetIndex
-    if (targetIndex >= 0 && targetIndex < root.tabsModel.count) {
-        let tab = root.tabsModel.get(targetIndex)
-        root.currentFileName = tab.title || ""
-        root.currentFileUrl = tab.fileUrl || ""
-    } else {
-        root.currentFileName = ""
-        root.currentFileUrl = ""
-    }
-}
-
 function closeSplit(root) {
     syncCurrentPaneText(root)
     root.isSplit = false
@@ -227,6 +281,7 @@ function closeSplit(root) {
     root.secondaryTabIndex = -1
     root.activePane = 0
     syncEditorsFromModel(root)
+    setActivePane(root, 0)
 }
 
 function toggleSplit(root) {
@@ -238,25 +293,15 @@ function toggleSplit(root) {
             return
         }
         let curPrimary = root.primaryTabIndex
-        let otherIdx = -1
-        for (let i = 0; i < root.tabsModel.count; i++) {
-            if (i !== curPrimary) { otherIdx = i; break; }
-        }
-        if (otherIdx === -1) {
-            let nextNum = root.tabsModel.count + 1
-            root.tabsModel.append({
-                title: "Документ " + nextNum,
-                fileUrl: "",
-                content: ""
-            })
-            otherIdx = root.tabsModel.count - 1
-        }
+        let otherIdx = findOtherTabIndex(root, curPrimary)
+
         root.isSplit = true
         root.primaryTabIndex = curPrimary
         root.secondaryTabIndex = otherIdx
         root.activePane = 1
         root.currentTabIndex = otherIdx
         syncEditorsFromModel(root)
+        setActivePane(root, 1)
     }
 }
 
@@ -273,28 +318,11 @@ function handleSecondaryTextChanged(root, text) {
 }
 
 // =============================================================================
-// МЕЖ-ОКОННОЕ ОБЪЕДИНЕНИЕ И ОТКРЕПЛЕНИЕ (CROSS-WINDOW DOCKING)
+// МЕЖ-ОКОННОЕ ОБЪЕДИНЕНИЕ И ОТКРЕПЛЕНИЕ (CROSS-WINDOW DOCKING & DETACH)
 // =============================================================================
 
 function openInNewWindow(root, fileUrl, fileName, wx, wy) {
-    let content = ""
-    for (let i = 0; i < root.tabsModel.count; i++) {
-        let t = root.tabsModel.get(i)
-        if (t.fileUrl === fileUrl) {
-            if (i === root.primaryTabIndex && root.splitLayout && root.splitLayout.primaryBar) {
-                content = root.splitLayout.primaryBar.text
-            } else if (i === root.secondaryTabIndex && root.splitLayout && root.splitLayout.secondaryBar) {
-                content = root.splitLayout.secondaryBar.text
-            } else {
-                content = t.content || ""
-            }
-            break
-        }
-    }
-    if (!content && fileUrl && typeof backend !== "undefined" && backend) {
-        content = backend.read_file(fileUrl)
-    }
-
+    let content = getFileContent(root, fileUrl)
     root.spawnClonedAppWindow(fileUrl, fileName, content, wx, wy, 850, 600)
 }
 
@@ -314,7 +342,7 @@ function handleFileDragMoved(root, gx, gy) {
     let appWin = root.appWindow || root.Window.window
     if (!appWin) return
 
-    let sideW = root.sideBar ? (root.sideBar.isSidebarVisible ? root.sideBar.currentWidth : 0) : 180
+    let sideW = (root.sideBar && root.sideBar.isSidebarVisible) ? root.sideBar.currentWidth : 0
     let isInsideCurrentWin = (gx >= appWin.x && gx <= (appWin.x + appWin.width) &&
                               gy >= appWin.y && gy <= (appWin.y + appWin.height))
 
@@ -326,13 +354,13 @@ function handleFileDragMoved(root, gx, gy) {
 
         let localX = gx - appWin.x
         if (localX > sideW) {
-            // Мышь над рабочей областью редактора (справа от сайдбара)
+            // Курсор над редактором (справа от сайдбара)
             let editorW = appWin.width - sideW
-            let relXInEditor = (localX - sideW) / Math.max(1, editorW)
+            let rel = (localX - sideW) / Math.max(1, editorW)
 
-            if (relXInEditor < 0.35) {
+            if (rel < 0.33) {
                 root.dropZone = "left"
-            } else if (relXInEditor > 0.65) {
+            } else if (rel > 0.67) {
                 root.dropZone = "right"
             } else {
                 root.dropZone = "center"
@@ -343,10 +371,10 @@ function handleFileDragMoved(root, gx, gy) {
         return
     }
 
-    // Мышь снаружи текущего окна — сбрасываем подсветку текущего окна
+    // Курсор снаружи текущего окна
     root.dropZone = ""
 
-    // Проверяем, находится ли курсор над другим окном приложения
+    // 1. Проверяем, находится ли курсор над другим окном приложения
     if (typeof backend !== "undefined" && backend && typeof backend.find_target_window_at === "function") {
         let res = backend.find_target_window_at(gx, gy, appWin)
         if (res && res.found && res.targetWin) {
@@ -359,39 +387,32 @@ function handleFileDragMoved(root, gx, gy) {
         backend.clear_all_drop_zones()
     }
 
-    // Пользователь вытащил файл за пределы текущего приложения на рабочий стол!
-    // Мгновенно создаем новое окно приложения прямо под курсором!
-    if (root.draggingFileUrl) {
+    // 2. Курсор на пустом рабочем столе или втором мониторе:
+    // МГНОВЕННО создаем новое приложение с отделившимся файлом прямо под курсором!
+    if (!root.draggedNewWin && root.draggingFileUrl) {
         let fUrl = root.draggingFileUrl
         let fName = root.draggingFileName
-        root.draggingFileUrl = ""
-        root.draggingFileName = ""
-        if (root.dragTrackerTimer) root.dragTrackerTimer.running = false
+        let content = getFileContent(root, fUrl)
 
-        let content = ""
-        let srcIndex = -1
-        for (let i = 0; i < root.tabsModel.count; i++) {
-            let t = root.tabsModel.get(i)
-            if (t.fileUrl === fUrl) {
-                srcIndex = i
-                if (i === root.primaryTabIndex && root.splitLayout && root.splitLayout.primaryBar) {
-                    content = root.splitLayout.primaryBar.text
-                } else if (i === root.secondaryTabIndex && root.splitLayout && root.splitLayout.secondaryBar) {
-                    content = root.splitLayout.secondaryBar.text
-                } else {
-                    content = t.content || ""
-                }
-                break
-            }
-        }
-        if (!content && fUrl && typeof backend !== "undefined" && backend) {
-            content = backend.read_file(fUrl)
-        }
+        let newWin = root.spawnClonedAppWindow(
+            fUrl,
+            fName,
+            content,
+            Math.round(gx - 400),
+            Math.round(gy - 30),
+            850,
+            600
+        )
+        root.draggedNewWin = newWin
 
-        root.spawnClonedAppWindow(fUrl, fName, content, Math.round(gx - 400), Math.round(gy - 30), 850, 600)
+        let srcIndex = findTabIndex(root, fUrl)
         if (srcIndex !== -1) {
             closeTab(root, srcIndex)
         }
+    } else if (root.draggedNewWin) {
+        // Окно уже создано — перемещаем его за курсором до отпускания мыши
+        root.draggedNewWin.x = Math.round(gx - 400)
+        root.draggedNewWin.y = Math.round(gy - 30)
     }
 }
 
@@ -410,34 +431,23 @@ function handleFileDragEnded(root, fileUrl, fileName, gx, gy) {
     root.draggingFileUrl = ""
     root.draggingFileName = ""
 
+    // Если новое окно уже было создано во время перемещения
+    if (root.draggedNewWin) {
+        root.draggedNewWin = null
+        root.dropZone = ""
+        return
+    }
+
     let savedZone = root.dropZone
     root.dropZone = ""
 
     let appWin = root.appWindow || root.Window.window
-    let sideW = root.sideBar ? (root.sideBar.isSidebarVisible ? root.sideBar.currentWidth : 0) : 180
+    let sideW = (root.sideBar && root.sideBar.isSidebarVisible) ? root.sideBar.currentWidth : 0
     let isInsideCurrentWin = appWin && (gx >= appWin.x && gx <= (appWin.x + appWin.width) &&
                                          gy >= appWin.y && gy <= (appWin.y + appWin.height))
 
-    let content = ""
-    let srcIndex = -1
-
-    for (let i = 0; i < root.tabsModel.count; i++) {
-        let t = root.tabsModel.get(i)
-        if (t.fileUrl === fileUrl) {
-            srcIndex = i
-            if (i === root.primaryTabIndex && root.splitLayout && root.splitLayout.primaryBar) {
-                content = root.splitLayout.primaryBar.text
-            } else if (i === root.secondaryTabIndex && root.splitLayout && root.splitLayout.secondaryBar) {
-                content = root.splitLayout.secondaryBar.text
-            } else {
-                content = t.content || ""
-            }
-            break
-        }
-    }
-    if (!content && fileUrl && typeof backend !== "undefined" && backend) {
-        content = backend.read_file(fileUrl)
-    }
+    let content = getFileContent(root, fileUrl)
+    let srcIndex = findTabIndex(root, fileUrl)
 
     // 1. Сброс внутри текущего окна:
     if (isInsideCurrentWin) {
@@ -460,7 +470,7 @@ function handleFileDragEnded(root, fileUrl, fileName, gx, gy) {
         }
     }
 
-    // 3. Сброс на пустой рабочий стол или второй монитор — спавним полноценное окно!
+    // 3. Сброс на рабочий стол:
     root.spawnClonedAppWindow(fileUrl, fileName, content, Math.round(gx - 400), Math.round(gy - 30), 850, 600)
     if (srcIndex !== -1) {
         closeTab(root, srcIndex)
@@ -471,20 +481,13 @@ function handleFileDragEnded(root, fileUrl, fileName, gx, gy) {
 function dockFileInCurrentWindow(root, fileUrl, fileName, content, zone) {
     if (!fileUrl && !fileName) return
 
-    // 1. Проверяем, есть ли уже этот файл в модели вкладок
-    let tabIndex = -1
-    for (let i = 0; i < root.tabsModel.count; i++) {
-        if (root.tabsModel.get(i).fileUrl === fileUrl) {
-            tabIndex = i
-            break
-        }
-    }
-
+    let tabIndex = findTabIndex(root, fileUrl)
     if (tabIndex === -1) {
         root.tabsModel.append({
             title: fileName,
             fileUrl: fileUrl,
-            content: content || ""
+            content: content || "",
+            isDetached: false
         })
         tabIndex = root.tabsModel.count - 1
     }
@@ -494,53 +497,63 @@ function dockFileInCurrentWindow(root, fileUrl, fileName, content, zone) {
         if (zone === "left") {
             let oldPrimary = root.primaryTabIndex
             root.primaryTabIndex = tabIndex
-            root.secondaryTabIndex = (oldPrimary !== -1 && oldPrimary !== tabIndex) ? oldPrimary : getAnotherAvailableTab(root, tabIndex)
+            if (oldPrimary !== -1 && oldPrimary !== tabIndex) {
+                root.secondaryTabIndex = oldPrimary
+            } else {
+                root.secondaryTabIndex = findOtherTabIndex(root, tabIndex)
+            }
             root.activePane = 0
         } else {
             root.secondaryTabIndex = tabIndex
+            if (root.primaryTabIndex === tabIndex) {
+                root.primaryTabIndex = findOtherTabIndex(root, tabIndex)
+            }
             root.activePane = 1
         }
         syncEditorsFromModel(root)
+        setActivePane(root, root.activePane)
     } else {
-        switchToTab(root, tabIndex)
+        // "center"
+        let targetIdx = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
+        if (targetIdx >= 0 && targetIdx < root.tabsModel.count) {
+            root.tabsModel.setProperty(targetIdx, "title", fileName)
+            root.tabsModel.setProperty(targetIdx, "fileUrl", fileUrl)
+            root.tabsModel.setProperty(targetIdx, "content", content || "")
+            syncEditorsFromModel(root)
+            setActivePane(root, root.activePane)
+        } else {
+            switchToTab(root, tabIndex)
+        }
     }
 }
 
 // Приём внешнего документа из другого окна
 function dockExternalTab(root, fileUrl, fileName, content, zone) {
+    root.tabsModel.append({
+        title: fileName,
+        fileUrl: fileUrl,
+        content: content || "",
+        isDetached: false
+    })
+    let newIdx = root.tabsModel.count - 1
+
     if (zone === "left" || zone === "right") {
-        // Добавляем вкладку и открываем сплит
-        root.tabsModel.append({
-            title: fileName,
-            fileUrl: fileUrl,
-            content: content
-        })
-        let newIdx = root.tabsModel.count - 1
-
-        if (root.tabsModel.count <= 1) {
-            root.primaryTabIndex = 0
-            syncEditorsFromModel(root)
-            return
-        }
-
         root.isSplit = true
         if (zone === "left") {
             let oldPrimary = root.primaryTabIndex
             root.primaryTabIndex = newIdx
-            root.secondaryTabIndex = (oldPrimary !== -1) ? oldPrimary : 0
+            root.secondaryTabIndex = (oldPrimary !== -1 && oldPrimary !== newIdx) ? oldPrimary : findOtherTabIndex(root, newIdx)
             root.activePane = 0
         } else {
             root.secondaryTabIndex = newIdx
+            if (root.primaryTabIndex === newIdx) {
+                root.primaryTabIndex = findOtherTabIndex(root, newIdx)
+            }
             root.activePane = 1
         }
         syncEditorsFromModel(root)
+        setActivePane(root, root.activePane)
     } else {
-        // Открытие в текущей панели (центр)
-        root.tabsModel.append({
-            title: fileName,
-            fileUrl: fileUrl,
-            content: content
-        })
-        switchToTab(root, root.tabsModel.count - 1)
+        switchToTab(root, newIdx)
     }
 }

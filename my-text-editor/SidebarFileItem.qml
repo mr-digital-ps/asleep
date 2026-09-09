@@ -25,11 +25,27 @@ Rectangle {
     width: parent ? parent.width : 200
     height: barSize
 
-    color: isActive ? "#282828" : (isBackgroundOpen ? "#202020" : (fileHover.hovered ? "#242424" : "transparent"))
+    color: isActive ? "#262626" : (isBackgroundOpen ? "#1e1e1e" : (fileHover.hovered ? "#222222" : "transparent"))
     opacity: fileHover.isDraggingFile ? 0.45 : 1.0
 
     Behavior on color {
         ColorAnimation { duration: 120 }
+    }
+
+    // 0. Акцентный индикатор активного / фонового документа на левой кромке
+    Rectangle {
+        id: activeIndicator
+        anchors.left: parent.left
+        anchors.verticalCenter: parent.verticalCenter
+        width: fileItem.isActive ? 3 : (fileItem.isBackgroundOpen ? 2 : 0)
+        height: fileItem.isActive ? 20 : (fileItem.isBackgroundOpen ? 14 : 0)
+        radius: 1.5
+        color: fileItem.isActive ? "#ffffff" : "#666666"
+        visible: fileItem.isActive || fileItem.isBackgroundOpen
+
+        Behavior on width { NumberAnimation { duration: 120 } }
+        Behavior on height { NumberAnimation { duration: 120 } }
+        Behavior on color { ColorAnimation { duration: 120 } }
     }
 
     // Контекстное меню файла по ПКМ
@@ -95,7 +111,7 @@ Rectangle {
                 if (dist > 8) {
                     isDraggingFile = true
                     wasDragged = true
-                    fileItem.fileSelected(fileItem.fileUrl, fileItem.fileName)
+                    // НЕ ВЫЗЫВАЕМ fileSelected — файл перетаскивается, а не открывается!
                     fileItem.fileDragStarted(fileItem.fileUrl, fileItem.fileName, globalPoint.x, globalPoint.y)
                 }
             } else {
@@ -117,6 +133,7 @@ Rectangle {
         onClicked: (mouse) => {
             if (mouse.button === Qt.LeftButton) {
                 if (!wasDragged) {
+                    // Файл открывается / переключается ТОЛЬКО при чистом клике!
                     fileItem.fileSelected(fileItem.fileUrl, fileItem.fileName)
                 }
             } else if (mouse.button === Qt.RightButton) {
@@ -139,7 +156,7 @@ Rectangle {
         anchors.fill: parent
         spacing: 0
 
-        // Порядковый номер файла (вместо эмодзи)
+        // Порядковый номер файла
         Text {
             Layout.preferredWidth: fileItem.barSize
             Layout.fillHeight: true
@@ -160,7 +177,7 @@ Rectangle {
             Layout.fillHeight: true
             Layout.rightMargin: 12
             text: fileItem.fileName
-            color: fileItem.isActive ? "#ffffff" : (fileItem.isBackgroundOpen ? "#bbbbbb" : (fileHover.hovered ? "#dddddd" : "#777777"))
+            color: fileItem.isActive ? "#ffffff" : (fileItem.isBackgroundOpen ? "#aaaaaa" : (fileHover.hovered ? "#dddddd" : "#777777"))
             Behavior on color { ColorAnimation { duration: 120 } }
             font.bold: fileItem.isActive
             verticalAlignment: Text.AlignVCenter

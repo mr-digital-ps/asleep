@@ -2,8 +2,8 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-ScrollView {
-    id: filesScroll
+Item {
+    id: fileListContainer
 
     property var appWindow: null
     property var filesModel: null
@@ -25,69 +25,84 @@ ScrollView {
     signal fileDragEnded(string url, string name, real gx, real gy)
 
     clip: true
-    contentWidth: availableWidth
 
-    background: MouseArea {
-        anchors.fill: parent
-        acceptedButtons: Qt.LeftButton
-        onPressed: {
-            if (filesScroll.appWindow) filesScroll.appWindow.startSystemMove()
+    // 1. Скроллируемый список файлов
+    ScrollView {
+        id: filesScroll
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        height: Math.min(parent.height, filesListView.contentHeight)
+        clip: true
+        contentWidth: availableWidth
+        ScrollBar.vertical.policy: (filesListView.contentHeight > parent.height) ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
+        ListView {
+            id: filesListView
+            width: filesScroll.availableWidth
+            height: contentHeight
+            model: fileListContainer.filesModel
+            spacing: 1
+            boundsBehavior: Flickable.StopAtBounds
+
+            delegate: SidebarFileItem {
+                barSize: fileListContainer.barSize
+                expanded: fileListContainer.expanded
+                fileIndex: index
+                fileName: (typeof model !== "undefined" && model && model.name) ? model.name : ""
+                fileUrl: (typeof model !== "undefined" && model && model.fileUrl) ? model.fileUrl : ""
+
+                isActive: (fileUrl !== "" && fileListContainer.currentFileUrl !== "") ? (fileUrl === fileListContainer.currentFileUrl) : false
+
+                isBackgroundOpen: {
+                    if (!fileUrl) return false
+                    if (isActive) return false
+
+                    // Файл открыт во второй панели сплита
+                    if (fileListContainer.isSplit && fileListContainer.backgroundFileUrl && fileUrl === fileListContainer.backgroundFileUrl) {
+                        return true
+                    }
+
+                    // Файл открыт в другом окне приложения
+                    if (fileListContainer.externalWindowFiles && fileListContainer.externalWindowFiles.indexOf(fileUrl) !== -1) {
+                        return true
+                    }
+
+                    return false
+                }
+
+                onFileSelected: (url, name) => fileListContainer.fileSelected(url, name)
+                onFileRenameRequested: (url, newName) => fileListContainer.fileRenameRequested(url, newName)
+                onOpenInNewWindowRequested: (url, name) => fileListContainer.openInNewWindowRequested(url, name)
+                onFileDeleteRequested: (url) => fileListContainer.fileDeleteRequested(url)
+                onFileDragStarted: (url, name, gx, gy) => fileListContainer.fileDragStarted(url, name, gx, gy)
+                onFileDragMoved: (gx, gy) => fileListContainer.fileDragMoved(gx, gy)
+                onFileDragEnded: (url, name, gx, gy) => fileListContainer.fileDragEnded(url, name, gx, gy)
+            }
         }
-        onDoubleClicked: filesScroll.toggleMaximizeClicked()
     }
 
-    ListView {
-        id: filesListView
-        width: filesScroll.availableWidth
-        height: Math.max(filesScroll.availableHeight, contentHeight)
-        model: filesScroll.filesModel
-        spacing: 1
-        boundsBehavior: Flickable.StopAtBounds
+    // 2. Свободное пространство ниже списка файлов (перетаскивание и максимизация окна)
+    MouseArea {
+        id: emptySpaceArea
+        anchors.top: filesScroll.bottom
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        visible: filesScroll.height < fileListContainer.height
+        acceptedButtons: Qt.LeftButton
+        cursorShape: Qt.ArrowCursor
 
-        // Фоновое перемещение окна внутри ListView на свободном месте
-        MouseArea {
-            anchors.fill: parent
-            z: -1
-            acceptedButtons: Qt.LeftButton
-            onPressed: {
-                if (filesScroll.appWindow) filesScroll.appWindow.startSystemMove()
+        onPressed: (mouse) => {
+            if (mouse.button === Qt.LeftButton && fileListContainer.appWindow) {
+                fileListContainer.appWindow.startSystemMove()
             }
-            onDoubleClicked: filesScroll.toggleMaximizeClicked()
         }
-
-        delegate: SidebarFileItem {
-            barSize: filesScroll.barSize
-            expanded: filesScroll.expanded
-            fileIndex: index
-            fileName: (typeof model !== "undefined" && model && model.name) ? model.name : ""
-            fileUrl: (typeof model !== "undefined" && model && model.fileUrl) ? model.fileUrl : ""
-
-            isActive: (fileUrl !== "" && filesScroll.currentFileUrl !== "") ? (fileUrl === filesScroll.currentFileUrl) : false
-
-            isBackgroundOpen: {
-                if (!fileUrl) return false
-                if (isActive) return false
-
-                // 1. Файл открыт во второй панели сплита
-                if (filesScroll.isSplit && filesScroll.backgroundFileUrl && fileUrl === filesScroll.backgroundFileUrl) {
-                    return true
-                }
-
-                // 2. Файл открыт в другом окне приложения
-                if (filesScroll.externalWindowFiles && filesScroll.externalWindowFiles.indexOf(fileUrl) !== -1) {
-                    return true
-                }
-
-                return false
+        onDoubleClicked: (mouse) => {
+            if (mouse.button === Qt.LeftButton) {
+                fileListContainer.toggleMaximizeClicked()
             }
-
-            onFileSelected: (url, name) => filesScroll.fileSelected(url, name)
-            onFileRenameRequested: (url, newName) => filesScroll.fileRenameRequested(url, newName)
-            onOpenInNewWindowRequested: (url, name) => filesScroll.openInNewWindowRequested(url, name)
-            onFileDeleteRequested: (url) => filesScroll.fileDeleteRequested(url)
-            onFileDragStarted: (url, name, gx, gy) => filesScroll.fileDragStarted(url, name, gx, gy)
-            onFileDragMoved: (gx, gy) => filesScroll.fileDragMoved(gx, gy)
-            onFileDragEnded: (url, name, gx, gy) => filesScroll.fileDragEnded(url, name, gx, gy)
         }
     }
 }
