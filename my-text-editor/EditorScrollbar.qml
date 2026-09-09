@@ -37,41 +37,45 @@ Item {
         }
     }
 
-    // Минималистичный скроллбар-точка (5px шириной, строго по центру ячейки)
+    // Скроллбар документа
     ScrollBar {
         id: customVBar
         anchors.horizontalCenter: parent.horizontalCenter
         width: 14
         height: parent.height
-        size: (editorScroll && editorScroll.contentItem)
-            ? Math.min(1.0, editorScroll.availableHeight / Math.max(1, editorScroll.contentItem.contentHeight)) : 1.0
-        position: (editorScroll && editorScroll.contentItem)
-            ? Math.max(0.0, Math.min(1.0 - size, editorScroll.contentItem.contentY / Math.max(1, editorScroll.contentItem.contentHeight))) : 0.0
+        size: (editorScroll && editorScroll.contentItem && editorScroll.contentItem.contentHeight > 0)
+            ? Math.min(1.0, Math.max(0.04, editorScroll.availableHeight / editorScroll.contentItem.contentHeight)) : 1.0
+        position: (editorScroll && editorScroll.contentItem && editorScroll.contentItem.contentHeight > editorScroll.availableHeight)
+            ? Math.max(0.0, Math.min(1.0 - size, editorScroll.contentItem.contentY / editorScroll.contentItem.contentHeight)) : 0.0
         active: true
         orientation: Qt.Vertical
 
         onPositionChanged: {
             if (pressed && editorScroll && editorScroll.contentItem) {
                 let maxScroll = editorScroll.contentItem.contentHeight - editorScroll.availableHeight
-                if (maxScroll > 0) {
+                if (maxScroll > 0 && (1.0 - size) > 0) {
                     editorScroll.contentItem.contentY = (position / (1.0 - size)) * maxScroll
                 }
             }
         }
 
         contentItem: Rectangle {
-            implicitWidth: 5
-            implicitHeight: 24
-            radius: 2.5
-            color: customVBar.pressed ? "#ffffff" : (customVBar.hovered ? "#888888" : "#444444")
+            implicitWidth: customVBar.hovered || customVBar.pressed ? 8 : 6
+            implicitHeight: 32
+            radius: 4
+            color: customVBar.pressed ? "#ffffff" : (customVBar.hovered ? "#cccccc" : "#666666")
             anchors.horizontalCenter: parent.horizontalCenter
-            width: 5
 
-            Behavior on color {
-                ColorAnimation { duration: 120 }
-            }
+            Behavior on implicitWidth { NumberAnimation { duration: 100 } }
+            Behavior on color { ColorAnimation { duration: 120 } }
         }
 
-        background: null
+        background: Rectangle {
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: 4
+            height: parent.height
+            radius: 2
+            color: "#18ffffff"
+        }
     }
 }

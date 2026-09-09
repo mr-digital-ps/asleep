@@ -12,7 +12,7 @@ Item {
     property real customSheetWidth: 800 // Пользовательская ширина листа (настраивается курсором)
     property real minSheetWidth: 380    // Минимальная ширина листа
     // Дополнительное пространство внизу листа для скролла за последнюю строку
-    property real scrollBeyondSpace: (editorArea.lineCount > 1 || contentColumn.implicitHeight > editorScroll.availableHeight * 0.5)
+    property real scrollBeyondSpace: (editorArea && editorArea.lineCount > 1)
         ? Math.max(0, editorScroll.availableHeight - 60) : 0
     property bool isSplitMode: false
     property bool isActivePane: false
@@ -52,6 +52,7 @@ Item {
         anchors.fill: parent
         clip: true
         contentWidth: availableWidth
+        contentHeight: scrollContentContainer.height
         ScrollBar.vertical.policy: ScrollBar.AlwaysOff
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
@@ -91,9 +92,9 @@ Item {
         }
 
         Item {
+            id: scrollContentContainer
             width: editorScroll.availableWidth
-            height: Math.max(editorScroll.availableHeight, contentColumn.implicitHeight + mainBar.scrollBeyondSpace + 40)
-            implicitHeight: height
+            height: Math.max(mainBar.height, editorArea.contentHeight + 160 + mainBar.scrollBeyondSpace)
 
             // Поле для отображения страницы (на полную или среднюю/настраиваемую ширину)
             Rectangle {
@@ -101,7 +102,7 @@ Item {
                 visible: !mainBar.isEmpty
 
                 width: mainBar.isCenteredMode ? Math.min(parent.width, Math.max(mainBar.minSheetWidth, mainBar.customSheetWidth)) : parent.width
-                height: Math.max(parent.height, contentColumn.implicitHeight + mainBar.scrollBeyondSpace + 40)
+                height: parent.height
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
 
@@ -116,7 +117,9 @@ Item {
 
                 ColumnLayout {
                     id: contentColumn
-                    anchors.fill: parent
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.right: parent.right
                     spacing: 0
 
                     // 1. Верхняя панель заголовка листа (название документа)
@@ -197,13 +200,15 @@ Item {
                     // 3. Содержимое документа (левая полоса 36px + текст + правая полоса 36px)
                     RowLayout {
                         Layout.fillWidth: true
-                        Layout.fillHeight: true
+                        Layout.preferredHeight: Math.max(editorScroll.availableHeight - 100, editorArea.contentHeight + 28)
                         spacing: 0
 
                         // Левая полоса с точками строк и зоной перетаскивания (компонент EditorGutter)
                         EditorGutter {
                             barSize: 36
                             editorArea: editorArea
+                            Layout.preferredWidth: barSize
+                            Layout.fillHeight: true
                             onActivated: mainBar.paneActivated()
                         }
 
