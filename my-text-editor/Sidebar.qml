@@ -220,6 +220,20 @@ Rectangle {
         }
     }
 
+    // 1px правая разделительная рамка сайдбара с плавной микро-подсветкой
+    Rectangle {
+        width: 1
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.right: parent.right
+        color: sideBar.isDragging ? "#555555" : (dragArea.containsMouse ? "#3c3c3c" : "#242424")
+        z: 90
+
+        Behavior on color {
+            ColorAnimation { duration: 150 }
+        }
+    }
+
     // Зона изменения ширины сайдбара на правой границе
     MouseArea {
         id: dragArea

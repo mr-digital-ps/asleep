@@ -327,11 +327,11 @@ class Backend(QObject):
             if not clean_name:
                 return {"fileUrl": file_url, "fileName": path.name, "success": False}
 
-            # Сохраняем расширение, если пользователь не указал новое
-            if "." not in clean_name and path.suffix:
-                target_name = f"{clean_name}{path.suffix}"
-            else:
+            # Все файлы в приложении строго .md — гарантируем расширение .md на диске
+            if clean_name.lower().endswith(".md"):
                 target_name = clean_name
+            else:
+                target_name = f"{clean_name}.md"
 
             target_path = path.parent / target_name
             if target_path != path:

@@ -31,6 +31,11 @@ Item {
     signal paneActivated()
     signal detachRequested()
 
+    function stripExt(name) {
+        if (!name) return ""
+        return name.replace(/\.md$/i, "")
+    }
+
     function isCloseKey(event) {
         if (!(event.modifiers & Qt.ControlModifier)) return false
         // W key: Key_W, scan code 17, or Cyrillic 'ц'
@@ -171,13 +176,13 @@ Item {
                             Binding {
                                 target: titleField
                                 property: "text"
-                                value: mainBar.fileName
+                                value: mainBar.stripExt(mainBar.fileName)
                                 when: !titleField.activeFocus
                             }
 
                             function commitTitle() {
                                 titleDebounceTimer.stop()
-                                let clean = text.trim()
+                                let clean = mainBar.stripExt(text.trim())
                                 if (clean !== "" && clean !== originalText) {
                                     originalText = clean
                                     mainBar.titleChangedByUser(clean)

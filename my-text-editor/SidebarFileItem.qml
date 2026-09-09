@@ -14,6 +14,11 @@ Rectangle {
     property bool isBackgroundOpen: false
     property bool isEditing: false
 
+    function stripExt(name) {
+        if (!name) return ""
+        return name.replace(/\.md$/i, "")
+    }
+
     signal fileSelected(string url, string name)
     signal fileRenameRequested(string url, string newName)
     signal openInNewWindowRequested(string url, string name)
@@ -57,7 +62,7 @@ Rectangle {
                 if (fileItem.expanded) {
                     fileItem.isEditing = true
                     fileRenameInput.isCancelled = false
-                    fileRenameInput.text = fileItem.fileName
+                    fileRenameInput.text = fileItem.stripExt(fileItem.fileName)
                     fileRenameInput.forceActiveFocus()
                     fileRenameInput.selectAll()
                 }
@@ -145,7 +150,7 @@ Rectangle {
             if (mouse.button === Qt.LeftButton && fileItem.expanded && !wasDragged) {
                 fileItem.isEditing = true
                 fileRenameInput.isCancelled = false
-                fileRenameInput.text = fileItem.fileName
+                fileRenameInput.text = fileItem.stripExt(fileItem.fileName)
                 fileRenameInput.forceActiveFocus()
                 fileRenameInput.selectAll()
             }
@@ -176,7 +181,7 @@ Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.rightMargin: 12
-            text: fileItem.fileName
+            text: fileItem.stripExt(fileItem.fileName)
             color: fileItem.isActive ? "#ffffff" : (fileItem.isBackgroundOpen ? "#aaaaaa" : (fileHover.hovered ? "#dddddd" : "#777777"))
             Behavior on color { ColorAnimation { duration: 120 } }
             font.bold: fileItem.isActive
@@ -229,5 +234,5 @@ Rectangle {
     }
 
     ToolTip.visible: Boolean(fileHover && fileHover.hovered && !fileItem.expanded)
-    ToolTip.text: fileItem.fileName
+    ToolTip.text: fileItem.stripExt(fileItem.fileName)
 }
