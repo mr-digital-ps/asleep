@@ -33,6 +33,11 @@ ApplicationWindow {
         }
     }
 
+    // Рамка приложения и интерактивное изменение размера окна
+    WindowFrame {
+        id: windowFrame
+    }
+
     onClosing: {
         if (typeof backend !== "undefined" && backend && typeof backend.unregister_window === "function") {
             backend.unregister_window(root)
