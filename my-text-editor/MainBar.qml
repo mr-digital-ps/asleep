@@ -29,6 +29,15 @@ Item {
     signal paneActivated()
     signal detachRequested()
 
+    function isCloseKey(event) {
+        if (!(event.modifiers & Qt.ControlModifier)) return false
+        // W key: Key_W, scan code 17, or Cyrillic 'ц'
+        if (event.key === Qt.Key_W || event.nativeScanCode === 17 || event.text === 'w' || event.text === 'W' || event.text === 'ц' || event.text === 'Ц' || event.key === 1062 || event.key === 1030) return true
+        // Q key: Key_Q, scan code 16, or Cyrillic 'й'
+        if (event.key === Qt.Key_Q || event.nativeScanCode === 16 || event.text === 'q' || event.text === 'Q' || event.text === 'й' || event.text === 'Й' || event.key === 1081 || event.key === 1049) return true
+        return false
+    }
+
     // Перехват кликов по панели для мгновенной активации нужной половины сплита
     TapHandler {
         gesturePolicy: TapHandler.WithinBounds
@@ -147,13 +156,13 @@ Item {
                             }
 
                             Keys.onShortcutOverride: (event) => {
-                                if (event.key === Qt.Key_W && (event.modifiers & Qt.ControlModifier)) {
-                                    event.accepted = false
+                                if (mainBar.isCloseKey(event)) {
+                                    event.accepted = true
                                 }
                             }
 
                             Keys.onPressed: (event) => {
-                                if (event.key === Qt.Key_W && (event.modifiers & Qt.ControlModifier)) {
+                                if (mainBar.isCloseKey(event)) {
                                     mainBar.closeRequested()
                                     event.accepted = true
                                 }
@@ -223,13 +232,13 @@ Item {
                             }
 
                             Keys.onShortcutOverride: (event) => {
-                                if (event.key === Qt.Key_W && (event.modifiers & Qt.ControlModifier)) {
-                                    event.accepted = false
+                                if (mainBar.isCloseKey(event)) {
+                                    event.accepted = true
                                 }
                             }
 
                             Keys.onPressed: (event) => {
-                                if (event.key === Qt.Key_W && (event.modifiers & Qt.ControlModifier)) {
+                                if (mainBar.isCloseKey(event)) {
                                     mainBar.closeRequested()
                                     event.accepted = true
                                 }
