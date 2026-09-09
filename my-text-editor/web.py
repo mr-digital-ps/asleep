@@ -42,6 +42,70 @@ class Backend(QObject):
         super().__init__()
         self.folder_watcher = QFileSystemWatcher(self)
         self.folder_watcher.directoryChanged.connect(lambda _: self.folderFilesChanged.emit())
+        self._windows = []  # Список кортежей: (win, root_item)
+
+    @pyqtSlot(QObject, QObject)
+    def register_window(self, win: QObject, root_item: QObject):
+        """Регистрация открытого окна приложения в общем реестре окон"""
+        if not win:
+            return
+        # Проверяем, не зарегистрировано ли уже это окно
+        for w, r in self._windows:
+            if w == win:
+                return
+        self._windows.append((win, root_item))
+        print(f"[WindowManager] Окно зарегистрировано. Всего активных окон: {len(self._windows)}")
+
+    @pyqtSlot(QObject)
+    def unregister_window(self, win: QObject):
+        """Удаление закрытого окна из реестра"""
+        self._windows = [(w, r) for w, r in self._windows if w != win]
+        print(f"[WindowManager] Окно разрегистрировано. Осталось активных окон: {len(self._windows)}")
+
+    @pyqtSlot(float, float, QObject, result="QVariantMap")
+    def find_target_window_at(self, gx: float, gy: float, exclude_win: QObject = None) -> dict:
+        """
+        Проверяет, над каким окном приложения находится курсор (gx, gy).
+        Возвращает информацию о целевом окне и зону сброса (left, right, center).
+        """
+        for win, root in self._windows:
+            if win == exclude_win:
+                continue
+            if hasattr(win, "isVisible") and not win.isVisible():
+                continue
+            wx = win.x()
+            wy = win.y()
+            ww = win.width()
+            wh = win.height()
+            if wx <= gx <= wx + ww and wy <= gy <= wy + wh:
+                rel_x = (gx - wx) / max(1, ww)
+                if rel_x < 0.28:
+                    zone = "left"
+                elif rel_x > 0.72:
+                    zone = "right"
+                else:
+                    zone = "center"
+                return {
+                    "found": True,
+                    "targetWin": win,
+                    "targetRoot": root,
+                    "zone": zone,
+                }
+        return {"found": False, "zone": ""}
+
+    @pyqtSlot(QObject, str)
+    def set_window_drop_zone(self, win: QObject, zone: str):
+        """Устанавливает визуальную зону сброса на целевом окне"""
+        for w, root in self._windows:
+            if w == win and root:
+                root.setProperty("dropZone", zone)
+
+    @pyqtSlot()
+    def clear_all_drop_zones(self):
+        """Очищает подсветку зон сброса во всех открытых окнах"""
+        for _, root in self._windows:
+            if root:
+                root.setProperty("dropZone", "")
 
     def _to_path(self, file_url: str) -> Path:
         """Переводит QML URL 'file:///C:/doc.txt' в путь Windows 'C:/doc.txt'"""

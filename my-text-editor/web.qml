@@ -46,18 +46,10 @@ Rectangle {
     // МОДЕЛЬ ВКЛАДОК, ФАЙЛОВ ПАПКИ И ОТКРЕПЛЕННЫХ ОКОН
     // =========================================================================
     property int currentTabIndex: 0
-    property var detachedWindows: ({})
     property var externalWindowFiles: []
-
-    // Состояние интерактивного перетаскивания вкладки в отдельное окно
-    property var activeDraggingWindow: null
-    property int activeDraggingIndex: -1
-    property bool isNewlyCreatedForDrag: false
 
     property alias tabsModel: tabsModel
     property alias folderFilesModel: folderFilesModel
-    property alias detachedWinComponent: detachedWinComponent
-    property alias dragTrackerTimer: dragTrackerTimer
     property alias sideBar: sideBar
 
     ListModel {
@@ -132,29 +124,6 @@ Rectangle {
         }
     }
 
-    // Компонент плавающего окна для открепленного документа
-    Component {
-        id: detachedWinComponent
-        DetachedWindow {
-            onReattachRequested: (index, content, title) => Tabs.reattachTab(root, index, content, title, true)
-            onDropRequested: (index, gx, gy, content, title) => Tabs.handleDetachedWindowDrop(root, index, gx, gy, content, title)
-            onDragMoved: (index, gx, gy) => Tabs.handleWindowDragMoved(root, index, gx, gy)
-            onDragEnded: () => Tabs.handleWindowDragEnded(root)
-            onTextChanged: (index, content) => Tabs.updateDetachedContent(root, index, content)
-            onTitleChanged: (index, title) => Tabs.updateDetachedTitle(root, index, title)
-            onSpawnAppWindowRequested: (index, fUrl, fTitle, fContent, gx, gy, gw, gh) => Tabs.turnDetachedIntoAppWindow(root, index, fUrl, fTitle, fContent, gx, gy, gw, gh)
-        }
-    }
-
-    // Таймер отслеживания курсора во время перетаскивания (60 FPS)
-    Timer {
-        id: dragTrackerTimer
-        interval: 16
-        repeat: true
-        running: false
-        onTriggered: Tabs.pollCursorState(root, sideBar)
-    }
-
     // Делегированные методы управления вкладками и сплитом
     function createNewTab() { Tabs.createNewTab(root) }
     function switchToTab(index) { Tabs.switchToTab(root, index) }
@@ -165,9 +134,10 @@ Rectangle {
     function toggleSplit() { Tabs.toggleSplit(root) }
     function closeSplit() { Tabs.closeSplit(root) }
     function setActivePane(paneIndex) { Tabs.setActivePane(root, paneIndex) }
-    function handleTabDragStarted(index, gx, gy) { Tabs.handleDragStarted(root, index, gx, gy) }
-    function handleTabDragMoved(index, gx, gy) { Tabs.handleDragMoved(root, index, gx, gy, sideBar) }
-    function handleTabDragEnded(index, gx, gy) { Tabs.handleDragEnded(root, index, gx, gy) }
+    function openInNewWindow(fileUrl, fileName, wx, wy) { Tabs.openInNewWindow(root, fileUrl, fileName, wx, wy) }
+    function handleFileDragMoved(gx, gy) { Tabs.handleFileDragMoved(root, gx, gy) }
+    function handleFileDragEnded(fileUrl, fileName, gx, gy) { Tabs.handleFileDragEnded(root, fileUrl, fileName, gx, gy) }
+    function dockExternalTab(fileUrl, fileName, content, zone) { Tabs.dockExternalTab(root, fileUrl, fileName, content, zone) }
 
     // Переключение видимости боковой панели (сайдбара)
     function toggleSidebar() {
@@ -477,10 +447,7 @@ Rectangle {
             }
             onNewClicked: root.createNewTab()
             onFileSelected: (fUrl, fName) => root.openFileFromFolder(fUrl, fName)
-            onOpenInNewWindowRequested: (fUrl, fName) => {
-                let content = (typeof backend !== "undefined" && backend) ? backend.read_file(fUrl) : ""
-                root.spawnClonedAppWindow(fUrl, fName, content)
-            }
+            onOpenInNewWindowRequested: (fUrl, fName) => root.openInNewWindow(fUrl, fName)
             onFileDeleteRequested: (fUrl) => {
                 for (let i = tabsModel.count - 1; i >= 0; i--) {
                     if (tabsModel.get(i).fileUrl === fUrl) {
@@ -506,12 +473,8 @@ Rectangle {
                     }
                 }
             }
-            onTabSelected: (index) => root.switchToTab(index)
-            onTabClosed: (index) => root.closeTab(index)
-            onTabRenamed: (index, newTitle) => root.renameTab(index, newTitle)
-            onTabDragStarted: (index, gx, gy) => root.handleTabDragStarted(index, gx, gy)
-            onTabDragMoved: (index, gx, gy) => root.handleTabDragMoved(index, gx, gy)
-            onTabDragEnded: (index, gx, gy) => root.handleTabDragEnded(index, gx, gy)
+            onTabDragMoved: (gx, gy) => root.handleFileDragMoved(gx, gy)
+            onTabDragEnded: (fUrl, fName, gx, gy) => root.handleFileDragEnded(fUrl, fName, gx, gy)
 
             onOpenClicked: openDialog.open()
             onSaveClicked: Logic.saveFile(root, saveDialog, backend)

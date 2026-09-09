@@ -11,7 +11,7 @@ Item {
     property bool isCenteredMode: true // По умолчанию центрированный лист
     property real customSheetWidth: 800 // Пользовательская ширина листа (настраивается курсором)
     property real minSheetWidth: 380    // Минимальная ширина листа
-    // Дополнительное пространство внизу листа для скролла за последнюю строку (Scroll Beyond Last Line как в VS Code)
+    // Дополнительное пространство внизу листа для скролла за последнюю строку
     property real scrollBeyondSpace: (editorArea.lineCount > 1 || contentColumn.implicitHeight > editorScroll.availableHeight * 0.5)
         ? Math.max(0, editorScroll.availableHeight - 60) : 0
     property bool isSplitMode: false
@@ -36,7 +36,7 @@ Item {
     }
 
     // =========================================================================
-    // ХОЛСТ РЕДАКТОРА С УМНЫМИ ЗОНАМИ ПЕРЕМЕЩЕНИЯ ОКНА
+    // ХОЛСТ РЕДАКТОРА
     // =========================================================================
     ScrollView {
         id: editorScroll
@@ -91,7 +91,6 @@ Item {
                 id: paperSheet
                 visible: !mainBar.isEmpty
 
-                // Настраиваемая ширина по центру либо на полную ширину
                 width: mainBar.isCenteredMode ? Math.min(parent.width, Math.max(mainBar.minSheetWidth, mainBar.customSheetWidth)) : parent.width
                 height: Math.max(parent.height, contentColumn.implicitHeight + mainBar.scrollBeyondSpace + 40)
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -111,7 +110,7 @@ Item {
                     anchors.fill: parent
                     spacing: 0
 
-                    // Верхняя панель заголовка листа (название документа)
+                    // 1. Верхняя панель заголовка листа (название документа)
                     RowLayout {
                         Layout.fillWidth: true
                         Layout.fillHeight: false
@@ -172,7 +171,7 @@ Item {
                         }
                     }
 
-                    // Тонкая разделительная линия (опущена ниже, с отступами сверху и снизу)
+                    // 2. Тонкая разделительная линия
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.fillHeight: false
@@ -183,82 +182,23 @@ Item {
                         Layout.leftMargin: 36
                         Layout.rightMargin: 36
                         height: 1
-                        color: "#262626"
+                        color: "#282828"
                     }
 
-                    // Область редактора с левой и правой полосами захвата окна (Grip Margins)
+                    // 3. Содержимое документа (левая полоса 36px + текст + правая полоса 36px)
                     RowLayout {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         spacing: 0
 
-                        // Левая полоса перетаскивания и индикаторов строк (Grip & Gutter)
-                        Item {
-                            id: leftDragMargin
-                            Layout.preferredWidth: 36
-                            Layout.fillHeight: true
-
-                            MouseArea {
-                                anchors.fill: parent
-                                acceptedButtons: Qt.LeftButton
-                                cursorShape: Qt.ArrowCursor
-                                onPressed: {
-                                    mainBar.paneActivated()
-                                    Window.window.startSystemMove()
-                                }
-                                onDoubleClicked: {
-                                    if (Window.window.visibility === Window.Maximized) {
-                                        Window.window.showNormal()
-                                    } else {
-                                        Window.window.showMaximized()
-                                    }
-                                }
-                            }
-
-                            // Индикаторы колонок строк (точки строк наподобие Obsidian)
-                            Canvas {
-                                id: gutterCanvas
-                                anchors.fill: parent
-
-                                Component.onCompleted: requestPaint()
-
-                                Connections {
-                                    target: editorArea
-                                    function onTextChanged() { gutterCanvas.requestPaint() }
-                                    function onWidthChanged() { gutterCanvas.requestPaint() }
-                                    function onCursorPositionChanged() { gutterCanvas.requestPaint() }
-                                }
-
-                                onPaint: {
-                                    let ctx = getContext("2d")
-                                    ctx.clearRect(0, 0, width, height)
-                                    let txt = editorArea.text
-                                    if (txt === undefined || txt === null) return
-
-                                    let lines = txt.split("\n")
-                                    let pos = 0
-                                    let curPos = editorArea.cursorPosition
-                                    let centerX = width / 2
-
-                                    for (let i = 0; i < lines.length; i++) {
-                                        let lineLen = lines[i].length
-                                        let isCurrentLine = (curPos >= pos && curPos <= pos + lineLen)
-                                        let r = editorArea.positionToRectangle(pos)
-                                        let dotY = r.y + (r.height / 2)
-
-                                        ctx.beginPath()
-                                        let radius = isCurrentLine ? 3.2 : 2.4
-                                        ctx.arc(centerX, dotY, radius, 0, 2 * Math.PI)
-                                        ctx.fillStyle = isCurrentLine ? "#888888" : "#444444"
-                                        ctx.fill()
-
-                                        pos += lineLen + 1
-                                    }
-                                }
-                            }
+                        // Левая полоса с точками строк и зоной перетаскивания (компонент EditorGutter)
+                        EditorGutter {
+                            barSize: 36
+                            editorArea: editorArea
+                            onActivated: mainBar.paneActivated()
                         }
 
-                        // Основное текстовое поле (начинается строго по линии разделителя)
+                        // Основное текстовое поле
                         TextArea {
                             id: editorArea
                             Layout.fillWidth: true
@@ -274,7 +214,6 @@ Item {
                             selectByMouse: true
                             placeholderText: "Начните вводить текст..."
                             placeholderTextColor: "#666666"
-
                             background: null
 
                             onActiveFocusChanged: {
@@ -432,70 +371,12 @@ Item {
         }
     }
 
-    // Правая фиксированная полоса со скроллбаром-точкой (ширина 36px, скроллбар 5px по центру)
-    Item {
-        id: rightGripOverlay
-        width: 36
-        anchors.top: parent.top
-        anchors.topMargin: 16
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 16
-        x: Math.round(paperSheet.x + paperSheet.width - 36)
-        z: 10
-        visible: !mainBar.isEmpty && (editorScroll.contentItem.contentHeight > editorScroll.availableHeight)
-
-        // Зона перетаскивания окна по правой полосе
-        MouseArea {
-            anchors.fill: parent
-            acceptedButtons: Qt.LeftButton
-            cursorShape: Qt.ArrowCursor
-            onPressed: {
-                mainBar.paneActivated()
-                Window.window.startSystemMove()
-            }
-            onDoubleClicked: {
-                if (Window.window.visibility === Window.Maximized) {
-                    Window.window.showNormal()
-                } else {
-                    Window.window.showMaximized()
-                }
-            }
-        }
-
-        // Минималистичный скроллбар-точка (5px шириной, строго по центру ячейки)
-        ScrollBar {
-            id: customVBar
-            anchors.horizontalCenter: parent.horizontalCenter
-            width: 14
-            height: parent.height
-            size: Math.min(1.0, editorScroll.availableHeight / Math.max(1, editorScroll.contentItem.contentHeight))
-            position: Math.max(0.0, Math.min(1.0 - size, editorScroll.contentItem.contentY / Math.max(1, editorScroll.contentItem.contentHeight)))
-            active: true
-            orientation: Qt.Vertical
-
-            onPositionChanged: {
-                if (pressed) {
-                    let maxScroll = editorScroll.contentItem.contentHeight - editorScroll.availableHeight
-                    if (maxScroll > 0) {
-                        editorScroll.contentItem.contentY = (position / (1.0 - size)) * maxScroll
-                    }
-                }
-            }
-
-            contentItem: Rectangle {
-                implicitWidth: 5
-                radius: 2.5
-                color: customVBar.pressed ? "#888888" : (customVBar.hovered ? "#666666" : "#444444")
-                Behavior on color {
-                    ColorAnimation { duration: 150 }
-                }
-            }
-
-            background: Rectangle {
-                implicitWidth: 5
-                radius: 2.5
-                color: "transparent"
-            }
-        }
+    // 4. Правая фиксированная полоса со скроллбаром-точкой (компонент EditorScrollbar)
+    EditorScrollbar {
+        editorScroll: editorScroll
+        paperSheet: paperSheet
+        isEmpty: mainBar.isEmpty
+        barSize: 36
+        onActivated: mainBar.paneActivated()
     }
 }

@@ -3,7 +3,7 @@ import QtQuick.Controls
 
 ApplicationWindow {
     id: root
-    
+
     flags: Qt.FramelessWindowHint | Qt.Window
     visible: true
     width: 900
@@ -20,15 +20,22 @@ ApplicationWindow {
 
     Loader {
         id: hotLoader
-        // objectName нужен, чтобы Python мог найти этот компонент по имени
         objectName: "hotLoader"
         anchors.fill: parent
-        // Загружаем наш интерфейс
         source: "web.qml"
         onLoaded: {
             if (item && typeof item.applyInitialState === "function") {
                 item.applyInitialState()
             }
+            if (typeof backend !== "undefined" && backend && typeof backend.register_window === "function") {
+                backend.register_window(root, item)
+            }
+        }
+    }
+
+    onClosing: {
+        if (typeof backend !== "undefined" && backend && typeof backend.unregister_window === "function") {
+            backend.unregister_window(root)
         }
     }
 }
