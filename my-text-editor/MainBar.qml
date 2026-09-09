@@ -136,6 +136,7 @@ Item {
 
                         TextField {
                             id: titleField
+                            objectName: "titleField"
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             Layout.alignment: Qt.AlignVCenter
@@ -151,10 +152,27 @@ Item {
 
                             property string originalText: ""
 
+                            Binding {
+                                target: titleField
+                                property: "text"
+                                value: mainBar.fileName
+                                when: !titleField.activeFocus
+                            }
+
+                            function commitTitle() {
+                                let clean = text.trim()
+                                if (clean !== "" && clean !== originalText) {
+                                    originalText = clean
+                                    mainBar.titleChangedByUser(clean)
+                                }
+                            }
+
                             onActiveFocusChanged: {
                                 if (activeFocus) {
                                     originalText = text
                                     mainBar.paneActivated()
+                                } else {
+                                    commitTitle()
                                 }
                             }
 
@@ -171,14 +189,30 @@ Item {
                                 }
                             }
 
-                            Keys.onEscapePressed: {
-                                text = originalText
-                                mainBar.titleChangedByUser(originalText)
-                                focus = false
+                            Keys.onReturnPressed: (event) => {
+                                commitTitle()
+                                editorArea.forceActiveFocus()
+                                editorArea.cursorPosition = 0
+                                event.accepted = true
                             }
 
-                            onTextEdited: {
-                                mainBar.titleChangedByUser(text)
+                            Keys.onEnterPressed: (event) => {
+                                commitTitle()
+                                editorArea.forceActiveFocus()
+                                editorArea.cursorPosition = 0
+                                event.accepted = true
+                            }
+
+                            Keys.onDownPressed: (event) => {
+                                commitTitle()
+                                editorArea.forceActiveFocus()
+                                editorArea.cursorPosition = 0
+                                event.accepted = true
+                            }
+
+                            Keys.onEscapePressed: {
+                                text = originalText
+                                focus = false
                             }
                         }
                     }
@@ -246,6 +280,18 @@ Item {
                                 if (mainBar.isCloseKey(event)) {
                                     mainBar.closeRequested()
                                     event.accepted = true
+                                }
+                            }
+
+                            Keys.onUpPressed: (event) => {
+                                let firstLineEnd = text.indexOf("\n")
+                                let isFirstLine = (firstLineEnd === -1) ? true : (cursorPosition <= firstLineEnd)
+                                if (cursorPosition === 0 || isFirstLine) {
+                                    titleField.forceActiveFocus()
+                                    titleField.selectAll()
+                                    event.accepted = true
+                                } else {
+                                    event.accepted = false
                                 }
                             }
 
