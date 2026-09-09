@@ -6,6 +6,7 @@ Rectangle {
     id: sideBar
 
     // Свойства сайдбара
+    property var appWindow: null
     property int barSize: 36
     property real currentWidth: 180
     property bool isSidebarVisible: true
@@ -109,7 +110,9 @@ Rectangle {
         anchors.fill: parent
         z: 0
         acceptedButtons: Qt.LeftButton
-        onPressed: Window.window.startSystemMove()
+        onPressed: {
+            if (sideBar.appWindow) sideBar.appWindow.startSystemMove()
+        }
         onDoubleClicked: sideBar.toggleMaximizeClicked()
     }
 
@@ -121,6 +124,7 @@ Rectangle {
 
         // 0. Шапка рабочей папки
         SidebarHeader {
+            appWindow: sideBar.appWindow
             barSize: sideBar.barSize
             expanded: sideBar.expanded
             currentFolderUrl: sideBar.currentFolderUrl
@@ -139,6 +143,7 @@ Rectangle {
         // 2. Список файлов папки
         SidebarFileList {
             id: fileListComp
+            appWindow: sideBar.appWindow
             Layout.fillWidth: true
             Layout.fillHeight: true
             filesModel: sideBar.filesModel

@@ -198,6 +198,9 @@ function renameTab(root, index, newTitle) {
 
 function setActivePane(root, paneIndex) {
     root.activePane = paneIndex
+    if (root.splitLayout) {
+        root.splitLayout.activePane = paneIndex
+    }
     let targetIndex = (paneIndex === 1) ? root.secondaryTabIndex : root.primaryTabIndex
     root.currentTabIndex = targetIndex
     if (targetIndex >= 0 && targetIndex < root.tabsModel.count) {
@@ -308,7 +311,7 @@ function pollCursorState(root, sideBar) {
 }
 
 function handleFileDragMoved(root, gx, gy) {
-    let appWin = root.Window.window
+    let appWin = root.appWindow || root.Window.window
     if (!appWin) return
 
     let sideW = root.sideBar ? (root.sideBar.isSidebarVisible ? root.sideBar.currentWidth : 0) : 180
@@ -355,6 +358,41 @@ function handleFileDragMoved(root, gx, gy) {
     if (typeof backend !== "undefined" && backend && typeof backend.clear_all_drop_zones === "function") {
         backend.clear_all_drop_zones()
     }
+
+    // Пользователь вытащил файл за пределы текущего приложения на рабочий стол!
+    // Мгновенно создаем новое окно приложения прямо под курсором!
+    if (root.draggingFileUrl) {
+        let fUrl = root.draggingFileUrl
+        let fName = root.draggingFileName
+        root.draggingFileUrl = ""
+        root.draggingFileName = ""
+        if (root.dragTrackerTimer) root.dragTrackerTimer.running = false
+
+        let content = ""
+        let srcIndex = -1
+        for (let i = 0; i < root.tabsModel.count; i++) {
+            let t = root.tabsModel.get(i)
+            if (t.fileUrl === fUrl) {
+                srcIndex = i
+                if (i === root.primaryTabIndex && root.splitLayout && root.splitLayout.primaryBar) {
+                    content = root.splitLayout.primaryBar.text
+                } else if (i === root.secondaryTabIndex && root.splitLayout && root.splitLayout.secondaryBar) {
+                    content = root.splitLayout.secondaryBar.text
+                } else {
+                    content = t.content || ""
+                }
+                break
+            }
+        }
+        if (!content && fUrl && typeof backend !== "undefined" && backend) {
+            content = backend.read_file(fUrl)
+        }
+
+        root.spawnClonedAppWindow(fUrl, fName, content, Math.round(gx - 400), Math.round(gy - 30), 850, 600)
+        if (srcIndex !== -1) {
+            closeTab(root, srcIndex)
+        }
+    }
 }
 
 function handleFileDragEnded(root, fileUrl, fileName, gx, gy) {
@@ -375,7 +413,7 @@ function handleFileDragEnded(root, fileUrl, fileName, gx, gy) {
     let savedZone = root.dropZone
     root.dropZone = ""
 
-    let appWin = root.Window.window
+    let appWin = root.appWindow || root.Window.window
     let sideW = root.sideBar ? (root.sideBar.isSidebarVisible ? root.sideBar.currentWidth : 0) : 180
     let isInsideCurrentWin = appWin && (gx >= appWin.x && gx <= (appWin.x + appWin.width) &&
                                          gy >= appWin.y && gy <= (appWin.y + appWin.height))

@@ -24,8 +24,11 @@ ApplicationWindow {
         anchors.fill: parent
         source: "web.qml"
         onLoaded: {
-            if (item && typeof item.applyInitialState === "function") {
-                item.applyInitialState()
+            if (item) {
+                item.appWindow = root
+                if (typeof item.applyInitialState === "function") {
+                    item.applyInitialState()
+                }
             }
             if (typeof backend !== "undefined" && backend && typeof backend.register_window === "function") {
                 backend.register_window(root, item)

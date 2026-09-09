@@ -5,6 +5,7 @@ import QtQuick.Layouts
 Button {
     id: folderBtn
 
+    property var appWindow: null
     property int barSize: 36
     property bool expanded: true
     property string currentFolderUrl: ""

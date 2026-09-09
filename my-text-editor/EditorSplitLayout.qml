@@ -58,10 +58,7 @@ Item {
             onTitleChangedByUser: (newTitle) => splitLayout.primaryTitleChanged(newTitle)
             onDetachRequested: splitLayout.primaryDetachRequested()
             onCloseRequested: splitLayout.primaryCloseRequested()
-            onPaneActivated: {
-                splitLayout.activePane = 0
-                splitLayout.paneActivated(0)
-            }
+            onPaneActivated: splitLayout.paneActivated(0)
         }
 
         // Вертикальный разделитель (виден только при включенном сплите)
@@ -128,10 +125,7 @@ Item {
             onTitleChangedByUser: (newTitle) => splitLayout.secondaryTitleChanged(newTitle)
             onDetachRequested: splitLayout.secondaryDetachRequested()
             onCloseRequested: splitLayout.secondaryCloseRequested()
-            onPaneActivated: {
-                splitLayout.activePane = 1
-                splitLayout.paneActivated(1)
-            }
+            onPaneActivated: splitLayout.paneActivated(1)
         }
 
         Connections {

@@ -5,6 +5,7 @@ import QtQuick.Layouts
 ScrollView {
     id: filesScroll
 
+    property var appWindow: null
     property var filesModel: null
     property int barSize: 36
     property bool expanded: true
@@ -29,7 +30,9 @@ ScrollView {
     background: MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton
-        onPressed: Window.window.startSystemMove()
+        onPressed: {
+            if (filesScroll.appWindow) filesScroll.appWindow.startSystemMove()
+        }
         onDoubleClicked: filesScroll.toggleMaximizeClicked()
     }
 
@@ -46,7 +49,9 @@ ScrollView {
             anchors.fill: parent
             z: -1
             acceptedButtons: Qt.LeftButton
-            onPressed: Window.window.startSystemMove()
+            onPressed: {
+                if (filesScroll.appWindow) filesScroll.appWindow.startSystemMove()
+            }
             onDoubleClicked: filesScroll.toggleMaximizeClicked()
         }
 

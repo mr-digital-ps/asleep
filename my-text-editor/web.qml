@@ -10,6 +10,9 @@ Rectangle {
     anchors.fill: parent
     color: "#141414"
 
+    // Ссылка на родительское ApplicationWindow
+    property var appWindow: null
+
     // Переменные текущего активного файла
     property string currentFileUrl: ""
     property string currentFileName: "Новый документ"
@@ -415,6 +418,7 @@ Rectangle {
         // 1. Сайдбар со списком файлов папки и кнопкой настроек внизу
         Sidebar {
             id: sideBar
+            appWindow: root.appWindow
             barSize: root.barSize
             isSidebarVisible: root.isSidebarVisible
             tabsModel: tabsModel
@@ -495,8 +499,8 @@ Rectangle {
 
             onOpenClicked: openDialog.open()
             onSaveClicked: Logic.saveFile(root, saveDialog, backend)
-            onCloseClicked: Window.window.close()
-            onToggleMaximizeClicked: Logic.toggleMaximize(Window.window)
+            onCloseClicked: (root.appWindow || Window.window).close()
+            onToggleMaximizeClicked: Logic.toggleMaximize(root.appWindow || Window.window)
         }
 
         // 2. Главная область: Холст с поддержкой разделения экрана (Split View)
