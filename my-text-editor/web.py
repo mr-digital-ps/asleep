@@ -356,11 +356,10 @@ class Backend(QObject):
         """Возвращает глобальные экранные координаты курсора и статус зажатия ЛКМ"""
         try:
             import ctypes
-            from ctypes import wintypes
-            pt = wintypes.POINT()
-            ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
+            from PyQt6.QtGui import QCursor
+            pos = QCursor.pos()
             is_lmb = bool(ctypes.windll.user32.GetAsyncKeyState(0x01) & 0x8000)
-            return {"x": int(pt.x), "y": int(pt.y), "leftPressed": is_lmb}
+            return {"x": int(pos.x()), "y": int(pos.y()), "leftPressed": is_lmb}
         except Exception:
             return {"x": 0, "y": 0, "leftPressed": False}
 

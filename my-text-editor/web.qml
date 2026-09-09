@@ -50,6 +50,7 @@ Rectangle {
     // =========================================================================
     property int currentTabIndex: 0
     property var externalWindowFiles: []
+    property bool isFileDragging: false
     property string draggingFileUrl: ""
     property string draggingFileName: ""
     property var draggedNewWin: null
@@ -543,6 +544,7 @@ Rectangle {
                 }
             }
             onTabDragStarted: (url, name, gx, gy) => {
+                root.isFileDragging = true
                 root.draggingFileUrl = url
                 root.draggingFileName = name
                 dragTrackerTimer.running = true

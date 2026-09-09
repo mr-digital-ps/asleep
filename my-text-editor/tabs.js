@@ -357,16 +357,29 @@ function handleFileDragMoved(root, gx, gy) {
 
         let localX = gx - appWin.x
         if (localX > sideW) {
-            // Курсор над редактором (справа от сайдбара)
             let editorW = appWin.width - sideW
-            let rel = (localX - sideW) / Math.max(1, editorW)
+            let xInEditor = localX - sideW
 
-            if (rel < 0.33) {
-                root.dropZone = "left"
-            } else if (rel > 0.67) {
-                root.dropZone = "right"
+            if (root.isSplit) {
+                // В режиме сплита: курсор над левой половиной = "left", над правой = "right"
+                let splitRatio = (root.splitLayout && typeof root.splitLayout.splitRatio === "number") ? root.splitLayout.splitRatio : 0.5
+                let splitBorderX = editorW * splitRatio
+
+                if (xInEditor < splitBorderX) {
+                    root.dropZone = "left"
+                } else {
+                    root.dropZone = "right"
+                }
             } else {
-                root.dropZone = "center"
+                // В одиночном режиме: левая треть (сплит слева), правая треть (сплит справа), центр (замена)
+                let rel = xInEditor / Math.max(1, editorW)
+                if (rel < 0.28) {
+                    root.dropZone = "left"
+                } else if (rel > 0.72) {
+                    root.dropZone = "right"
+                } else {
+                    root.dropZone = "center"
+                }
             }
         } else {
             root.dropZone = ""
@@ -420,6 +433,11 @@ function handleFileDragMoved(root, gx, gy) {
 }
 
 function handleFileDragEnded(root, fileUrl, fileName, gx, gy) {
+    if (!root.isFileDragging && !root.draggingFileUrl) {
+        return
+    }
+    root.isFileDragging = false
+
     if (root.dragTrackerTimer) {
         root.dragTrackerTimer.running = false
     }
@@ -441,7 +459,6 @@ function handleFileDragEnded(root, fileUrl, fileName, gx, gy) {
         return
     }
 
-    let savedZone = root.dropZone
     root.dropZone = ""
 
     let appWin = root.appWindow || root.Window.window
@@ -456,7 +473,18 @@ function handleFileDragEnded(root, fileUrl, fileName, gx, gy) {
     if (isInsideCurrentWin) {
         let localX = gx - appWin.x
         if (localX > sideW) {
-            dockFileInCurrentWindow(root, fileUrl, fileName, content, savedZone || "right")
+            let editorW = appWin.width - sideW
+            let xInEditor = localX - sideW
+            let dropZone = ""
+            if (root.isSplit) {
+                let splitRatio = (root.splitLayout && typeof root.splitLayout.splitRatio === "number") ? root.splitLayout.splitRatio : 0.5
+                let splitBorderX = editorW * splitRatio
+                dropZone = (xInEditor < splitBorderX) ? "left" : "right"
+            } else {
+                let rel = xInEditor / Math.max(1, editorW)
+                dropZone = (rel < 0.28) ? "left" : ((rel > 0.72) ? "right" : "center")
+            }
+            dockFileInCurrentWindow(root, fileUrl, fileName, content, dropZone)
         }
         return
     }
@@ -483,6 +511,25 @@ function handleFileDragEnded(root, fileUrl, fileName, gx, gy) {
 // Встраивание файла в сплит-экран текущего окна
 function dockFileInCurrentWindow(root, fileUrl, fileName, content, zone) {
     if (!fileUrl && !fileName) return
+
+    if (root.isSplit) {
+        // В сплите допустимы только левая или правая панель
+        let targetZone = (zone === "left" || (zone !== "right" && root.activePane === 0)) ? "left" : "right"
+        if (targetZone === "left") {
+            root.tabsModel.setProperty(root.primaryTabIndex, "title", fileName)
+            root.tabsModel.setProperty(root.primaryTabIndex, "fileUrl", fileUrl)
+            root.tabsModel.setProperty(root.primaryTabIndex, "content", content || "")
+            root.activePane = 0
+        } else {
+            root.tabsModel.setProperty(root.secondaryTabIndex, "title", fileName)
+            root.tabsModel.setProperty(root.secondaryTabIndex, "fileUrl", fileUrl)
+            root.tabsModel.setProperty(root.secondaryTabIndex, "content", content || "")
+            root.activePane = 1
+        }
+        syncEditorsFromModel(root)
+        setActivePane(root, root.activePane)
+        return
+    }
 
     if (zone === "left" || zone === "right") {
         if (root.tabsModel.count === 0 || root.primaryTabIndex < 0) {
@@ -523,24 +570,8 @@ function dockFileInCurrentWindow(root, fileUrl, fileName, content, zone) {
             setActivePane(root, root.activePane)
             return
         }
-
-        // Уже режим сплита: обновляем соответствующую половину
-        root.isSplit = true
-        if (zone === "left") {
-            root.tabsModel.setProperty(root.primaryTabIndex, "title", fileName)
-            root.tabsModel.setProperty(root.primaryTabIndex, "fileUrl", fileUrl)
-            root.tabsModel.setProperty(root.primaryTabIndex, "content", content || "")
-            root.activePane = 0
-        } else {
-            root.tabsModel.setProperty(root.secondaryTabIndex, "title", fileName)
-            root.tabsModel.setProperty(root.secondaryTabIndex, "fileUrl", fileUrl)
-            root.tabsModel.setProperty(root.secondaryTabIndex, "content", content || "")
-            root.activePane = 1
-        }
-        syncEditorsFromModel(root)
-        setActivePane(root, root.activePane)
     } else {
-        // "center"
+        // "center" в одиночном режиме (заменяет открытый документ)
         if (root.tabsModel.count === 0 || root.primaryTabIndex < 0) {
             root.tabsModel.clear()
             root.tabsModel.append({
@@ -557,7 +588,7 @@ function dockFileInCurrentWindow(root, fileUrl, fileName, content, zone) {
             setActivePane(root, 0)
             return
         }
-        let activeIdx = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
+        let activeIdx = root.primaryTabIndex
         if (activeIdx >= 0 && activeIdx < root.tabsModel.count) {
             root.tabsModel.setProperty(activeIdx, "title", fileName)
             root.tabsModel.setProperty(activeIdx, "fileUrl", fileUrl)

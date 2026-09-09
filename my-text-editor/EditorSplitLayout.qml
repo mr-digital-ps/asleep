@@ -174,9 +174,19 @@ Item {
             readonly property bool isRight: splitLayout.dropZone === "right"
             readonly property bool isCenter: splitLayout.dropZone === "center"
 
-            x: isLeft ? 8 : (isRight ? Math.round(parent.width * 0.5 + 4) : 8)
+            x: {
+                if (splitLayout.isSplit) {
+                    return isLeft ? 8 : (splitterDivider.x + splitterDivider.width + 8)
+                }
+                return isLeft ? 8 : (isRight ? Math.round(parent.width * 0.5 + 4) : 8)
+            }
             y: 8
-            width: isCenter ? (parent.width - 16) : Math.max(40, Math.round(parent.width * 0.5 - 12))
+            width: {
+                if (splitLayout.isSplit) {
+                    return isLeft ? Math.max(40, primaryBar.width - 16) : Math.max(40, secondaryBar.width - 16)
+                }
+                return isCenter ? (parent.width - 16) : Math.max(40, Math.round(parent.width * 0.5 - 12))
+            }
             height: Math.max(40, parent.height - 16)
 
             Behavior on x { NumberAnimation { duration: 120 } }
@@ -192,9 +202,14 @@ Item {
                 spacing: 8
 
                 Text {
-                    text: previewBox.isLeft ? "◧ Разместить слева" : (previewBox.isRight ? "◨ Разместить справа" : "🗖 Заменить в редакторе")
+                    text: {
+                        if (splitLayout.isSplit) {
+                            return previewBox.isLeft ? "◧ Заменить в левой панели" : "◨ Заменить в правой панели"
+                        }
+                        return previewBox.isLeft ? "◧ Разместить слева" : (previewBox.isRight ? "◨ Разместить справа" : "🗖 Заменить в редакторе")
+                    }
                     color: "#ffffff"
-                    font.pixelSize: 13
+                    font.pixelSize: 14
                     font.bold: true
                 }
             }
