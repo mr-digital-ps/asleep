@@ -164,74 +164,77 @@ function createNewTab(root) {
         }
     }
 
-    root.tabsModel.append({
-        title: initialTitle,
-        fileUrl: initialUrl,
-        content: "",
-        isDetached: false
-    })
-    switchToTab(root, root.tabsModel.count - 1)
+    if (root.tabsModel.count === 0 || root.primaryTabIndex < 0) {
+        root.tabsModel.clear()
+        root.tabsModel.append({
+            title: initialTitle,
+            fileUrl: initialUrl,
+            content: "",
+            isDetached: false
+        })
+        root.primaryTabIndex = 0
+        root.secondaryTabIndex = -1
+        root.isSplit = false
+        root.activePane = 0
+    } else {
+        let activeIdx = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
+        if (activeIdx >= 0 && activeIdx < root.tabsModel.count) {
+            root.tabsModel.setProperty(activeIdx, "title", initialTitle)
+            root.tabsModel.setProperty(activeIdx, "fileUrl", initialUrl)
+            root.tabsModel.setProperty(activeIdx, "content", "")
+        }
+    }
+    syncEditorsFromModel(root)
+    setActivePane(root, root.activePane)
 }
 
 function closeTab(root, index) {
-    if (index < 0 || index >= root.tabsModel.count) return
+    if (root.tabsModel.count === 0) return
 
-    // Если закрывается вкладка в режиме сплита
+    // 1. Если закрывается вкладка в режиме сплита:
     if (root.isSplit) {
-        if (index === root.secondaryTabIndex) {
+        if (index === root.secondaryTabIndex || root.activePane === 1) {
+            // Закрываем правую/вторичную панель: возвращаемся к одиночной левой
+            if (root.secondaryTabIndex >= 0 && root.secondaryTabIndex < root.tabsModel.count) {
+                root.tabsModel.remove(root.secondaryTabIndex)
+            }
+            root.secondaryTabIndex = -1
+            root.isSplit = false
+            root.primaryTabIndex = 0
+            root.activePane = 0
+            syncEditorsFromModel(root)
+            setActivePane(root, 0)
+            return
+        } else {
+            // Закрываем левую/основную панель: вторичная панель становится основной
+            if (root.primaryTabIndex >= 0 && root.primaryTabIndex < root.tabsModel.count) {
+                root.tabsModel.remove(root.primaryTabIndex)
+            }
+            root.primaryTabIndex = 0
             root.secondaryTabIndex = -1
             root.isSplit = false
             root.activePane = 0
-        } else if (index === root.primaryTabIndex) {
-            root.primaryTabIndex = root.secondaryTabIndex
-            root.secondaryTabIndex = -1
-            root.isSplit = false
-            root.activePane = 0
+            syncEditorsFromModel(root)
+            setActivePane(root, 0)
+            return
         }
     }
 
-    root.tabsModel.remove(index)
-
-    // Все вкладки закрыты — оставляем Main полностью пустым!
-    if (root.tabsModel.count === 0) {
-        root.primaryTabIndex = -1
-        root.secondaryTabIndex = -1
-        root.currentTabIndex = -1
-        root.primaryFileName = ""
-        root.secondaryFileName = ""
-        root.currentFileName = ""
-        root.currentFileUrl = ""
-        root.isSplit = false
-        root.activePane = 0
-        if (root.splitLayout) {
-            if (root.splitLayout.primaryBar) root.splitLayout.primaryBar.text = ""
-            if (root.splitLayout.secondaryBar) root.splitLayout.secondaryBar.text = ""
-        }
-        return
-    }
-
-    if (root.primaryTabIndex >= root.tabsModel.count) {
-        root.primaryTabIndex = root.tabsModel.count - 1
-    } else if (root.primaryTabIndex > index) {
-        root.primaryTabIndex--
-    }
-
-    if (root.secondaryTabIndex >= root.tabsModel.count) {
-        root.secondaryTabIndex = root.tabsModel.count - 1
-    } else if (root.secondaryTabIndex > index) {
-        root.secondaryTabIndex--
-    }
-
-    if (root.currentTabIndex >= root.tabsModel.count) {
-        root.currentTabIndex = root.tabsModel.count - 1
-    } else if (root.currentTabIndex > index) {
-        root.currentTabIndex--
-    }
-
-    if (root.primaryTabIndex >= 0) {
-        switchToTab(root, root.primaryTabIndex)
-    } else if (root.tabsModel.count > 0) {
-        switchToTab(root, 0)
+    // 2. Если режим не сплит (одиночный редактор):
+    // Закрываем текущий открытый документ и оставляем экран ПОЛНОСТЬЮ ПУСТЫМ (без «матрёшки»)!
+    root.tabsModel.clear()
+    root.primaryTabIndex = -1
+    root.secondaryTabIndex = -1
+    root.currentTabIndex = -1
+    root.primaryFileName = ""
+    root.secondaryFileName = ""
+    root.currentFileName = ""
+    root.currentFileUrl = ""
+    root.isSplit = false
+    root.activePane = 0
+    if (root.splitLayout) {
+        if (root.splitLayout.primaryBar) root.splitLayout.primaryBar.text = ""
+        if (root.splitLayout.secondaryBar) root.splitLayout.secondaryBar.text = ""
     }
 }
 
@@ -481,79 +484,91 @@ function handleFileDragEnded(root, fileUrl, fileName, gx, gy) {
 function dockFileInCurrentWindow(root, fileUrl, fileName, content, zone) {
     if (!fileUrl && !fileName) return
 
-    let tabIndex = findTabIndex(root, fileUrl)
-    if (tabIndex === -1) {
-        root.tabsModel.append({
-            title: fileName,
-            fileUrl: fileUrl,
-            content: content || "",
-            isDetached: false
-        })
-        tabIndex = root.tabsModel.count - 1
-    }
-
     if (zone === "left" || zone === "right") {
+        if (root.tabsModel.count === 0 || root.primaryTabIndex < 0) {
+            root.tabsModel.clear()
+            root.tabsModel.append({
+                title: fileName,
+                fileUrl: fileUrl,
+                content: content || "",
+                isDetached: false
+            })
+            root.primaryTabIndex = 0
+            root.secondaryTabIndex = -1
+            root.isSplit = false
+            root.activePane = 0
+            syncEditorsFromModel(root)
+            setActivePane(root, 0)
+            return
+        }
+
+        if (root.tabsModel.count === 1) {
+            root.tabsModel.append({
+                title: fileName,
+                fileUrl: fileUrl,
+                content: content || "",
+                isDetached: false
+            })
+            root.isSplit = true
+            if (zone === "left") {
+                root.primaryTabIndex = 1
+                root.secondaryTabIndex = 0
+                root.activePane = 0
+            } else {
+                root.primaryTabIndex = 0
+                root.secondaryTabIndex = 1
+                root.activePane = 1
+            }
+            syncEditorsFromModel(root)
+            setActivePane(root, root.activePane)
+            return
+        }
+
+        // Уже режим сплита: обновляем соответствующую половину
         root.isSplit = true
         if (zone === "left") {
-            let oldPrimary = root.primaryTabIndex
-            root.primaryTabIndex = tabIndex
-            if (oldPrimary !== -1 && oldPrimary !== tabIndex) {
-                root.secondaryTabIndex = oldPrimary
-            } else {
-                root.secondaryTabIndex = findOtherTabIndex(root, tabIndex)
-            }
+            root.tabsModel.setProperty(root.primaryTabIndex, "title", fileName)
+            root.tabsModel.setProperty(root.primaryTabIndex, "fileUrl", fileUrl)
+            root.tabsModel.setProperty(root.primaryTabIndex, "content", content || "")
             root.activePane = 0
         } else {
-            root.secondaryTabIndex = tabIndex
-            if (root.primaryTabIndex === tabIndex) {
-                root.primaryTabIndex = findOtherTabIndex(root, tabIndex)
-            }
+            root.tabsModel.setProperty(root.secondaryTabIndex, "title", fileName)
+            root.tabsModel.setProperty(root.secondaryTabIndex, "fileUrl", fileUrl)
+            root.tabsModel.setProperty(root.secondaryTabIndex, "content", content || "")
             root.activePane = 1
         }
         syncEditorsFromModel(root)
         setActivePane(root, root.activePane)
     } else {
         // "center"
-        let targetIdx = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
-        if (targetIdx >= 0 && targetIdx < root.tabsModel.count) {
-            root.tabsModel.setProperty(targetIdx, "title", fileName)
-            root.tabsModel.setProperty(targetIdx, "fileUrl", fileUrl)
-            root.tabsModel.setProperty(targetIdx, "content", content || "")
+        if (root.tabsModel.count === 0 || root.primaryTabIndex < 0) {
+            root.tabsModel.clear()
+            root.tabsModel.append({
+                title: fileName,
+                fileUrl: fileUrl,
+                content: content || "",
+                isDetached: false
+            })
+            root.primaryTabIndex = 0
+            root.secondaryTabIndex = -1
+            root.isSplit = false
+            root.activePane = 0
+            syncEditorsFromModel(root)
+            setActivePane(root, 0)
+            return
+        }
+        let activeIdx = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
+        if (activeIdx >= 0 && activeIdx < root.tabsModel.count) {
+            root.tabsModel.setProperty(activeIdx, "title", fileName)
+            root.tabsModel.setProperty(activeIdx, "fileUrl", fileUrl)
+            root.tabsModel.setProperty(activeIdx, "content", content || "")
             syncEditorsFromModel(root)
             setActivePane(root, root.activePane)
-        } else {
-            switchToTab(root, tabIndex)
         }
     }
 }
 
 // Приём внешнего документа из другого окна
 function dockExternalTab(root, fileUrl, fileName, content, zone) {
-    root.tabsModel.append({
-        title: fileName,
-        fileUrl: fileUrl,
-        content: content || "",
-        isDetached: false
-    })
-    let newIdx = root.tabsModel.count - 1
-
-    if (zone === "left" || zone === "right") {
-        root.isSplit = true
-        if (zone === "left") {
-            let oldPrimary = root.primaryTabIndex
-            root.primaryTabIndex = newIdx
-            root.secondaryTabIndex = (oldPrimary !== -1 && oldPrimary !== newIdx) ? oldPrimary : findOtherTabIndex(root, newIdx)
-            root.activePane = 0
-        } else {
-            root.secondaryTabIndex = newIdx
-            if (root.primaryTabIndex === newIdx) {
-                root.primaryTabIndex = findOtherTabIndex(root, newIdx)
-            }
-            root.activePane = 1
-        }
-        syncEditorsFromModel(root)
-        setActivePane(root, root.activePane)
-    } else {
-        switchToTab(root, newIdx)
-    }
+    dockFileInCurrentWindow(root, fileUrl, fileName, content, zone)
 }

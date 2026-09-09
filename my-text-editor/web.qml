@@ -100,43 +100,65 @@ Rectangle {
     }
 
     function openFileFromFolder(fileUrl, fileName) {
-        if (typeof backend === "undefined" || !backend) return
+        if (typeof backend === "undefined" || !backend || !fileUrl) return
 
-        // 1. Проверяем, есть ли уже этот файл среди открытых вкладок
-        for (let i = 0; i < tabsModel.count; i++) {
-            let tab = tabsModel.get(i)
-            if (tab.fileUrl === fileUrl) {
-                if (root.isSplit) {
-                    if (i === root.primaryTabIndex) {
-                        Tabs.setActivePane(root, 0)
-                        return
-                    } else if (i === root.secondaryTabIndex) {
-                        Tabs.setActivePane(root, 1)
-                        return
-                    }
+        // 1. Если файл уже открыт в одной из панелей — просто активируем её
+        if (root.tabsModel.count > 0) {
+            if (root.primaryTabIndex >= 0 && root.primaryTabIndex < root.tabsModel.count) {
+                let pTab = root.tabsModel.get(root.primaryTabIndex)
+                if (pTab && pTab.fileUrl === fileUrl) {
+                    Tabs.setActivePane(root, 0)
+                    return
                 }
-                root.switchToTab(i)
-                return
+            }
+            if (root.isSplit && root.secondaryTabIndex >= 0 && root.secondaryTabIndex < root.tabsModel.count) {
+                let sTab = root.tabsModel.get(root.secondaryTabIndex)
+                if (sTab && sTab.fileUrl === fileUrl) {
+                    Tabs.setActivePane(root, 1)
+                    return
+                }
             }
         }
 
-        let content = backend.read_file(fileUrl)
-        let targetIndex = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
-        let curTab = (targetIndex >= 0 && targetIndex < tabsModel.count) ? tabsModel.get(targetIndex) : null
+        // Сохраняем текущий текст перед открытием нового файла
+        Tabs.syncCurrentPaneText(root)
 
-        if (curTab && !curTab.isDetached && curTab.fileUrl === "" && root.editorArea && root.editorArea.text === "") {
-            tabsModel.setProperty(targetIndex, "title", fileName)
-            tabsModel.setProperty(targetIndex, "fileUrl", fileUrl)
-            tabsModel.setProperty(targetIndex, "content", content)
-            Tabs.syncEditorsFromModel(root)
-        } else {
-            tabsModel.append({
+        let content = backend.read_file(fileUrl)
+
+        // Если экран был пуст (все вкладки закрыты)
+        if (root.tabsModel.count === 0 || root.primaryTabIndex < 0) {
+            root.tabsModel.clear()
+            root.tabsModel.append({
                 title: fileName,
                 fileUrl: fileUrl,
                 content: content,
                 isDetached: false
             })
-            root.switchToTab(tabsModel.count - 1)
+            root.primaryTabIndex = 0
+            root.secondaryTabIndex = -1
+            root.isSplit = false
+            root.activePane = 0
+            Tabs.syncEditorsFromModel(root)
+            Tabs.setActivePane(root, 0)
+            return
+        }
+
+        // Прямое открытие в текущей активной панели без накопления скрытых вкладок
+        let activeIdx = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
+        if (activeIdx >= 0 && activeIdx < root.tabsModel.count) {
+            root.tabsModel.setProperty(activeIdx, "title", fileName)
+            root.tabsModel.setProperty(activeIdx, "fileUrl", fileUrl)
+            root.tabsModel.setProperty(activeIdx, "content", content)
+            Tabs.syncEditorsFromModel(root)
+            Tabs.setActivePane(root, root.activePane)
+        } else {
+            root.tabsModel.append({
+                title: fileName,
+                fileUrl: fileUrl,
+                content: content,
+                isDetached: false
+            })
+            Tabs.switchToTab(root, root.tabsModel.count - 1)
         }
     }
 
