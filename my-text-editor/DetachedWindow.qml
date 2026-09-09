@@ -21,6 +21,7 @@ Window {
     signal textChanged(int index, string content)
     signal titleChanged(int index, string title)
     signal windowClosed(int index, string content, string title)
+    signal spawnAppWindowRequested(int index, string fileUrl, string title, string content, real gx, real gy, real gw, real gh)
 
     title: (fileName === "" ? "Без названия" : fileName) + " — Редактор"
     width: 750
@@ -144,6 +145,42 @@ Window {
 
                 // Пружина
                 Item { Layout.fillWidth: true }
+
+                // Кнопка: Открыть как полноценное окно приложения (⧉)
+                Button {
+                    id: expandToAppBtn
+                    implicitWidth: 32
+                    implicitHeight: 28
+                    hoverEnabled: true
+                    ToolTip.visible: hovered
+                    ToolTip.text: "Открыть как полноценное окно приложения"
+
+                    background: Rectangle {
+                        radius: 3
+                        color: expandToAppBtn.down ? "#333333" : (expandToAppBtn.hovered ? "#2a2a2a" : "transparent")
+                    }
+
+                    contentItem: Text {
+                        text: "⧉"
+                        color: expandToAppBtn.hovered ? "#ffffff" : "#aaaaaa"
+                        font.pixelSize: 13
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    onClicked: {
+                        detachedWin.spawnAppWindowRequested(
+                            detachedWin.tabIndex,
+                            detachedWin.fileUrl,
+                            detachedWin.fileName,
+                            mainBar.text,
+                            detachedWin.x,
+                            detachedWin.y,
+                            detachedWin.width,
+                            detachedWin.height
+                        )
+                    }
+                }
 
                 // Кнопка: Встроить назад в главное окно (↙)
                 Button {

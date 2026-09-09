@@ -27,6 +27,8 @@ Item {
     signal secondaryTitleChanged(string newTitle)
     signal primaryTextChanged(string newText)
     signal secondaryTextChanged(string newText)
+    signal primaryDetachRequested()
+    signal secondaryDetachRequested()
     signal closeSplitRequested()
     signal paneActivated(int paneIndex)
 
@@ -50,6 +52,7 @@ Item {
             width: splitLayout.isSplit ? Math.round((parent.width - splitterDivider.width) * splitLayout.splitRatio) : parent.width
 
             onTitleChangedByUser: (newTitle) => splitLayout.primaryTitleChanged(newTitle)
+            onDetachRequested: splitLayout.primaryDetachRequested()
             onPaneActivated: {
                 splitLayout.activePane = 0
                 splitLayout.paneActivated(0)
@@ -118,6 +121,7 @@ Item {
             anchors.bottom: parent.bottom
 
             onTitleChangedByUser: (newTitle) => splitLayout.secondaryTitleChanged(newTitle)
+            onDetachRequested: splitLayout.secondaryDetachRequested()
             onCloseRequested: splitLayout.closeSplitRequested()
             onPaneActivated: {
                 splitLayout.activePane = 1

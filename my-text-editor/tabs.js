@@ -264,14 +264,34 @@ function handleDragEnded(root, index, gx, gy) {
                 reattachTab(root, idx, win.mainBarText, win.fileName, true)
             }
         } else {
-            win.isDraggingMode = false
-            win.show()
-            win.raise()
-            win.requestActivate()
+            // Сброс за пределами окна: закрываем временный драг-прокси и открываем полноценное окно приложения
+            let fUrl = win.fileUrl
+            let fTitle = win.fileName
+            let fContent = win.mainBarText
+            let wx = win.x
+            let wy = win.y
+            let ww = win.width
+            let wh = win.height
 
-            root.tabsModel.setProperty(idx, "isDetached", true)
-            root.tabsModel.setProperty(idx, "content", win.mainBarText)
-            root.tabsModel.setProperty(idx, "title", win.fileName)
+            win.destroy()
+            if (root.detachedWindows) {
+                delete root.detachedWindows[idx]
+            }
+
+            root.spawnClonedAppWindow(fUrl, fTitle, fContent, wx, wy, ww, wh)
+
+            if (root.tabsModel.count <= 1) {
+                root.tabsModel.setProperty(0, "title", "Новый документ")
+                root.tabsModel.setProperty(0, "fileUrl", "")
+                root.tabsModel.setProperty(0, "content", "")
+                root.tabsModel.setProperty(0, "isDetached", false)
+                root.currentFileName = "Новый документ"
+                root.currentFileUrl = ""
+                root.primaryFileName = "Новый документ"
+                syncEditorsFromModel(root)
+            } else {
+                closeTab(root, idx)
+            }
         }
     } else {
         root.activeDraggingIndex = -1
@@ -430,46 +450,36 @@ function handleSecondaryTextChanged(root, text) {
 function detachTab(root, index, spawnX, spawnY) {
     if (index < 0 || index >= root.tabsModel.count) return
 
-    if (root.detachedWindows[index]) {
-        root.detachedWindows[index].raise()
-        root.detachedWindows[index].requestActivate()
-        return
-    }
-
     syncCurrentPaneText(root)
 
     let tabData = root.tabsModel.get(index)
-    root.tabsModel.setProperty(index, "isDetached", true)
+    let curContent = tabData.content
+    if (index === root.primaryTabIndex && root.splitLayout) {
+        curContent = root.splitLayout.primaryBar.text
+    } else if (root.isSplit && index === root.secondaryTabIndex && root.splitLayout) {
+        curContent = root.splitLayout.secondaryBar.text
+    }
+    let curTitle = tabData.title
+    let curFileUrl = tabData.fileUrl
 
-    let posX = (spawnX !== undefined) ? Math.round(spawnX - 375) : (root.Window.window.x + 60 + (index * 25))
-    let posY = (spawnY !== undefined) ? Math.round(spawnY - 18) : (root.Window.window.y + 60 + (index * 25))
+    let appWin = root.Window.window
+    let posX = (spawnX !== undefined) ? Math.round(spawnX - 425) : (appWin ? (appWin.x + 60 + (index * 25)) : 120)
+    let posY = (spawnY !== undefined) ? Math.round(spawnY - 20) : (appWin ? (appWin.y + 60 + (index * 25)) : 120)
 
-    let win = root.detachedWinComponent.createObject(root, {
-        tabIndex: index,
-        fileName: tabData.title,
-        initialText: tabData.content,
-        fileUrl: tabData.fileUrl,
-        width: 750,
-        height: 550,
-        x: posX,
-        y: posY,
-        visible: true
-    })
+    // Создаем полноценное клонированное окно со скрытым сайдбаром
+    root.spawnClonedAppWindow(curFileUrl, curTitle, curContent, posX, posY, 850, 600)
 
-    root.detachedWindows[index] = win
-
-    if (root.isSplit) {
-        if (index === root.secondaryTabIndex) {
-            closeSplit(root)
-        } else if (index === root.primaryTabIndex) {
-            root.primaryTabIndex = root.secondaryTabIndex
-            root.secondaryTabIndex = -1
-            root.isSplit = false
-            root.activePane = 0
-            syncEditorsFromModel(root)
-        }
-    } else if (index === root.currentTabIndex) {
-        switchToNextAvailableTab(root)
+    if (root.tabsModel.count <= 1) {
+        root.tabsModel.setProperty(0, "title", "Новый документ")
+        root.tabsModel.setProperty(0, "fileUrl", "")
+        root.tabsModel.setProperty(0, "content", "")
+        root.tabsModel.setProperty(0, "isDetached", false)
+        root.currentFileName = "Новый документ"
+        root.currentFileUrl = ""
+        root.primaryFileName = "Новый документ"
+        syncEditorsFromModel(root)
+    } else {
+        closeTab(root, index)
     }
 }
 
@@ -529,9 +539,20 @@ function createNewTab(root) {
     syncCurrentPaneText(root)
 
     let nextNum = root.tabsModel.count + 1
+    let initialTitle = "Документ " + nextNum
+    let initialUrl = ""
+
+    if (typeof backend !== "undefined" && backend && root.currentFolderUrl) {
+        let res = backend.create_file_in_folder(root.currentFolderUrl, initialTitle)
+        if (res && res.success) {
+            initialTitle = res.fileName
+            initialUrl = res.fileUrl
+        }
+    }
+
     root.tabsModel.append({
-        title: "Документ " + nextNum,
-        fileUrl: "",
+        title: initialTitle,
+        fileUrl: initialUrl,
         content: "",
         isDetached: false
     })
@@ -609,17 +630,58 @@ function closeTab(root, index) {
 
 function renameTab(root, index, newTitle) {
     if (index < 0 || index >= root.tabsModel.count) return
-    root.tabsModel.setProperty(index, "title", newTitle)
+    let tab = root.tabsModel.get(index)
+    let finalTitle = newTitle
+
+    if (typeof backend !== "undefined" && backend && tab.fileUrl) {
+        let res = backend.rename_file(tab.fileUrl, newTitle)
+        if (res && res.success) {
+            finalTitle = res.fileName
+            root.tabsModel.setProperty(index, "fileUrl", res.fileUrl)
+            if (index === root.currentTabIndex) {
+                root.currentFileUrl = res.fileUrl
+            }
+        }
+    }
+
+    root.tabsModel.setProperty(index, "title", finalTitle)
 
     if (index === root.primaryTabIndex) {
-        root.primaryFileName = newTitle
-        if (root.activePane === 0) root.currentFileName = newTitle
+        root.primaryFileName = finalTitle
+        if (root.activePane === 0) root.currentFileName = finalTitle
     }
     if (root.isSplit && index === root.secondaryTabIndex) {
-        root.secondaryFileName = newTitle
-        if (root.activePane === 1) root.currentFileName = newTitle
+        root.secondaryFileName = finalTitle
+        if (root.activePane === 1) root.currentFileName = finalTitle
     }
     if (root.detachedWindows[index]) {
-        root.detachedWindows[index].fileName = newTitle
+        root.detachedWindows[index].fileName = finalTitle
     }
 }
+
+function turnDetachedIntoAppWindow(root, index, fileUrl, title, content, gx, gy, gw, gh) {
+    // 1. Уничтожаем открепленное окно
+    if (root.detachedWindows && root.detachedWindows[index]) {
+        let win = root.detachedWindows[index]
+        delete root.detachedWindows[index]
+        win.destroy()
+    }
+
+    // 2. Спавним полноценное окно приложения со скрытым сайдбаром
+    root.spawnClonedAppWindow(fileUrl, title, content, gx, gy, gw, gh)
+
+    // 3. Удаляем вкладку из родительского окна
+    if (root.tabsModel.count <= 1) {
+        root.tabsModel.setProperty(0, "title", "Новый документ")
+        root.tabsModel.setProperty(0, "fileUrl", "")
+        root.tabsModel.setProperty(0, "content", "")
+        root.tabsModel.setProperty(0, "isDetached", false)
+        root.currentFileName = "Новый документ"
+        root.currentFileUrl = ""
+        root.primaryFileName = "Новый документ"
+        syncEditorsFromModel(root)
+    } else {
+        closeTab(root, index)
+    }
+}
+

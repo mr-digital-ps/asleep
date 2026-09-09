@@ -12,6 +12,12 @@ ApplicationWindow {
     minimumHeight: 400
     color: "#1e1e1e"
 
+    // Начальные параметры для окна (передаются при клонировании)
+    property string initialFileUrl: ""
+    property string initialTitle: ""
+    property string initialContent: ""
+    property bool startWithSidebarHidden: false
+
     Loader {
         id: hotLoader
         // objectName нужен, чтобы Python мог найти этот компонент по имени
@@ -19,7 +25,10 @@ ApplicationWindow {
         anchors.fill: parent
         // Загружаем наш интерфейс
         source: "web.qml"
+        onLoaded: {
+            if (item && typeof item.applyInitialState === "function") {
+                item.applyInitialState()
+            }
+        }
     }
-
-
 }

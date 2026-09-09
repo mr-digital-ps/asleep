@@ -10,3 +10,4 @@ wheels/
 .venv
 
 .backup_my-text-editor-pre-split/
+.session_config.json

@@ -9,6 +9,11 @@ Item {
     property int barSize: 36
     property string fileName: "Новый документ"
     property bool isCenteredMode: true // По умолчанию центрированный лист
+    property real customSheetWidth: 800 // Пользовательская ширина листа (настраивается курсором)
+    property real minSheetWidth: 380    // Минимальная ширина листа
+    // Дополнительное пространство внизу листа для скролла за последнюю строку (Scroll Beyond Last Line как в VS Code)
+    property real scrollBeyondSpace: (editorArea.lineCount > 1 || contentColumn.implicitHeight > editorScroll.availableHeight * 0.5)
+        ? Math.max(0, editorScroll.availableHeight - 60) : 0
     property bool isSplitMode: false
     property bool isActivePane: false
     property bool showCloseButton: false
@@ -21,6 +26,7 @@ Item {
     signal titleChangedByUser(string newTitle)
     signal closeRequested()
     signal paneActivated()
+    signal detachRequested()
 
     // =========================================================================
     // ХОЛСТ РЕДАКТОРА С УМНЫМИ ЗОНАМИ ПЕРЕМЕЩЕНИЯ ОКНА
@@ -30,24 +36,31 @@ Item {
         anchors.fill: parent
         clip: true
         contentWidth: availableWidth
+        contentHeight: Math.max(availableHeight, contentColumn.implicitHeight + mainBar.scrollBeyondSpace + 40)
+        ScrollBar.vertical.policy: ScrollBar.AlwaysOff
+        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
+        WheelHandler {
+            target: editorScroll.contentItem
+            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+            onWheel: (event) => {
+                let dy = -event.angleDelta.y
+                let newY = editorScroll.contentItem.contentY + dy
+                let maxY = Math.max(0, editorScroll.contentItem.contentHeight - editorScroll.availableHeight)
+                editorScroll.contentItem.contentY = Math.max(0, Math.min(maxY, newY))
+            }
+        }
 
         // Перехват кликов на свободном фоне вокруг листа:
         // - ЛКМ (drag): перетаскивание окна
         // - Двойной клик ЛКМ: развернуть / восстановить окно
-        // - ПКМ: переключить ширину (полная / средняя)
         MouseArea {
             anchors.fill: parent
-            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            acceptedButtons: Qt.LeftButton
 
             onPressed: (mouse) => {
                 if (mouse.button === Qt.LeftButton) {
                     Window.window.startSystemMove()
-                }
-            }
-
-            onClicked: (mouse) => {
-                if (mouse.button === Qt.RightButton) {
-                    mainBar.isCenteredMode = !mainBar.isCenteredMode
                 }
             }
 
@@ -64,23 +77,23 @@ Item {
 
         Item {
             width: editorScroll.availableWidth
-            implicitHeight: Math.max(editorScroll.availableHeight, contentColumn.implicitHeight)
+            implicitHeight: Math.max(editorScroll.availableHeight, contentColumn.implicitHeight + mainBar.scrollBeyondSpace + 40)
 
-            // Поле для отображения страницы (на полную или среднюю ширину)
+            // Поле для отображения страницы (на полную или среднюю/настраиваемую ширину)
             Rectangle {
                 id: paperSheet
 
-                // Средняя ширина (800px) по центру либо на полную ширину
-                width: mainBar.isCenteredMode ? Math.min(800, parent.width) : parent.width
-                height: Math.max(parent.height, contentColumn.implicitHeight)
+                // Настраиваемая ширина по центру либо на полную ширину
+                width: mainBar.isCenteredMode ? Math.min(parent.width, Math.max(mainBar.minSheetWidth, mainBar.customSheetWidth)) : parent.width
+                height: Math.max(parent.height, contentColumn.implicitHeight + mainBar.scrollBeyondSpace + 40)
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
 
                 color: "#181818"
-                border.color: (mainBar.isSplitMode && mainBar.isActivePane) ? "#333333" : "transparent"
-                border.width: 1
+                border.color: "transparent"
+                border.width: 0
 
-                opacity: (mainBar.isSplitMode && !mainBar.isActivePane) ? 0.60 : 1.0
+                opacity: (mainBar.isSplitMode && !mainBar.isActivePane) ? 0.55 : 1.0
                 Behavior on opacity {
                     NumberAnimation { duration: 150 }
                 }
@@ -90,24 +103,24 @@ Item {
                     anchors.fill: parent
                     spacing: 0
 
-                    // Верхняя панель заголовка листа (название + кнопка закрытия для сплита)
+                    // Верхняя панель заголовка листа (название документа)
                     RowLayout {
                         Layout.fillWidth: true
                         Layout.fillHeight: false
-                        Layout.topMargin: 12
-                        Layout.leftMargin: 16
-                        Layout.rightMargin: 16
-                        Layout.preferredHeight: 40
-                        Layout.maximumHeight: 40
-                        Layout.minimumHeight: 40
-                        spacing: 8
+                        Layout.topMargin: 16
+                        Layout.leftMargin: 36
+                        Layout.rightMargin: 36
+                        Layout.preferredHeight: 38
+                        Layout.maximumHeight: 38
+                        Layout.minimumHeight: 38
+                        spacing: 0
 
                         TextField {
                             id: titleField
                             Layout.fillWidth: true
-                            Layout.fillHeight: false
-                            Layout.preferredHeight: 38
+                            Layout.fillHeight: true
                             Layout.alignment: Qt.AlignVCenter
+                            horizontalAlignment: Text.AlignLeft
                             text: mainBar.fileName
                             font.pixelSize: 18
                             font.bold: true
@@ -136,81 +149,305 @@ Item {
                                 mainBar.titleChangedByUser(text)
                             }
                         }
-
-                        // Кнопка закрытия панели (видна только в режиме сплита для закрываемой панели)
-                        Button {
-                            id: closePaneBtn
-                            visible: mainBar.showCloseButton
-                            Layout.fillHeight: false
-                            Layout.alignment: Qt.AlignVCenter
-                            implicitWidth: 28
-                            implicitHeight: 28
-                            hoverEnabled: true
-
-                            background: Rectangle {
-                                radius: 4
-                                color: closePaneBtn.down ? "#333333" : (closePaneBtn.hovered ? "#262626" : "transparent")
-                            }
-
-                            contentItem: Text {
-                                text: "✕"
-                                color: closePaneBtn.hovered ? "#ffffff" : "#666666"
-                                font.pixelSize: 13
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                            }
-
-                            onClicked: mainBar.closeRequested()
-                        }
                     }
 
-                    // Тонкая разделительная линия
+                    // Тонкая разделительная линия (опущена ниже, с отступами сверху и снизу)
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.fillHeight: false
                         Layout.preferredHeight: 1
                         Layout.maximumHeight: 1
-                        Layout.leftMargin: 16
-                        Layout.rightMargin: 16
+                        Layout.topMargin: 8
+                        Layout.bottomMargin: 8
+                        Layout.leftMargin: 36
+                        Layout.rightMargin: 36
                         height: 1
                         color: "#262626"
                     }
 
-                    // Основное текстовое поле
-                    TextArea {
-                        id: editorArea
+                    // Область редактора с левой и правой полосами захвата окна (Grip Margins)
+                    RowLayout {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        padding: 16
+                        spacing: 0
 
-                        font.family: "Consolas, Courier New, monospace"
-                        font.pixelSize: 15
-                        wrapMode: TextArea.Wrap
-                        selectByMouse: true
-                        placeholderText: "Начните вводить текст..."
-                        placeholderTextColor: "#666666"
+                        // Левая полоса перетаскивания и индикаторов строк (Grip & Gutter)
+                        Item {
+                            id: leftDragMargin
+                            Layout.preferredWidth: 36
+                            Layout.fillHeight: true
 
-                        background: null
+                            MouseArea {
+                                anchors.fill: parent
+                                acceptedButtons: Qt.LeftButton
+                                cursorShape: Qt.ArrowCursor
+                                onPressed: Window.window.startSystemMove()
+                                onDoubleClicked: {
+                                    if (Window.window.visibility === Window.Maximized) {
+                                        Window.window.showNormal()
+                                    } else {
+                                        Window.window.showMaximized()
+                                    }
+                                }
+                            }
 
-                        onActiveFocusChanged: {
-                            if (activeFocus) {
-                                mainBar.paneActivated()
+                            // Индикаторы колонок строк (точки строк наподобие Obsidian)
+                            Canvas {
+                                id: gutterCanvas
+                                anchors.fill: parent
+
+                                Component.onCompleted: requestPaint()
+
+                                Connections {
+                                    target: editorArea
+                                    function onTextChanged() { gutterCanvas.requestPaint() }
+                                    function onWidthChanged() { gutterCanvas.requestPaint() }
+                                    function onCursorPositionChanged() { gutterCanvas.requestPaint() }
+                                }
+
+                                onPaint: {
+                                    let ctx = getContext("2d")
+                                    ctx.clearRect(0, 0, width, height)
+                                    let txt = editorArea.text
+                                    if (txt === undefined || txt === null) return
+
+                                    let lines = txt.split("\n")
+                                    let pos = 0
+                                    let curPos = editorArea.cursorPosition
+                                    let centerX = width / 2
+
+                                    for (let i = 0; i < lines.length; i++) {
+                                        let lineLen = lines[i].length
+                                        let isCurrentLine = (curPos >= pos && curPos <= pos + lineLen)
+                                        let r = editorArea.positionToRectangle(pos)
+                                        let dotY = r.y + (r.height / 2)
+
+                                        ctx.beginPath()
+                                        let radius = isCurrentLine ? 3.2 : 2.4
+                                        ctx.arc(centerX, dotY, radius, 0, 2 * Math.PI)
+                                        ctx.fillStyle = isCurrentLine ? "#888888" : "#444444"
+                                        ctx.fill()
+
+                                        pos += lineLen + 1
+                                    }
+                                }
                             }
                         }
 
-                        // Клик ПКМ по тексту переключает ширину (полная / средняя)
-                        MouseArea {
-                            anchors.fill: parent
-                            acceptedButtons: Qt.RightButton
-                            cursorShape: Qt.IBeamCursor
-                            onClicked: (mouse) => {
-                                if (mouse.button === Qt.RightButton) {
-                                    mainBar.isCenteredMode = !mainBar.isCenteredMode
+                        // Основное текстовое поле (начинается строго по линии разделителя)
+                        TextArea {
+                            id: editorArea
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            leftPadding: 0
+                            rightPadding: 0
+                            topPadding: 12
+                            bottomPadding: 16
+
+                            font.family: "Consolas, Courier New, monospace"
+                            font.pixelSize: 15
+                            wrapMode: TextArea.Wrap
+                            selectByMouse: true
+                            placeholderText: "Начните вводить текст..."
+                            placeholderTextColor: "#666666"
+
+                            background: null
+
+                            onActiveFocusChanged: {
+                                if (activeFocus) {
+                                    mainBar.paneActivated()
+                                }
+                            }
+                        }
+
+                        // Правая полоса перетаскивания (Grip Margin)
+                        Item {
+                            id: rightDragMargin
+                            Layout.preferredWidth: 36
+                            Layout.fillHeight: true
+
+                            MouseArea {
+                                anchors.fill: parent
+                                acceptedButtons: Qt.LeftButton
+                                cursorShape: Qt.ArrowCursor
+                                onPressed: Window.window.startSystemMove()
+                                onDoubleClicked: {
+                                    if (Window.window.visibility === Window.Maximized) {
+                                        Window.window.showNormal()
+                                    } else {
+                                        Window.window.showMaximized()
+                                    }
                                 }
                             }
                         }
                     }
                 }
+
+                // Интерактивная граница изменения ширины листа слева (Resize Handle)
+                MouseArea {
+                    id: leftResizeHandle
+                    width: 14
+                    anchors.left: parent.left
+                    anchors.leftMargin: -7
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    cursorShape: Qt.SizeHorCursor
+                    hoverEnabled: true
+                    z: 20
+
+                    property real startMouseX: 0
+                    property real startSheetWidth: 0
+
+                    onPressed: (mouse) => {
+                        let pt = mapToItem(editorScroll, mouse.x, mouse.y)
+                        startMouseX = pt.x
+                        startSheetWidth = paperSheet.width
+                        mainBar.isCenteredMode = true
+                    }
+
+                    onPositionChanged: (mouse) => {
+                        if (pressed) {
+                            let pt = mapToItem(editorScroll, mouse.x, mouse.y)
+                            let dx = pt.x - startMouseX
+                            let newW = startSheetWidth - dx * 2
+                            mainBar.customSheetWidth = Math.max(mainBar.minSheetWidth, Math.min(editorScroll.availableWidth, newW))
+                        }
+                    }
+
+                    onDoubleClicked: {
+                        if (paperSheet.width >= editorScroll.availableWidth - 20) {
+                            mainBar.customSheetWidth = 800
+                        } else {
+                            mainBar.customSheetWidth = editorScroll.availableWidth
+                        }
+                    }
+
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: 2
+                        height: parent.height
+                        color: "#50ffffff"
+                        opacity: leftResizeHandle.containsMouse || leftResizeHandle.pressed ? 1.0 : 0.0
+                        Behavior on opacity {
+                            NumberAnimation { duration: 120 }
+                        }
+                    }
+                }
+
+                // Интерактивная граница изменения ширины листа справа (Resize Handle)
+                MouseArea {
+                    id: rightResizeHandle
+                    width: 14
+                    anchors.right: parent.right
+                    anchors.rightMargin: -7
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    cursorShape: Qt.SizeHorCursor
+                    hoverEnabled: true
+                    z: 20
+
+                    property real startMouseX: 0
+                    property real startSheetWidth: 0
+
+                    onPressed: (mouse) => {
+                        let pt = mapToItem(editorScroll, mouse.x, mouse.y)
+                        startMouseX = pt.x
+                        startSheetWidth = paperSheet.width
+                        mainBar.isCenteredMode = true
+                    }
+
+                    onPositionChanged: (mouse) => {
+                        if (pressed) {
+                            let pt = mapToItem(editorScroll, mouse.x, mouse.y)
+                            let dx = pt.x - startMouseX
+                            let newW = startSheetWidth + dx * 2
+                            mainBar.customSheetWidth = Math.max(mainBar.minSheetWidth, Math.min(editorScroll.availableWidth, newW))
+                        }
+                    }
+
+                    onDoubleClicked: {
+                        if (paperSheet.width >= editorScroll.availableWidth - 20) {
+                            mainBar.customSheetWidth = 800
+                        } else {
+                            mainBar.customSheetWidth = editorScroll.availableWidth
+                        }
+                    }
+
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: 2
+                        height: parent.height
+                        color: "#50ffffff"
+                        opacity: rightResizeHandle.containsMouse || rightResizeHandle.pressed ? 1.0 : 0.0
+                        Behavior on opacity {
+                            NumberAnimation { duration: 120 }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Правая фиксированная полоса со скроллбаром-точкой (ширина 36px, скроллбар 5px по центру)
+    Item {
+        id: rightGripOverlay
+        width: 36
+        anchors.top: parent.top
+        anchors.topMargin: 16
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 16
+        x: Math.round(paperSheet.x + paperSheet.width - 36)
+        z: 10
+        visible: editorScroll.contentItem.contentHeight > editorScroll.availableHeight
+
+        // Зона перетаскивания окна по правой полосе
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.LeftButton
+            cursorShape: Qt.ArrowCursor
+            onPressed: Window.window.startSystemMove()
+            onDoubleClicked: {
+                if (Window.window.visibility === Window.Maximized) {
+                    Window.window.showNormal()
+                } else {
+                    Window.window.showMaximized()
+                }
+            }
+        }
+
+        // Минималистичный скроллбар-точка (5px шириной, строго по центру ячейки)
+        ScrollBar {
+            id: customVBar
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: 14
+            height: parent.height
+            size: Math.min(1.0, editorScroll.availableHeight / Math.max(1, editorScroll.contentItem.contentHeight))
+            position: Math.max(0.0, Math.min(1.0 - size, editorScroll.contentItem.contentY / Math.max(1, editorScroll.contentItem.contentHeight)))
+            active: true
+            orientation: Qt.Vertical
+
+            onPositionChanged: {
+                if (pressed) {
+                    let maxScroll = editorScroll.contentItem.contentHeight - editorScroll.availableHeight
+                    if (maxScroll > 0) {
+                        editorScroll.contentItem.contentY = (position / (1.0 - size)) * maxScroll
+                    }
+                }
+            }
+
+            contentItem: Rectangle {
+                implicitWidth: 5
+                radius: 2.5
+                color: customVBar.pressed ? "#888888" : (customVBar.hovered ? "#666666" : "#444444")
+                Behavior on color {
+                    ColorAnimation { duration: 150 }
+                }
+            }
+
+            background: Rectangle {
+                implicitWidth: 5
+                radius: 2.5
+                color: "transparent"
             }
         }
     }
