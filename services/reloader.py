@@ -7,13 +7,13 @@ def setup_live_reload(engine: QQmlApplicationEngine, root_file: Path):
     Горячая перезагрузка QML при сохранении любого файла разметки без перезапуска Python.
     """
     watcher = QFileSystemWatcher(engine)
-    qml_dir = root_file.parent
+    project_dir = root_file.parent.parent if root_file.parent.name == "views" else root_file.parent
     ignored = {".venv", ".git", "__pycache__", "trash", ".backup_my-text-editor-pre-split"}
     watched_files = []
     file_mtimes = {}
 
     for ext in ("*.qml", "*.js"):
-        for f in qml_dir.rglob(ext):
+        for f in project_dir.rglob(ext):
             if any(part in ignored for part in f.parts):
                 continue
             p = str(f.resolve())

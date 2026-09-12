@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import "../components/window"
 
 ApplicationWindow {
     id: root
@@ -21,7 +22,6 @@ ApplicationWindow {
     Keys.forwardTo: (hotLoader && hotLoader.item) ? [hotLoader.item] : []
 
     Loader {
-
         id: hotLoader
         objectName: "hotLoader"
         anchors.fill: parent

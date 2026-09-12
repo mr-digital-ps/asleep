@@ -406,7 +406,7 @@ def main():
     backend = Backend()
     engine.rootContext().setContextProperty("backend", backend)
 
-    qml_file = Path(__file__).parent.resolve() / "window.qml"
+    qml_file = Path(__file__).parent.resolve() / "views" / "window.qml"
     engine.load(QUrl.fromLocalFile(str(qml_file)))
 
     if not engine.rootObjects():

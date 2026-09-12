@@ -129,12 +129,12 @@ def test_qml():
     engine.rootContext().setContextProperty("backend", backend)
 
     # 1. Проверяем компиляцию web.qml и вынесенных компонентов
-    for qml_f in ["components/dialogs/EditorDialogs.qml", "components/hotkeys/HotkeyManager.qml", "web.qml"]:
+    for qml_f in ["components/dialogs/EditorDialogs.qml", "components/hotkeys/HotkeyManager.qml", "components/window/WindowFrame.qml", "views/web.qml"]:
         comp = QQmlComponent(engine, QUrl.fromLocalFile(str(PROJECT_DIR / qml_f)))
         assert comp.status() == QQmlComponent.Status.Ready, f"Ошибка в {qml_f}: {comp.errorString()}"
 
     # 2. Проверяем загрузку window.qml и его внутреннего Loader
-    qml_path = PROJECT_DIR / "window.qml"
+    qml_path = PROJECT_DIR / "views" / "window.qml"
     engine.load(QUrl.fromLocalFile(str(qml_path)))
     objects = engine.rootObjects()
     assert len(objects) > 0, "Не удалось создать корневое окно QML!"
@@ -192,9 +192,11 @@ def test_structure():
         "components/dialogs/qmldir",
         "components/hotkeys/HotkeyManager.qml",
         "components/hotkeys/qmldir",
-        "web.py",
-        "web.qml",
-        "window.qml"
+        "components/window/WindowFrame.qml",
+        "components/window/qmldir",
+        "views/web.qml",
+        "views/window.qml",
+        "web.py"
     ]
     for r in required:
         p = PROJECT_DIR / r

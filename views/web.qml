@@ -3,14 +3,14 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
 import QtQml
-import "components/sidebar"
-import "components/editor"
-import "components/dialogs"
-import "components/hotkeys"
-import "js/logic.js" as Logic
-import "js/tabs.js" as Tabs
-import "js/drag_manager.js" as DragMgr
-import "js/markdown_shortcuts.js" as Markdown
+import "../components/sidebar"
+import "../components/editor"
+import "../components/dialogs"
+import "../components/hotkeys"
+import "../js/logic.js" as Logic
+import "../js/tabs.js" as Tabs
+import "../js/drag_manager.js" as DragMgr
+import "../js/markdown_shortcuts.js" as Markdown
 
 Rectangle {
 
