@@ -9,8 +9,10 @@ import "components/editor"
 import "js/logic.js" as Logic
 import "js/tabs.js" as Tabs
 import "js/drag_manager.js" as DragMgr
+import "js/markdown_shortcuts.js" as Markdown
 
 Rectangle {
+
     id: root
     anchors.fill: parent
     color: "#141414"
@@ -490,8 +492,19 @@ Rectangle {
                 let targetIdx = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
                 Tabs.detachTab(root, targetIdx >= 0 ? targetIdx : 0)
                 break
+            case "toggle_bold":
+                if (splitLayout && splitLayout.activeEditorArea) {
+                    Markdown.toggleBold(splitLayout.activeEditorArea)
+                }
+                break
+            case "toggle_italic":
+                if (splitLayout && splitLayout.activeEditorArea) {
+                    Markdown.toggleItalic(splitLayout.activeEditorArea)
+                }
+                break
         }
     }
+
 
     // Динамическая регистрация горячих клавиш из hotkeys.json
     Instantiator {
@@ -525,12 +538,21 @@ Rectangle {
         return false
     }
 
+    Keys.forwardTo: (splitLayout ? [splitLayout] : [])
+
     Keys.onPressed: (event) => {
         if (root.isCloseKey(event)) {
             root.closeActiveTab()
             event.accepted = true
+            return
+        }
+        if (event.key === Qt.Key_F9) {
+            root.executeAction("toggle_header_footer")
+            event.accepted = true
+            return
         }
     }
+
 
 
     // =========================================================================
@@ -683,6 +705,10 @@ Rectangle {
             onSecondaryCloseRequested: root.closeTab(root.secondaryTabIndex)
             onCloseSplitRequested: () => Tabs.closeSplit(root)
             onPaneActivated: (paneIndex) => Tabs.setActivePane(root, paneIndex)
+            onSaveRequested: Logic.saveFile(root, saveDialog, backend)
+            onNewRequested: root.createNewTab()
+            onToggleSidebarRequested: root.toggleSidebar()
         }
+
     }
 }

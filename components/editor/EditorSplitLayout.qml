@@ -39,6 +39,10 @@ Item {
     signal fileDragStarted(int paneIndex, string url, string name, real gx, real gy)
     signal fileDragMoved(real gx, real gy)
     signal fileDragEnded(int paneIndex, string url, string name, real gx, real gy)
+    signal saveRequested()
+    signal newRequested()
+    signal toggleSidebarRequested()
+
 
     // Контейнер с панелями редактора
     Item {
@@ -68,7 +72,11 @@ Item {
             onFileDragStarted: (url, name, gx, gy) => splitLayout.fileDragStarted(0, url, name, gx, gy)
             onFileDragMoved: (gx, gy) => splitLayout.fileDragMoved(gx, gy)
             onFileDragEnded: (url, name, gx, gy) => splitLayout.fileDragEnded(0, url, name, gx, gy)
+            onSaveRequested: splitLayout.saveRequested()
+            onNewRequested: splitLayout.newRequested()
+            onToggleSidebarRequested: splitLayout.toggleSidebarRequested()
         }
+
 
         // Вертикальный разделитель (виден только при включенном сплите)
         Item {
@@ -129,7 +137,11 @@ Item {
             onFileDragStarted: (url, name, gx, gy) => splitLayout.fileDragStarted(1, url, name, gx, gy)
             onFileDragMoved: (gx, gy) => splitLayout.fileDragMoved(gx, gy)
             onFileDragEnded: (url, name, gx, gy) => splitLayout.fileDragEnded(1, url, name, gx, gy)
+            onSaveRequested: splitLayout.saveRequested()
+            onNewRequested: splitLayout.newRequested()
+            onToggleSidebarRequested: splitLayout.toggleSidebarRequested()
         }
+
 
         Connections {
             target: primaryBar.editorArea

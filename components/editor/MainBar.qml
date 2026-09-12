@@ -119,9 +119,13 @@ Item {
     signal closeRequested()
     signal paneActivated()
     signal detachRequested()
+    signal saveRequested()
+    signal newRequested()
+    signal toggleSidebarRequested()
     signal fileDragStarted(string url, string name, real gx, real gy)
     signal fileDragMoved(real gx, real gy)
     signal fileDragEnded(string url, string name, real gx, real gy)
+
 
     readonly property bool isResizingSheet: (leftHandle && (leftHandle.containsMouse || leftHandle.pressed)) || (rightHandle && (rightHandle.containsMouse || rightHandle.pressed))
 
@@ -549,7 +553,11 @@ Item {
                     onToggleFooterRequested: mainBar.toggleFooterOnly()
                     onToggleHeaderRequested: mainBar.toggleHeaderOnly()
                     onToggleCenteredModeRequested: mainBar.isCenteredMode = !mainBar.isCenteredMode
+                    onSaveRequested: mainBar.saveRequested()
+                    onNewRequested: mainBar.newRequested()
+                    onToggleSidebarRequested: mainBar.toggleSidebarRequested()
                     onTextChangedByUser: {
+
 
                         if (!mainBar.isReceivingExternalSync && activeFocus) {
                             blockSyncTimer.restart()

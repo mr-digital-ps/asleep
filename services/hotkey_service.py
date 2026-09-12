@@ -17,9 +17,10 @@ DEFAULT_HOTKEYS = {
         "description": "Показать / скрыть только верхний заголовок (Header)"
     },
     "toggle_sidebar": {
-        "keys": ["Ctrl+B"],
+        "keys": ["Ctrl+Shift+B", "Alt+S"],
         "description": "Показать / скрыть боковую панель"
     },
+
     "toggle_split": {
         "keys": ["Ctrl+\\"],
         "description": "Разделить экран (Split View)"

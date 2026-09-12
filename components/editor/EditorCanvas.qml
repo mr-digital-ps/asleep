@@ -29,11 +29,32 @@ RowLayout {
     signal toggleFooterRequested()
     signal toggleHeaderRequested()
     signal toggleCenteredModeRequested()
+    signal saveRequested()
+    signal newRequested()
+    signal toggleSidebarRequested()
 
     function isCloseKey(event) {
         if (!(event.modifiers & Qt.ControlModifier)) return false
         if (event.key === Qt.Key_W || event.nativeScanCode === 17 || event.text === 'w' || event.text === 'W' || event.text === 'ц' || event.text === 'Ц' || event.key === 1062 || event.key === 1030) return true
         if (event.key === Qt.Key_Q || event.nativeScanCode === 16 || event.text === 'q' || event.text === 'Q' || event.text === 'й' || event.text === 'Й' || event.key === 1081 || event.key === 1049) return true
+        return false
+    }
+
+    function isSaveKey(event) {
+        if (!(event.modifiers & Qt.ControlModifier)) return false
+        return (event.key === Qt.Key_S || event.nativeScanCode === 31 || event.text === 's' || event.text === 'S' || event.text === 'ы' || event.text === 'Ы')
+    }
+
+    function isNewKey(event) {
+        if (!(event.modifiers & Qt.ControlModifier)) return false
+        return (event.key === Qt.Key_N || event.nativeScanCode === 49 || event.text === 'n' || event.text === 'N' || event.text === 'т' || event.text === 'Т')
+    }
+
+    function isToggleSidebarKey(event) {
+        let isB = event.key === Qt.Key_B || event.nativeScanCode === 48 || event.text === 'b' || event.text === 'B' || event.text === 'и' || event.text === 'И'
+        if ((event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.ShiftModifier) && isB) return true
+        let isS = event.key === Qt.Key_S || event.nativeScanCode === 31 || event.text === 's' || event.text === 'S' || event.text === 'ы' || event.text === 'Ы'
+        if ((event.modifiers & Qt.AltModifier) && isS) return true
         return false
     }
 
@@ -65,6 +86,7 @@ RowLayout {
         if ((event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.ShiftModifier) && isW) return true
         return false
     }
+
 
 
     function updateBracketHighlights() {
@@ -200,6 +222,22 @@ RowLayout {
                 canvasRoot.toggleCenteredModeRequested()
                 return
             }
+            if (canvasRoot.isSaveKey(event)) {
+                event.accepted = true
+                canvasRoot.saveRequested()
+                return
+            }
+            if (canvasRoot.isNewKey(event)) {
+                event.accepted = true
+                canvasRoot.newRequested()
+                return
+            }
+            if (canvasRoot.isToggleSidebarKey(event)) {
+                event.accepted = true
+                canvasRoot.toggleSidebarRequested()
+                return
+            }
+
             if (event.modifiers & Qt.ControlModifier) {
                 let isD = event.key === Qt.Key_D || event.nativeScanCode === 32 || event.text === 'd' || event.text === 'D' || event.text === 'в' || event.text === 'В'
                 if (isD) {
@@ -287,7 +325,23 @@ RowLayout {
                 canvasRoot.toggleCenteredModeRequested()
                 return
             }
+            if (canvasRoot.isSaveKey(event)) {
+                event.accepted = true
+                canvasRoot.saveRequested()
+                return
+            }
+            if (canvasRoot.isNewKey(event)) {
+                event.accepted = true
+                canvasRoot.newRequested()
+                return
+            }
+            if (canvasRoot.isToggleSidebarKey(event)) {
+                event.accepted = true
+                canvasRoot.toggleSidebarRequested()
+                return
+            }
             if (event.key === Qt.Key_ParenRight && Markdown.handleAutoPair(editorArea, ")")) {
+
 
                 event.accepted = true
                 return

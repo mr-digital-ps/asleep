@@ -1,87 +1,54 @@
 {
   "toggle_header_footer": {
-    "keys": [
-      "F9",
-      "Ctrl+Shift+H",
-      "Alt+H"
-    ],
+    "keys": ["F9", "Ctrl+Shift+H", "Alt+H"],
     "description": "Показать / скрыть заголовок и статус-бар (Header и Footer)"
   },
   "toggle_footer": {
-    "keys": [
-      "Ctrl+Shift+F",
-      "Alt+F"
-    ],
+    "keys": ["Ctrl+Shift+F", "Alt+F"],
     "description": "Показать / скрыть только нижний статус-бар (Footer)"
   },
   "toggle_header": {
-    "keys": [
-      "Ctrl+Shift+U",
-      "Alt+U"
-    ],
+    "keys": ["Ctrl+Shift+U", "Alt+U"],
     "description": "Показать / скрыть только верхний заголовок (Header)"
   },
   "toggle_sidebar": {
-    "keys": [
-      "Ctrl+B"
-    ],
+    "keys": ["Ctrl+Shift+B", "Alt+S"],
     "description": "Показать / скрыть боковую панель"
   },
   "toggle_split": {
-    "keys": [
-      "Ctrl+\\"
-    ],
+    "keys": ["Ctrl+\\"],
     "description": "Разделить экран (Split View)"
   },
   "toggle_centered_mode": {
-    "keys": [
-      "Alt+W",
-      "Ctrl+Shift+W"
-    ],
+    "keys": ["Alt+W", "Ctrl+Shift+W"],
     "description": "Переключить ширину листа (по центру / на всю ширину)"
   },
   "close_tab": {
-    "keys": [
-      "Ctrl+W",
-      "Ctrl+Q",
-      "Ctrl+F4"
-    ],
+    "keys": ["Ctrl+W", "Ctrl+Q", "Ctrl+F4"],
     "description": "Закрыть текущую вкладку или сплит"
   },
   "new_tab": {
-    "keys": [
-      "Ctrl+N"
-    ],
+    "keys": ["Ctrl+N"],
     "description": "Создать новый документ"
   },
   "open_file": {
-    "keys": [
-      "Ctrl+O"
-    ],
+    "keys": ["Ctrl+O"],
     "description": "Открыть файл"
   },
   "save_file": {
-    "keys": [
-      "Ctrl+S"
-    ],
+    "keys": ["Ctrl+S"],
     "description": "Сохранить файл"
   },
   "toggle_bold": {
-    "keys": [
-      "Ctrl+B"
-    ],
+    "keys": ["Ctrl+B"],
     "description": "Сделать выделенный текст жирным (**текст**)"
   },
   "toggle_italic": {
-    "keys": [
-      "Ctrl+I"
-    ],
+    "keys": ["Ctrl+I"],
     "description": "Сделать выделенный текст курсивом (*текст*)"
   },
   "detach_window": {
-    "keys": [
-      "Ctrl+D"
-    ],
+    "keys": ["Ctrl+D"],
     "description": "Открепить документ в отдельное окно"
   }
 }
