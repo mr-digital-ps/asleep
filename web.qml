@@ -493,6 +493,34 @@ Rectangle {
         }
     }
 
+    // Переключение видимости Header и Footer (F9, Ctrl+Shift+H, Alt+H)
+    Shortcut {
+        sequences: ["F9", "Ctrl+Shift+H", "Alt+H"]
+        context: Qt.ApplicationShortcut
+        onActivated: {
+            if (splitLayout.primaryBar && typeof splitLayout.primaryBar.toggleHeaderFooter === "function") {
+                splitLayout.primaryBar.toggleHeaderFooter()
+            }
+            if (splitLayout.isSplit && splitLayout.secondaryBar && typeof splitLayout.secondaryBar.toggleHeaderFooter === "function") {
+                splitLayout.secondaryBar.toggleHeaderFooter()
+            }
+        }
+    }
+
+    // Переключение видимости только Footer (Ctrl+Shift+F, Alt+F)
+    Shortcut {
+        sequences: ["Ctrl+Shift+F", "Alt+F"]
+        context: Qt.ApplicationShortcut
+        onActivated: {
+            if (splitLayout.primaryBar && typeof splitLayout.primaryBar.toggleFooterOnly === "function") {
+                splitLayout.primaryBar.toggleFooterOnly()
+            }
+            if (splitLayout.isSplit && splitLayout.secondaryBar && typeof splitLayout.secondaryBar.toggleFooterOnly === "function") {
+                splitLayout.secondaryBar.toggleFooterOnly()
+            }
+        }
+    }
+
     // =========================================================================
     // РАСКЛАДКА ОКНА
     // =========================================================================

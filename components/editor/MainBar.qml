@@ -25,6 +25,37 @@ Item {
     property bool focusMode: false
     property bool isHeaderPinned: false
     property bool isFooterPinned: true
+    property bool showHeader: true
+    property bool showFooter: true
+
+    function saveHeaderVisibleState(visible) {
+        if (typeof backend !== "undefined" && backend && typeof backend.save_header_visible === "function") {
+            backend.save_header_visible(visible)
+        }
+    }
+
+    function saveFooterVisibleState(visible) {
+        if (typeof backend !== "undefined" && backend && typeof backend.save_footer_visible === "function") {
+            backend.save_footer_visible(visible)
+        }
+    }
+
+    function toggleHeaderFooter() {
+        if (mainBar.showHeader || mainBar.showFooter) {
+            mainBar.showHeader = false
+            mainBar.showFooter = false
+        } else {
+            mainBar.showHeader = true
+            mainBar.showFooter = true
+        }
+        mainBar.saveHeaderVisibleState(mainBar.showHeader)
+        mainBar.saveFooterVisibleState(mainBar.showFooter)
+    }
+
+    function toggleFooterOnly() {
+        mainBar.showFooter = !mainBar.showFooter
+        mainBar.saveFooterVisibleState(mainBar.showFooter)
+    }
 
     readonly property string statsString: {
         let txt = (editorCanvas && editorCanvas.text) ? editorCanvas.text : ""
@@ -188,6 +219,12 @@ Item {
                     }
                     if (typeof sess.footer_pinned === "boolean") {
                         mainBar.isFooterPinned = sess.footer_pinned
+                    }
+                    if (typeof sess.header_visible === "boolean") {
+                        mainBar.showHeader = sess.header_visible
+                    }
+                    if (typeof sess.footer_visible === "boolean") {
+                        mainBar.showFooter = sess.footer_visible
                     }
                 }
             } catch(e) {}
@@ -371,7 +408,7 @@ Item {
             id: scrollContentContainer
             width: editorScroll.availableWidth
             readonly property real singleLineHeight: (editorArea && editorArea.cursorRectangle.height > 0) ? editorArea.cursorRectangle.height : 24
-            readonly property real headerOffset: mainBar.isHeaderPinned ? 70 : 0
+            readonly property real headerOffset: (mainBar.showHeader && mainBar.isHeaderPinned) ? 70 : 0
             readonly property real lastLineTop: editorArea ? (editorCanvas.y + editorArea.topPadding + editorArea.contentHeight - singleLineHeight) : 0
             height: Math.max(mainBar.height, (editorArea && editorArea.lineCount > 1 && editorArea.contentHeight > 60)
                 ? Math.max(mainBar.height, lastLineTop - (headerOffset + 16) + editorScroll.availableHeight)
@@ -474,6 +511,7 @@ Item {
                     maxTitleWidth: paperSheet.width - 72
                     contentLeftPadding: editorArea.leftPadding
                     contentRightPadding: editorArea.rightPadding
+                    visible: mainBar.showHeader && !mainBar.isEmpty
 
                     onTitleCommitted: (newTitle) => mainBar.titleChangedByUser(newTitle)
                     onPaneActivated: mainBar.paneActivated()
@@ -490,15 +528,19 @@ Item {
                 EditorCanvas {
                     id: editorCanvas
                     anchors.top: parent.top
-                    anchors.topMargin: 70
+                    anchors.topMargin: mainBar.showHeader ? 70 : 16
                     anchors.left: parent.left
                     anchors.right: parent.right
                     availableHeight: editorScroll.availableHeight
                     barSize: mainBar.barSize
                     customFontFamily: mainBar.customFontFamily
+                    hasHeader: mainBar.showHeader
+                    hasFooter: mainBar.showFooter
 
                     onPaneActivated: mainBar.paneActivated()
                     onCursorVisibilityRequested: mainBar.requestEnsureCursorVisible()
+                    onToggleHeaderFooterRequested: mainBar.toggleHeaderFooter()
+                    onToggleFooterRequested: mainBar.toggleFooterOnly()
                     onTextChangedByUser: {
                         if (!mainBar.isReceivingExternalSync && activeFocus) {
                             blockSyncTimer.restart()
@@ -534,7 +576,7 @@ Item {
                     z: 20
                     isPinned: mainBar.isFooterPinned
                     statsText: mainBar.statsString
-                    visible: !mainBar.isEmpty
+                    visible: mainBar.showFooter && !mainBar.isEmpty
                     y: {
                         let naturalY = editorCanvas.y + editorCanvas.height + 4
                         let screenBottomY = (editorScroll && editorScroll.contentItem)
@@ -620,6 +662,8 @@ Item {
         paperSheet: paperSheet
         isEmpty: mainBar.isEmpty
         isFooterPinned: mainBar.isFooterPinned
+        hasHeader: mainBar.showHeader
+        hasFooter: mainBar.showFooter
         barSize: 36
         onActivated: mainBar.paneActivated()
     }

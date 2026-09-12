@@ -358,6 +358,16 @@ class Backend(QObject):
         """Сохраняет состояние закрепления нижнего статус-бара в сессию"""
         save_session_config({"footer_pinned": bool(pinned)})
 
+    @pyqtSlot(bool)
+    def save_header_visible(self, visible: bool):
+        """Сохраняет видимость верхнего заголовка в сессию"""
+        save_session_config({"header_visible": bool(visible)})
+
+    @pyqtSlot(bool)
+    def save_footer_visible(self, visible: bool):
+        """Сохраняет видимость нижнего статус-бара в сессию"""
+        save_session_config({"footer_visible": bool(visible)})
+
     @pyqtSlot(result="QVariantMap")
     def get_session_config(self) -> dict:
         """Возвращает параметры сохраненной сессии"""

@@ -10,6 +10,8 @@ RowLayout {
     property int barSize: 36
     property string customFontFamily: "Segoe UI, Inter, -apple-system, sans-serif"
     property real availableHeight: 600
+    property bool hasHeader: true
+    property bool hasFooter: true
 
     property alias editorArea: editorArea
     property alias text: editorArea.text
@@ -23,11 +25,28 @@ RowLayout {
     signal closeRequested()
     signal detachRequested()
     signal syncNoticeRequested(string title)
+    signal toggleHeaderFooterRequested()
+    signal toggleFooterRequested()
 
     function isCloseKey(event) {
         if (!(event.modifiers & Qt.ControlModifier)) return false
         if (event.key === Qt.Key_W || event.nativeScanCode === 17 || event.text === 'w' || event.text === 'W' || event.text === 'ц' || event.text === 'Ц' || event.key === 1062 || event.key === 1030) return true
         if (event.key === Qt.Key_Q || event.nativeScanCode === 16 || event.text === 'q' || event.text === 'Q' || event.text === 'й' || event.text === 'Й' || event.key === 1081 || event.key === 1049) return true
+        return false
+    }
+
+    function isToggleHeaderFooterKey(event) {
+        if (event.key === Qt.Key_F9) return true
+        let isH = event.key === Qt.Key_H || event.nativeScanCode === 35 || event.text === 'h' || event.text === 'H' || event.text === 'р' || event.text === 'Р'
+        if ((event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.ShiftModifier) && isH) return true
+        if ((event.modifiers & Qt.AltModifier) && isH) return true
+        return false
+    }
+
+    function isToggleFooterKey(event) {
+        let isF = event.key === Qt.Key_F || event.nativeScanCode === 33 || event.text === 'f' || event.text === 'F' || event.text === 'а' || event.text === 'А'
+        if ((event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.ShiftModifier) && isF) return true
+        if ((event.modifiers & Qt.AltModifier) && isF) return true
         return false
     }
 
@@ -37,8 +56,8 @@ RowLayout {
         }
     }
 
-    Layout.preferredHeight: Math.max(availableHeight - 140, editorArea.implicitHeight)
-    height: Math.max(availableHeight - 140, editorArea.implicitHeight)
+    Layout.preferredHeight: Math.max(availableHeight - ((canvasRoot.hasHeader ? 70 : 16) + (canvasRoot.hasFooter ? 70 : 16)), editorArea.implicitHeight)
+    height: Math.max(availableHeight - ((canvasRoot.hasHeader ? 70 : 16) + (canvasRoot.hasFooter ? 70 : 16)), editorArea.implicitHeight)
 
     // Левая полоса 36px для нумерации строк и фокуса
     EditorGutter {
@@ -142,6 +161,16 @@ RowLayout {
             if (canvasRoot.isCloseKey(event)) {
                 event.accepted = true
                 canvasRoot.closeRequested()
+                return
+            }
+            if (canvasRoot.isToggleHeaderFooterKey(event)) {
+                event.accepted = true
+                canvasRoot.toggleHeaderFooterRequested()
+                return
+            }
+            if (canvasRoot.isToggleFooterKey(event)) {
+                event.accepted = true
+                canvasRoot.toggleFooterRequested()
                 return
             }
             if (event.modifiers & Qt.ControlModifier) {
@@ -263,6 +292,16 @@ RowLayout {
             if (canvasRoot.isCloseKey(event)) {
                 event.accepted = true
                 canvasRoot.closeRequested()
+                return
+            }
+            if (canvasRoot.isToggleHeaderFooterKey(event)) {
+                event.accepted = true
+                canvasRoot.toggleHeaderFooterRequested()
+                return
+            }
+            if (canvasRoot.isToggleFooterKey(event)) {
+                event.accepted = true
+                canvasRoot.toggleFooterRequested()
                 return
             }
         }
