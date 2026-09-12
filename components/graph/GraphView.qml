@@ -29,10 +29,10 @@ Rectangle {
         if (!data || !data.nodes) return
 
         sim = Physics.initSimulation(data.nodes, data.links || [], canvas.width || 800, canvas.height || 600, {
-            repulsion: 3200,
-            linkDistance: 85,
-            gravity: 0.02,
-            damping: 0.85
+            repulsion: 2600,
+            linkDistance: 90,
+            gravity: 0.003,
+            damping: 0.88
         })
         wakeSimulation()
     }
@@ -40,6 +40,7 @@ Rectangle {
     function wakeSimulation() {
         if (sim) {
             sim.isSleeping = false
+            sim.totalEnergy = 15
             animTimer.running = true
             canvas.requestPaint()
         }
@@ -49,6 +50,11 @@ Rectangle {
         zoomScale = 1.0
         panX = 0
         panY = 0
+        if (sim && sim.nodes) {
+            for (var i = 0; i < sim.nodes.length; i++) {
+                sim.nodes[i].isFixed = false
+            }
+        }
         wakeSimulation()
     }
 
@@ -137,7 +143,8 @@ Rectangle {
             // 2. Отрисовка узлов
             for (var j = 0; j < nodes.length; j++) {
                 var n = nodes[j]
-                var isHover = (hoveredNode && hoveredNode.id === n.id)
+                var isDragged = (draggedNode && draggedNode.id === n.id)
+                var isHover = ((hoveredNode && hoveredNode.id === n.id) || isDragged)
                 var isConnected = highlightedNodeIds[n.id] === true
                 var matchesSearch = (!q || (n.label && n.label.toLowerCase().indexOf(q) !== -1))
 
@@ -154,7 +161,13 @@ Rectangle {
                 ctx.beginPath()
                 ctx.arc(n.x, n.y, n.radius || 7, 0, 2 * Math.PI)
 
-                if (isHover) {
+                if (isDragged) {
+                    ctx.fillStyle = "#ffffff"
+                    ctx.fill()
+                    ctx.strokeStyle = "rgba(255, 255, 255, 0.7)"
+                    ctx.lineWidth = 5
+                    ctx.stroke()
+                } else if (isHover) {
                     ctx.fillStyle = "#ffffff"
                     ctx.fill()
                     ctx.strokeStyle = "rgba(255, 255, 255, 0.4)"
@@ -167,10 +180,10 @@ Rectangle {
                     ctx.lineWidth = 1.5
                     ctx.stroke()
                 } else {
-                    ctx.fillStyle = "#2e2e2e"
+                    ctx.fillStyle = (n.isFixed ? "#383838" : "#2e2e2e")
                     ctx.fill()
-                    ctx.strokeStyle = "#404040"
-                    ctx.lineWidth = 1.2
+                    ctx.strokeStyle = (n.isFixed ? "#666666" : "#404040")
+                    ctx.lineWidth = (n.isFixed ? 1.8 : 1.2)
                     ctx.stroke()
                 }
 
@@ -211,6 +224,34 @@ Rectangle {
             return (screenY - (height / 2 + graphRoot.panY)) / graphRoot.zoomScale + height / 2
         }
 
+        // Надежный расчет попадания в узел в пикселях экрана
+        function findNodeAtScreen(screenX, screenY) {
+            if (!graphRoot.sim || !graphRoot.sim.nodes) return null
+            var nodes = graphRoot.sim.nodes
+            var bestNode = null
+            var bestDistSq = Infinity
+            var w = width
+            var h = height
+            var zs = graphRoot.zoomScale
+            var px = graphRoot.panX
+            var py = graphRoot.panY
+
+            for (var i = nodes.length - 1; i >= 0; i--) {
+                var n = nodes[i]
+                var sx = (n.x - w / 2) * zs + w / 2 + px
+                var sy = (n.y - h / 2) * zs + h / 2 + py
+                var dx = screenX - sx
+                var dy = screenY - sy
+                var distSq = dx * dx + dy * dy
+                var effR = Math.max(20, (n.radius || 7) * zs + 10)
+                if (distSq <= effR * effR && distSq < bestDistSq) {
+                    bestDistSq = distSq
+                    bestNode = n
+                }
+            }
+            return bestNode
+        }
+
         onWheel: (wheel) => {
             var factor = wheel.angleDelta.y > 0 ? 1.15 : 0.87
             var newZoom = Math.max(0.25, Math.min(3.5, graphRoot.zoomScale * factor))
@@ -219,15 +260,6 @@ Rectangle {
         }
 
         onPositionChanged: (mouse) => {
-            if (isPanning) {
-                graphRoot.panX += (mouse.x - lastMouseX)
-                graphRoot.panY += (mouse.y - lastMouseY)
-                lastMouseX = mouse.x
-                lastMouseY = mouse.y
-                canvas.requestPaint()
-                return
-            }
-
             if (graphRoot.draggedNode) {
                 var wx = toWorldX(mouse.x)
                 var wy = toWorldY(mouse.y)
@@ -235,14 +267,28 @@ Rectangle {
                 graphRoot.draggedNode.y = wy
                 graphRoot.draggedNode.vx = 0
                 graphRoot.draggedNode.vy = 0
-                graphRoot.wakeSimulation()
+                if (graphRoot.sim) {
+                    graphRoot.sim.isSleeping = false
+                    graphRoot.sim.totalEnergy = 12
+                }
+                animTimer.running = true
+                canvas.requestPaint()
+                cursorShape = Qt.ClosedHandCursor
+                return
+            }
+
+            if (isPanning) {
+                graphRoot.panX += (mouse.x - lastMouseX)
+                graphRoot.panY += (mouse.y - lastMouseY)
+                lastMouseX = mouse.x
+                lastMouseY = mouse.y
+                canvas.requestPaint()
+                cursorShape = Qt.ClosedHandCursor
                 return
             }
 
             // Определение узла под курсором (Hover)
-            var curWx = toWorldX(mouse.x)
-            var curWy = toWorldY(mouse.y)
-            var node = Physics.findNodeAt(graphRoot.sim, curWx, curWy, 6)
+            var node = findNodeAtScreen(mouse.x, mouse.y)
 
             if (node !== graphRoot.hoveredNode) {
                 graphRoot.hoveredNode = node
@@ -259,7 +305,7 @@ Rectangle {
                 canvas.requestPaint()
             }
 
-            cursorShape = (node ? Qt.PointingHandCursor : (isPanning ? Qt.ClosedHandCursor : Qt.ArrowCursor))
+            cursorShape = (node ? Qt.OpenHandCursor : Qt.ArrowCursor)
         }
 
         onPressed: (mouse) => {
@@ -268,40 +314,60 @@ Rectangle {
             dragStartX = mouse.x
             dragStartY = mouse.y
 
-            var wx = toWorldX(mouse.x)
-            var wy = toWorldY(mouse.y)
-            var node = Physics.findNodeAt(graphRoot.sim, wx, wy, 8)
+            var node = findNodeAtScreen(mouse.x, mouse.y)
 
             if (node && mouse.button === Qt.LeftButton) {
                 graphRoot.draggedNode = node
                 node.isFixed = true
+                isPanning = false
+                cursorShape = Qt.ClosedHandCursor
                 graphRoot.wakeSimulation()
             } else {
+                graphRoot.draggedNode = null
                 isPanning = true
                 cursorShape = Qt.ClosedHandCursor
             }
         }
 
         onReleased: (mouse) => {
-            if (graphRoot.draggedNode) {
-                graphRoot.draggedNode.isFixed = false
+            var movedDist = Math.hypot(mouse.x - dragStartX, mouse.y - dragStartY)
+            var wasDraggingNode = (graphRoot.draggedNode !== null)
+            var nodeRef = graphRoot.draggedNode
+
+            if (wasDraggingNode) {
+                if (movedDist >= 5) {
+                    // Узел был передвинут — закрепляем его в новой позиции!
+                    nodeRef.isFixed = true
+                    nodeRef.vx = 0
+                    nodeRef.vy = 0
+                } else {
+                    nodeRef.isFixed = false
+                }
                 graphRoot.draggedNode = null
                 graphRoot.wakeSimulation()
             }
+
             if (isPanning) {
                 isPanning = false
-                cursorShape = Qt.ArrowCursor
             }
 
-            // Одиночный клик без смещения — переход к заметке
-            var movedDist = Math.hypot(mouse.x - dragStartX, mouse.y - dragStartY)
+            cursorShape = Qt.ArrowCursor
+
+            // Если это был клик (смещение < 5px) — переходим к заметке
             if (movedDist < 5) {
-                var wx = toWorldX(mouse.x)
-                var wy = toWorldY(mouse.y)
-                var clickedNode = Physics.findNodeAt(graphRoot.sim, wx, wy, 8)
+                var clickedNode = findNodeAtScreen(mouse.x, mouse.y)
                 if (clickedNode && clickedNode.fileUrl) {
                     graphRoot.nodeClicked(clickedNode.fileUrl, clickedNode.label, clickedNode.type)
                 }
+            }
+        }
+
+        onDoubleClicked: (mouse) => {
+            var node = findNodeAtScreen(mouse.x, mouse.y)
+            if (node) {
+                // Двойной клик переключает фиксацию (unpin / pin)
+                node.isFixed = !node.isFixed
+                graphRoot.wakeSimulation()
             }
         }
     }
