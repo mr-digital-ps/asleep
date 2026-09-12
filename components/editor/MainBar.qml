@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "../../js/markdown_shortcuts.js" as Markdown
 import "../../js/block_sync.js" as BlockSync
 
 Item {
@@ -28,7 +27,7 @@ Item {
     property bool isFooterPinned: true
 
     readonly property string statsString: {
-        let txt = (editorArea && editorArea.text) ? editorArea.text : ""
+        let txt = (editorCanvas && editorCanvas.text) ? editorCanvas.text : ""
         let words = 0
         let trimmed = txt.trim()
         if (trimmed.length > 0) {
@@ -70,10 +69,10 @@ Item {
         smoothScrollAnim.start()
     }
 
-    // Доступ к редактору и заголовку для внешних скриптов
-    property alias editorArea: editorArea
+    // Доступ к редактору и заголовку для внешних скриптов (обратная совместимость)
+    property alias editorArea: editorCanvas.editorArea
     property alias editorScroll: editorScroll
-    property alias text: editorArea.text
+    property alias text: editorCanvas.text
     property alias titleField: docHeader.titleField
     property bool isTitleFocused: docHeader ? docHeader.titleField.activeFocus : false
     readonly property real scrollY: (editorScroll && editorScroll.contentItem) ? editorScroll.contentItem.contentY : 0
@@ -222,7 +221,6 @@ Item {
         let rect = editorArea.cursorRectangle
         if (!rect || rect.height <= 0) return
 
-        // Позиция курсора в координатах видимой области editorScroll
         let pt = editorArea.mapToItem(editorScroll, 0, rect.y)
         let cursorTop = pt.y
         let cursorBottom = cursorTop + rect.height
@@ -242,7 +240,7 @@ Item {
             return
         }
 
-        // Запас отступа сверху и снизу (~70px или 2-3 строки), чтобы курсор не прилипал к краю экрана
+        // Запас отступа сверху и снизу
         let topMargin = Math.min(70, viewH * 0.2)
         let bottomMargin = Math.max(70, mainBar.isFooterPinned ? 70 : 30)
 
@@ -287,7 +285,6 @@ Item {
             let block = BlockSync.getCurrentBlockInfo(editorArea, b)
             if (!block) return
 
-            // Если блок пустой, но уже существует в других файлах — автоматически подтягиваем контент
             if (block.shouldAutoFill && block.autoFillContent) {
                 mainBar.isReceivingExternalSync = true
                 let insertText = "\n" + block.autoFillContent + "\n\n"
@@ -375,7 +372,7 @@ Item {
             width: editorScroll.availableWidth
             readonly property real singleLineHeight: (editorArea && editorArea.cursorRectangle.height > 0) ? editorArea.cursorRectangle.height : 24
             height: Math.max(mainBar.height, (editorArea && editorArea.lineCount > 1 && editorArea.contentHeight > 60)
-                ? (contentRow.y + contentRow.height + docFooterContainer.height + editorScroll.availableHeight - (editorArea.bottomPadding + singleLineHeight + (mainBar.isHeaderPinned ? 70 : 0) + 16))
+                ? (editorCanvas.y + editorCanvas.height + 44 + editorScroll.availableHeight - (editorArea.bottomPadding + singleLineHeight + (mainBar.isHeaderPinned ? 70 : 0) + 16))
                 : mainBar.height)
 
             // Перетаскивание файла по пустому пространству вокруг документа (в режиме сплита)
@@ -433,33 +430,8 @@ Item {
             }
 
             // Экран-заглушка, если нет открытых файлов
-            Item {
-                anchors.centerIn: parent
+            EditorEmptyState {
                 visible: mainBar.isEmpty
-                width: 320
-                height: 120
-
-                ColumnLayout {
-                    anchors.centerIn: parent
-                    spacing: 10
-
-                    Text {
-                        Layout.alignment: Qt.AlignHCenter
-                        text: "Нет открытых файлов"
-                        color: "#4a4a4a"
-                        font.pixelSize: 16
-                        font.bold: true
-                    }
-
-                    Text {
-                        Layout.alignment: Qt.AlignHCenter
-                        text: "Выберите файл в меню слева\nили Shift + Клик для разделения экрана"
-                        color: "#383838"
-                        font.pixelSize: 13
-                        horizontalAlignment: Text.AlignHCenter
-                        lineHeight: 1.3
-                    }
-                }
             }
 
             // Поле для отображения страницы (на полную или среднюю/настраиваемую ширину)
@@ -479,502 +451,94 @@ Item {
                     NumberAnimation { duration: 150 }
                 }
 
-                // Фокус-режим: кинематографичное приглушение неактивных абзацев
-                Item {
-                    id: focusOverlay
-                    anchors.fill: parent
-                    visible: mainBar.focusMode && editorArea.activeFocus
-                    opacity: (mainBar.focusMode && editorArea.activeFocus) ? 1.0 : 0.0
-                    Behavior on opacity { NumberAnimation { duration: 200 } }
-                    z: 5
-                    enabled: false
-
-                    Rectangle {
-                        id: focusTopDim
-                        anchors.top: parent.top
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        readonly property real targetH: {
-                            if (!editorArea || !editorArea.activeFocus) return 0
-                            let p = editorArea.mapToItem(focusOverlay, 0, editorArea.cursorRectangle.y)
-                            return Math.max(0, p.y - 8)
-                        }
-                        height: targetH
-                        color: "#cc181818"
-                        Behavior on height { NumberAnimation { duration: 70; easing.type: Easing.OutQuad } }
-                    }
-
-                    Rectangle {
-                        id: focusBottomDim
-                        anchors.bottom: parent.bottom
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        readonly property real targetY: {
-                            if (!editorArea || !editorArea.activeFocus) return parent.height
-                            let p = editorArea.mapToItem(focusOverlay, 0, editorArea.cursorRectangle.y + editorArea.cursorRectangle.height)
-                            return p.y + 8
-                        }
-                        y: targetY
-                        height: Math.max(0, parent.height - targetY)
-                        color: "#cc181818"
-                        Behavior on y { NumberAnimation { duration: 70; easing.type: Easing.OutQuad } }
-                        Behavior on height { NumberAnimation { duration: 70; easing.type: Easing.OutQuad } }
-                    }
+                // Фокус-режим: затемнение неактивных строк
+                EditorFocusDimmer {
+                    editorArea: editorCanvas.editorArea
+                    focusMode: mainBar.focusMode
                 }
 
                 // 1. Верхний контейнер заголовка (с поддержкой закрепления Sticky Header)
-                Item {
-                    id: docHeaderContainer
+                EditorHeader {
+                    id: docHeader
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    height: 70
-                    z: 20
-                    y: mainBar.isHeaderPinned
-                        ? (editorScroll && editorScroll.contentItem ? Math.max(0, editorScroll.contentItem.contentY) : 0)
-                        : 0
+                    fileName: mainBar.fileName
+                    fileUrl: mainBar.fileUrl
+                    isSplitMode: mainBar.isSplitMode
+                    isActivePane: mainBar.isActivePane
+                    isEmpty: mainBar.isEmpty
+                    isPinned: mainBar.isHeaderPinned
+                    scrollY: mainBar.scrollY
+                    maxTitleWidth: paperSheet.width - 72
+                    contentLeftPadding: editorArea.leftPadding
+                    contentRightPadding: editorArea.rightPadding
 
-                    Rectangle {
-                        anchors.fill: parent
-                        color: "#181818"
-                        visible: mainBar.isHeaderPinned && (editorScroll && editorScroll.contentItem && editorScroll.contentItem.contentY > 0)
+                    onTitleCommitted: (newTitle) => mainBar.titleChangedByUser(newTitle)
+                    onPaneActivated: mainBar.paneActivated()
+                    onPinToggled: {
+                        mainBar.isHeaderPinned = !mainBar.isHeaderPinned
+                        mainBar.saveHeaderPinnedState(mainBar.isHeaderPinned)
                     }
-
-                    ColumnLayout {
-                        anchors.fill: parent
-                        spacing: 0
-
-                        DocumentHeader {
-                            id: docHeader
-                            fileName: mainBar.fileName
-                            fileUrl: mainBar.fileUrl
-                            isSplitMode: mainBar.isSplitMode
-                            isActivePane: mainBar.isActivePane
-                            isEmpty: mainBar.isEmpty
-                            maxTitleWidth: paperSheet.width - 72
-                            contentLeftPadding: editorArea.leftPadding
-                            contentRightPadding: editorArea.rightPadding
-
-                            onTitleCommitted: (newTitle) => mainBar.titleChangedByUser(newTitle)
-                            onPaneActivated: mainBar.paneActivated()
-                            onFileDragStarted: (url, name, gx, gy) => mainBar.fileDragStarted(url, name, gx, gy)
-                            onFileDragMoved: (gx, gy) => mainBar.fileDragMoved(gx, gy)
-                            onFileDragEnded: (url, name, gx, gy) => mainBar.fileDragEnded(url, name, gx, gy)
-                        }
-
-                        // Верхняя разделительная линия (клик = закрепить/открепить)
-                        Item {
-                            id: headerDividerArea
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 14
-                            Layout.maximumHeight: 14
-                            Layout.leftMargin: 36
-                            Layout.rightMargin: 36
-
-                            Rectangle {
-                                id: headerDividerLine
-                                anchors.centerIn: parent
-                                width: parent.width
-                                height: 2
-                                radius: 1
-                                color: mainBar.isHeaderPinned ? (headerDividerMouse.containsMouse ? "#888888" : "#666666") : (headerDividerMouse.containsMouse ? "#4a4a4a" : "#3a3a3a")
-                                Behavior on color { ColorAnimation { duration: 150 } }
-                            }
-
-                            MouseArea {
-                                id: headerDividerMouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    mainBar.isHeaderPinned = !mainBar.isHeaderPinned
-                                    mainBar.saveHeaderPinnedState(mainBar.isHeaderPinned)
-                                }
-                            }
-                        }
-                    }
+                    onFileDragStarted: (url, name, gx, gy) => mainBar.fileDragStarted(url, name, gx, gy)
+                    onFileDragMoved: (gx, gy) => mainBar.fileDragMoved(gx, gy)
+                    onFileDragEnded: (url, name, gx, gy) => mainBar.fileDragEnded(url, name, gx, gy)
                 }
 
-                // 2. Содержимое документа (левая полоса 36px + текст + правая полоса 36px)
-                RowLayout {
-                    id: contentRow
+                // 2. Рабочая область документа (Gutter + TextArea + шорткаты)
+                EditorCanvas {
+                    id: editorCanvas
                     anchors.top: parent.top
                     anchors.topMargin: 70
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    Layout.preferredHeight: Math.max(editorScroll.availableHeight - 100, editorArea.implicitHeight)
-                    height: Math.max(editorScroll.availableHeight - 100, editorArea.implicitHeight)
-                    spacing: 0
+                    availableHeight: editorScroll.availableHeight
+                    barSize: mainBar.barSize
+                    customFontFamily: mainBar.customFontFamily
 
-                    EditorGutter {
-                        barSize: 36
-                        editorArea: editorArea
-                        Layout.preferredWidth: barSize
-                        Layout.fillHeight: true
-                        onActivated: mainBar.paneActivated()
+                    onPaneActivated: mainBar.paneActivated()
+                    onCursorVisibilityRequested: mainBar.requestEnsureCursorVisible()
+                    onTextChangedByUser: {
+                        if (!mainBar.isReceivingExternalSync && activeFocus) {
+                            blockSyncTimer.restart()
+                        }
+                        if (activeFocus) {
+                            mainBar.requestEnsureCursorVisible()
+                        }
                     }
-
-                    TextArea {
-                        id: editorArea
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        leftPadding: 0
-                        rightPadding: 0
-                        topPadding: 6
-                        bottomPadding: 0
-
-                        font.family: mainBar.customFontFamily
-                        font.pixelSize: 15
-                        wrapMode: TextArea.Wrap
-                        selectByMouse: true
-                        color: "#d4d4d4"
-                        selectionColor: "#282828"
-                        selectedTextColor: "#ffffff"
-                        placeholderText: "Начните вводить текст..."
-                        placeholderTextColor: "#666666"
-
-                        cursorDelegate: Item {
-                            id: cursorWrapper
-                            visible: editorArea.activeFocus
-                            Rectangle {
-                                id: customCursor
-                                width: 2
-                                height: parent.height
-                                anchors.centerIn: parent
-                                color: "#e0e0e0"
-                            }
+                    onScrollRequested: (dy) => mainBar.smoothScrollBy(dy)
+                    onScrollToTopRequested: {
+                        if (editorScroll && editorScroll.contentItem) {
+                            editorScroll.contentItem.contentY = 0
                         }
-
-                        background: Item {
-                            Rectangle {
-                                id: currentLineHighlight
-                                visible: editorArea.activeFocus && editorArea.cursorRectangle.height > 0 && (editorArea.selectionStart === editorArea.selectionEnd)
-                                x: 0
-                                width: parent.width
-                                y: editorArea.cursorRectangle.y
-                                height: editorArea.cursorRectangle.height
-                                color: "#0effffff"
-                                radius: 3
-                            }
-
-                            // Оверлей подсветки парных скобок
-                            Item {
-                                id: bracketHighlightOverlay
-                                anchors.fill: parent
-
-                                Rectangle {
-                                    id: primaryBracketHighlight
-                                    visible: false
-                                    color: "#25ffffff"
-                                    border.color: "#70ffffff"
-                                    border.width: 1
-                                    radius: 2
-                                }
-
-                                Rectangle {
-                                    id: matchBracketHighlight
-                                    visible: false
-                                    color: "#25ffffff"
-                                    border.color: "#70ffffff"
-                                    border.width: 1
-                                    radius: 2
-                                }
-
-                                function updateBracketHighlights() {
-                                    if (!editorArea.activeFocus || editorArea.selectionStart !== editorArea.selectionEnd) {
-                                        primaryBracketHighlight.visible = false
-                                        matchBracketHighlight.visible = false
-                                        return
-                                    }
-
-                                    let pair = Markdown.findMatchingBracket(editorArea.text, editorArea.cursorPosition)
-                                    if (!pair) {
-                                        primaryBracketHighlight.visible = false
-                                        matchBracketHighlight.visible = false
-                                        return
-                                    }
-
-                                    let r1 = editorArea.positionToRectangle(pair.primary)
-                                    let r2 = editorArea.positionToRectangle(pair.match)
-
-                                    if (r1 && r1.height > 0) {
-                                        primaryBracketHighlight.x = r1.x
-                                        primaryBracketHighlight.y = r1.y
-                                        primaryBracketHighlight.width = Math.max(8, r1.width)
-                                        primaryBracketHighlight.height = r1.height
-                                        primaryBracketHighlight.visible = true
-                                    } else {
-                                        primaryBracketHighlight.visible = false
-                                    }
-
-                                    if (r2 && r2.height > 0) {
-                                        matchBracketHighlight.x = r2.x
-                                        matchBracketHighlight.y = r2.y
-                                        matchBracketHighlight.width = Math.max(8, r2.width)
-                                        matchBracketHighlight.height = r2.height
-                                        matchBracketHighlight.visible = true
-                                    } else {
-                                        matchBracketHighlight.visible = false
-                                    }
-                                }
-                            }
-                        }
-
-                        WheelHandler {
-                            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                            onWheel: (event) => {
-                                if (event.modifiers & Qt.ControlModifier) {
-                                    if (event.angleDelta.y > 0) {
-                                        editorArea.font.pixelSize = Math.min(36, editorArea.font.pixelSize + 1)
-                                    } else if (event.angleDelta.y < 0) {
-                                        editorArea.font.pixelSize = Math.max(10, editorArea.font.pixelSize - 1)
-                                    }
-                                    event.accepted = true
-                                } else {
-                                    let dy = -event.angleDelta.y
-                                    mainBar.smoothScrollBy(dy)
-                                    event.accepted = true
-                                }
-                            }
-                        }
-
-                        onActiveFocusChanged: {
-                            if (activeFocus) {
-                                mainBar.paneActivated()
-                                mainBar.requestEnsureCursorVisible()
-                            }
-                            bracketHighlightOverlay.updateBracketHighlights()
-                        }
-
-                        onCursorPositionChanged: {
-                            if (activeFocus) {
-                                mainBar.ensureCursorVisible()
-                                mainBar.requestEnsureCursorVisible()
-                            }
-                            bracketHighlightOverlay.updateBracketHighlights()
-                        }
-
-                        onSelectionStartChanged: bracketHighlightOverlay.updateBracketHighlights()
-                        onSelectionEndChanged: bracketHighlightOverlay.updateBracketHighlights()
-
-                        Keys.onShortcutOverride: (event) => {
-                            if (mainBar.isCloseKey(event)) {
-                                event.accepted = true
-                                return
-                            }
-                            if (event.modifiers & Qt.ControlModifier) {
-                                if (event.key === Qt.Key_B || event.key === Qt.Key_I || event.key === Qt.Key_K ||
-                                    event.key === Qt.Key_E || event.key === Qt.Key_D ||
-                                    event.key === Qt.Key_Return || event.key === Qt.Key_Enter ||
-                                    (event.key >= Qt.Key_0 && event.key <= Qt.Key_6)) {
-                                    event.accepted = true
-                                    return
-                                }
-                            }
-                        }
-
-                        Keys.onPressed: (event) => {
-                            if (mainBar.isCloseKey(event)) {
-                                mainBar.closeRequested()
-                                event.accepted = true
-                                return
-                            }
-
-                            // Backspace: удаление пустой пары скобок/кавычек
-                            if (event.key === Qt.Key_Backspace && !(event.modifiers & Qt.ControlModifier)) {
-                                if (Markdown.handleAutoPairBackspace(editorArea)) {
-                                    event.accepted = true
-                                    return
-                                }
-                            }
-
-                            // Alt+Shift+T: переключить Typewriter Mode
-                            if ((event.modifiers & Qt.AltModifier) && (event.modifiers & Qt.ShiftModifier) && event.key === Qt.Key_T) {
-                                mainBar.typewriterMode = !mainBar.typewriterMode
-                                mainBar.showSyncNotice(mainBar.typewriterMode ? "Typewriter: Вкл" : "Typewriter: Выкл")
-                                if (mainBar.typewriterMode) mainBar.ensureCursorVisible()
-                                event.accepted = true
-                                return
-                            }
-
-                            // Alt+Shift+F: переключить Focus Mode
-                            if ((event.modifiers & Qt.AltModifier) && (event.modifiers & Qt.ShiftModifier) && event.key === Qt.Key_F) {
-                                mainBar.focusMode = !mainBar.focusMode
-                                mainBar.showSyncNotice(mainBar.focusMode ? "Focus Mode: Вкл" : "Focus Mode: Выкл")
-                                event.accepted = true
-                                return
-                            }
-
-                            // Ctrl+D: дублирование строки
-                            if ((event.modifiers & Qt.ControlModifier) && (event.key === Qt.Key_D)) {
-                                Markdown.duplicateLine(editorArea)
-                                event.accepted = true
-                                return
-                            }
-
-                            // Ctrl+B / I / K / E: форматирование
-                            if ((event.modifiers & Qt.ControlModifier) && !(event.modifiers & Qt.ShiftModifier)) {
-                                if (event.key === Qt.Key_B) { Markdown.wrapSelection(editorArea, "**", "**"); event.accepted = true; return }
-                                if (event.key === Qt.Key_I) { Markdown.wrapSelection(editorArea, "*", "*"); event.accepted = true; return }
-                                if (event.key === Qt.Key_K) { Markdown.wrapSelection(editorArea, "[", "](url)"); event.accepted = true; return }
-                                if (event.key === Qt.Key_E) { Markdown.wrapSelection(editorArea, "`", "`"); event.accepted = true; return }
-                            }
-
-                            // Ctrl+Enter: переключение чекбокса задачи
-                            if ((event.modifiers & Qt.ControlModifier) && (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)) {
-                                Markdown.toggleTask(editorArea)
-                                event.accepted = true
-                                return
-                            }
-
-                            // Ctrl+0..6: заголовки
-                            if ((event.modifiers & Qt.ControlModifier) && event.key >= Qt.Key_0 && event.key <= Qt.Key_6) {
-                                Markdown.toggleHeading(editorArea, event.key - Qt.Key_0)
-                                event.accepted = true
-                                return
-                            }
-
-                            // Авто-обертка выделенного текста при вводе скобок и кавычек
-                            if (selectionStart !== selectionEnd && event.text) {
-                                if (Markdown.handleAutoWrap(editorArea, event.text)) {
-                                    event.accepted = true
-                                    return
-                                }
-                            }
-
-                            // Авто-пара при вводе скобок/кавычек без выделения
-                            if (selectionStart === selectionEnd && event.text && event.text.length === 1 &&
-                                !(event.modifiers & Qt.ControlModifier) && !(event.modifiers & Qt.AltModifier)) {
-                                if (Markdown.handleAutoPair(editorArea, event.text)) {
-                                    event.accepted = true
-                                    return
-                                }
-                            }
-
-                            // Alt+Up / Alt+Down: перемещение строк
-                            if (event.modifiers & Qt.AltModifier) {
-                                if (event.key === Qt.Key_Up) { Markdown.moveLineUp(editorArea); event.accepted = true; return }
-                                if (event.key === Qt.Key_Down) { Markdown.moveLineDown(editorArea); event.accepted = true; return }
-                            }
-
-                            // Alt+Z / Alt+F: переключить ширину листа (занять всё свободное пространство)
-                            if ((event.modifiers & Qt.AltModifier) && !(event.modifiers & Qt.ControlModifier)) {
-                                if (event.key === Qt.Key_Z || event.key === Qt.Key_F) {
-                                    mainBar.toggleFullWidth()
-                                    event.accepted = true
-                                    return
-                                }
-                            }
-                        }
-
-                        Keys.onTabPressed: (event) => {
-                            Markdown.handleTabIndent(editorArea, event.modifiers & Qt.ShiftModifier)
-                            event.accepted = true
-                        }
-
-                        Keys.onReturnPressed: (event) => {
-                            event.accepted = Markdown.handleSmartEnter(editorArea, (typeof backend !== "undefined" ? backend : null), (t) => mainBar.showSyncNotice(t))
-                        }
-                        Keys.onEnterPressed: (event) => {
-                            event.accepted = Markdown.handleSmartEnter(editorArea, (typeof backend !== "undefined" ? backend : null), (t) => mainBar.showSyncNotice(t))
-                        }
-
-                        Keys.onUpPressed: (event) => {
-                            let firstLineEnd = text.indexOf("\n")
-                            let isFirstLine = (firstLineEnd === -1) ? true : (cursorPosition <= firstLineEnd)
-                            if (cursorPosition === 0 || isFirstLine) {
-                                if (editorScroll && editorScroll.contentItem) {
-                                    editorScroll.contentItem.contentY = 0
-                                }
-                            }
-                            event.accepted = false
-                        }
-
-                        onTextChanged: {
-                            if (!mainBar.isReceivingExternalSync && activeFocus) {
-                                blockSyncTimer.restart()
-                            }
-                            if (activeFocus) {
-                                mainBar.requestEnsureCursorVisible()
-                            }
-                            bracketHighlightOverlay.updateBracketHighlights()
-                        }
-
-                        onPressed: mainBar.paneActivated()
                     }
-
-                    // 4. Правая полоса 36px для скроллбара (предотвращает наложение на текст)
-                    Item {
-                        id: rightGutterSpacer
-                        Layout.preferredWidth: barSize
-                        Layout.fillHeight: true
+                    onFontSizeChanged: (sz) => {
+                        mainBar.isCustomFontSizeSetByUser = true
+                        mainBar.updateConfigParameterInText("font_size", sz)
+                        if (typeof backend !== "undefined" && backend && typeof backend.update_font_size === "function") {
+                            backend.update_font_size(sz)
+                        }
                     }
+                    onCloseRequested: mainBar.closeRequested()
+                    onDetachRequested: mainBar.detachRequested()
+                    onSyncNoticeRequested: (t) => mainBar.showSyncNotice(t)
                 }
 
                 // 3. Нижний контейнер со статистикой и разделителем (когда откреплен)
-                Item {
-                    id: docFooterContainer
+                EditorFooter {
+                    id: unpinnedFooter
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    height: 44
-                    z: 20
-                    y: contentRow.y + contentRow.height + 4
+                    y: editorCanvas.y + editorCanvas.height + 4
+                    isPinned: false
+                    statsText: mainBar.statsString
                     visible: !mainBar.isFooterPinned
 
-                    ColumnLayout {
-                        anchors.fill: parent
-                        spacing: 0
-
-                        // Нижняя разделительная линия (клик = закрепить)
-                        Item {
-                            id: footerDividerArea
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 14
-                            Layout.maximumHeight: 14
-                            Layout.leftMargin: 36
-                            Layout.rightMargin: 36
-
-                            Rectangle {
-                                id: footerDividerLine
-                                anchors.centerIn: parent
-                                width: parent.width
-                                height: 2
-                                radius: 1
-                                color: footerDividerMouse.containsMouse ? "#4a4a4a" : "#3a3a3a"
-                                Behavior on color { ColorAnimation { duration: 150 } }
-                            }
-
-                            MouseArea {
-                                id: footerDividerMouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    mainBar.isFooterPinned = true
-                                    mainBar.saveFooterPinnedState(true)
-                                    mainBar.paneActivated()
-                                }
-                            }
-                        }
-
-                        // Информационная строка со статистикой (слова, знаки)
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Layout.leftMargin: 36
-                            Layout.rightMargin: 36
-                            Layout.preferredHeight: 30
-                            spacing: 12
-
-                            Text {
-                                id: docStatsText
-                                Layout.alignment: Qt.AlignVCenter
-                                font.pixelSize: 12
-                                color: "#666666"
-                                text: mainBar.statsString
-                            }
-
-                            Item { Layout.fillWidth: true }
-                        }
+                    onPinToggled: {
+                        mainBar.isFooterPinned = true
+                        mainBar.saveFooterPinnedState(true)
+                        mainBar.paneActivated()
                     }
+                    onActivated: mainBar.paneActivated()
                 }
 
                 // Интерактивная граница изменения ширины листа слева
@@ -1048,81 +612,22 @@ Item {
     }
 
     // Закрепленный внизу экрана статус-бар с разделителем (когда isFooterPinned == true)
-    Item {
+    EditorFooter {
         id: pinnedFooterBar
         anchors.bottom: parent.bottom
         anchors.horizontalCenter: parent.horizontalCenter
         width: paperSheet.width
-        height: 44
         z: 25
+        isPinned: true
+        statsText: mainBar.statsString
         visible: mainBar.isFooterPinned && !mainBar.isEmpty
         opacity: (mainBar.isSplitMode && !mainBar.isActivePane) ? 0.55 : 1.0
 
-        Rectangle {
-            anchors.fill: parent
-            color: "#181818"
+        onPinToggled: {
+            mainBar.isFooterPinned = false
+            mainBar.saveFooterPinnedState(false)
+            mainBar.paneActivated()
         }
-
-        MouseArea {
-            anchors.fill: parent
-            z: -1
-            onPressed: mainBar.paneActivated()
-        }
-
-        ColumnLayout {
-            anchors.fill: parent
-            spacing: 0
-
-            // Нижняя разделительная линия (клик = открепить)
-            Item {
-                id: pinnedFooterDividerArea
-                Layout.fillWidth: true
-                Layout.preferredHeight: 14
-                Layout.maximumHeight: 14
-                Layout.leftMargin: 36
-                Layout.rightMargin: 36
-
-                Rectangle {
-                    id: pinnedFooterDividerLine
-                    anchors.centerIn: parent
-                    width: parent.width
-                    height: 2
-                    radius: 1
-                    color: pinnedFooterDividerMouse.containsMouse ? "#888888" : "#666666"
-                    Behavior on color { ColorAnimation { duration: 150 } }
-                }
-
-                MouseArea {
-                    id: pinnedFooterDividerMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        mainBar.isFooterPinned = false
-                        mainBar.saveFooterPinnedState(false)
-                        mainBar.paneActivated()
-                    }
-                }
-            }
-
-            // Информационная строка со статистикой (слова, знаки)
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.leftMargin: 36
-                Layout.rightMargin: 36
-                Layout.preferredHeight: 30
-                spacing: 12
-
-                Text {
-                    id: pinnedDocStatsText
-                    Layout.alignment: Qt.AlignVCenter
-                    font.pixelSize: 12
-                    color: "#666666"
-                    text: mainBar.statsString
-                }
-
-                Item { Layout.fillWidth: true }
-            }
-        }
+        onActivated: mainBar.paneActivated()
     }
 }
