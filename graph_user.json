@@ -1,7 +1,7 @@
 {
   "_comment": "Пользовательские настройки физики и отображения графа. Измените любые значения и сохраните файл (Ctrl+S) — граф обновится автоматически!",
   "physics": {
-    "repulsion": 3600,
+    "repulsion": 3600, 
     "repulsionDistanceMax": 800,
     "linkDistance": 85,
     "linkStrength": 0.014,

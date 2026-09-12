@@ -1,0 +1,14 @@
+{
+  "sheet_width": 800,
+  "font_family": "Segoe UI, Inter, -apple-system, sans-serif",
+  "font_size": 15,
+  "line_height": 1.35,
+  "show_line_dots": true,
+  "padding_left": 0,
+  "padding_right": 0,
+  "padding_top": 6,
+  "padding_bottom": 0,
+  "typewriter_mode": false,
+  "focus_mode": false,
+  "tab_size": 4
+}

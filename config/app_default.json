@@ -1,0 +1,6 @@
+{
+  "auto_save_delay_ms": 1000,
+  "supported_extensions": [".md", ".markdown", ".txt"],
+  "ignored_directories": [".git", ".venv", "__pycache__", "node_modules"],
+  "language": "ru"
+}

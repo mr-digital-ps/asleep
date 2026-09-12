@@ -55,9 +55,33 @@ Rectangle {
     Layout.preferredWidth: isSidebarVisible ? currentWidth : 0
     Layout.fillHeight: true
     clip: true
-    color: "#181818"
+    color: (themeConfig && themeConfig.bg_sidebar) ? themeConfig.bg_sidebar : "#181818"
+
+    property var themeConfig: ({})
+
+    function loadTheme() {
+        if (typeof backend !== "undefined" && backend && typeof backend.get_theme_config === "function") {
+            try {
+                let tc = backend.get_theme_config()
+                if (tc) {
+                    sideBar.themeConfig = tc
+                    if (typeof tc.sidebar_width === "number" && tc.sidebar_width >= 36 && !sideBar.isDragging) {
+                        sideBar.currentWidth = tc.sidebar_width
+                    }
+                }
+            } catch(e) {}
+        }
+    }
+
+    Connections {
+        target: (typeof backend !== "undefined") ? backend : null
+        function onThemeConfigChanged() {
+            sideBar.loadTheme()
+        }
+    }
 
     Component.onCompleted: {
+        loadTheme()
         if (typeof backend !== "undefined" && backend && typeof backend.get_session_config === "function") {
             try {
                 let sess = backend.get_session_config()

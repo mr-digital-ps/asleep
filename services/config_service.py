@@ -164,16 +164,70 @@ pinned: []
 
 class ConfigService:
     """
-    Сервис управления конфигурациями каталогов и редактора.
-    Отвечает за чтение Markdown Frontmatter, слияние с эталоном и генерацию шаблонов.
+    Сервис управления конфигурациями каталогов, редактора и модульных настроек приложения (config/).
+    Отвечает за чтение Markdown Frontmatter, модульных JSON-конфигов, слияние с эталоном и генерацию шаблонов.
     """
     def __init__(self):
+        self.project_root = Path(__file__).resolve().parent.parent
+        self.config_dir = self.project_root / "config"
         self._current_folder: Path | None = None
         self._current_config: dict = copy.deepcopy(DEFAULT_CONFIG)
 
     @property
     def current_config(self) -> dict:
         return self._current_config
+
+    def load_category_config(self, category: str, folder_path: Path | None = None) -> dict:
+        """
+        Загружает настройки указанной категории (editor, theme, app, hotkeys, graph):
+        1. config/<category>_default.json
+        2. config/<category>_user.json
+        3. folder_path/_<category>_settings.json (если передан)
+        """
+        cfg = {}
+        default_file = self.config_dir / f"{category}_default.json"
+        if default_file.exists():
+            try:
+                import json
+                data = json.loads(default_file.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    cfg = deep_merge(cfg, data)
+            except Exception as e:
+                _safe_print(f"[ConfigService] Ошибка чтения {default_file.name}: {e}")
+
+        user_file = self.config_dir / f"{category}_user.json"
+        if user_file.exists():
+            try:
+                import json
+                data = json.loads(user_file.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    cfg = deep_merge(cfg, data)
+            except Exception as e:
+                _safe_print(f"[ConfigService] Ошибка чтения {user_file.name}: {e}")
+
+        if folder_path and folder_path.exists() and folder_path.is_dir():
+            for fn in [f"_{category}_settings.json", f"{category}_settings.json"]:
+                v_file = folder_path / fn
+                if v_file.exists():
+                    try:
+                        import json
+                        data = json.loads(v_file.read_text(encoding="utf-8"))
+                        if isinstance(data, dict):
+                            cfg = deep_merge(cfg, data)
+                        break
+                    except Exception as e:
+                        _safe_print(f"[ConfigService] Ошибка чтения {v_file.name}: {e}")
+
+        return cfg
+
+    def get_editor_config(self, folder_path: Path | None = None) -> dict:
+        return self.load_category_config("editor", folder_path)
+
+    def get_theme_config(self, folder_path: Path | None = None) -> dict:
+        return self.load_category_config("theme", folder_path)
+
+    def get_app_config(self, folder_path: Path | None = None) -> dict:
+        return self.load_category_config("app", folder_path)
 
     @staticmethod
     def get_config_filename(folder_name: str) -> str:
@@ -215,29 +269,38 @@ class ConfigService:
     def load_folder_config(self, folder_path: Path) -> dict:
         """Считывает настройки из папки, выполняет слияние с дефолтами и сохраняет в память."""
         self._current_folder = folder_path
+        base = copy.deepcopy(DEFAULT_CONFIG)
+        ed_cfg = self.get_editor_config(folder_path)
+        if ed_cfg:
+            base["editor"] = deep_merge(base["editor"], ed_cfg)
+
         if not folder_path or not folder_path.exists() or not folder_path.is_dir():
-            self._current_config = copy.deepcopy(DEFAULT_CONFIG)
+            self._current_config = base
             return self._current_config
 
         config_path = self.get_config_file_path(folder_path)
         if not config_path.exists():
-            self._current_config = copy.deepcopy(DEFAULT_CONFIG)
+            self._current_config = base
             return self._current_config
 
         try:
             content = config_path.read_text(encoding="utf-8")
             parsed_dict, _, _ = extract_frontmatter(content)
-            self._current_config = deep_merge(DEFAULT_CONFIG, parsed_dict)
+            self._current_config = deep_merge(base, parsed_dict)
         except Exception as e:
             _safe_print(f"[ConfigService] Ошибка чтения {config_path.name}: {e}")
-            self._current_config = copy.deepcopy(DEFAULT_CONFIG)
+            self._current_config = base
 
         return self._current_config
 
     def parse_and_update(self, text: str) -> dict:
         """Обновляет текущую конфигурацию из текста файла (при сохранении)"""
+        base = copy.deepcopy(DEFAULT_CONFIG)
+        ed_cfg = self.get_editor_config(self._current_folder)
+        if ed_cfg:
+            base["editor"] = deep_merge(base["editor"], ed_cfg)
         parsed_dict, _, _ = extract_frontmatter(text)
-        self._current_config = deep_merge(DEFAULT_CONFIG, parsed_dict)
+        self._current_config = deep_merge(base, parsed_dict)
         return self._current_config
 
     def update_folder_editor_setting(self, folder_path: Path, key: str, value) -> int:

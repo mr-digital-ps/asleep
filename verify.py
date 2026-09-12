@@ -137,6 +137,12 @@ tags:
     assert len(backend.get_flat_shortcuts()) > 0, "backend.get_flat_shortcuts должен возвращать список"
     graph_cfg = backend.get_graph_config()
     assert "physics" in graph_cfg and "visual" in graph_cfg, "backend.get_graph_config должен возвращать словарь с physics и visual"
+    theme_cfg = backend.get_theme_config()
+    assert "sidebar_width" in theme_cfg and "bg_sidebar" in theme_cfg, "backend.get_theme_config должен содержать sidebar_width и bg_sidebar"
+    editor_cfg = backend.get_editor_config()
+    assert "sheet_width" in editor_cfg and "font_size" in editor_cfg, "backend.get_editor_config должен содержать sheet_width и font_size"
+    app_cfg = backend.get_app_config()
+    assert "auto_save_delay_ms" in app_cfg and "supported_extensions" in app_cfg, "backend.get_app_config должен содержать auto_save_delay_ms"
     print("  -> Сервисы Python: OK")
 
 
@@ -212,7 +218,11 @@ def test_structure():
         "services/hotkey_service.py",
         "services/graph_service.py",
         "services/reloader.py",
-        "hotkeys.json",
+        "config/editor_default.json",
+        "config/hotkeys_default.json",
+        "config/graph_default.json",
+        "config/theme_default.json",
+        "config/app_default.json",
         "js/tabs.js",
         "js/drag_manager.js",
         "js/markdown_shortcuts.js",

@@ -72,25 +72,29 @@ class GraphService:
         """
         cfg = copy.deepcopy(DEFAULT_GRAPH_CONFIG)
 
-        # 1. Стандартный файл проекта
-        default_file = self.project_root / "graph_default.json"
+        # 1. Стандартный файл проекта (в config/ или в корне)
+        default_file = self.project_root / "config" / "graph_default.json"
+        if not default_file.exists():
+            default_file = self.project_root / "graph_default.json"
         if default_file.exists():
             try:
                 data = json.loads(default_file.read_text(encoding="utf-8"))
                 if isinstance(data, dict):
                     cfg = _deep_merge(cfg, data)
             except Exception as e:
-                print(f"[GraphService] Ошибка чтения graph_default.json: {e}")
+                print(f"[GraphService] Ошибка чтения {default_file.name}: {e}")
 
-        # 2. Пользовательский файл проекта
-        user_file = self.project_root / "graph_user.json"
+        # 2. Пользовательский файл проекта (в config/ или в корне)
+        user_file = self.project_root / "config" / "graph_user.json"
+        if not user_file.exists():
+            user_file = self.project_root / "graph_user.json"
         if user_file.exists():
             try:
                 data = json.loads(user_file.read_text(encoding="utf-8"))
                 if isinstance(data, dict):
                     cfg = _deep_merge(cfg, data)
             except Exception as e:
-                print(f"[GraphService] Ошибка чтения graph_user.json: {e}")
+                print(f"[GraphService] Ошибка чтения {user_file.name}: {e}")
 
         # 3. Локальные настройки текущего каталога заметок (если есть)
         if folder_path and folder_path.exists() and folder_path.is_dir():

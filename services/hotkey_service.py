@@ -74,10 +74,12 @@ class HotkeyService(QObject):
 
     def __init__(self, config_file: Path | None = None, parent=None):
         super().__init__(parent)
-        if config_file is None:
-            self.config_path = Path(__file__).parent.parent.resolve() / "hotkeys.json"
-        else:
-            self.config_path = Path(config_file).resolve()
+        self.project_root = Path(__file__).parent.parent.resolve()
+        self.config_dir = self.project_root / "config"
+        self.user_hotkeys_path = self.config_dir / "hotkeys_user.json"
+        self.default_hotkeys_path = self.config_dir / "hotkeys_default.json"
+        self.legacy_hotkeys_path = self.project_root / "hotkeys.json"
+        self.custom_config_path = Path(config_file).resolve() if config_file else None
 
         self._hotkeys: dict = copy.deepcopy(DEFAULT_HOTKEYS)
         self._watcher = QFileSystemWatcher(self)
@@ -90,56 +92,84 @@ class HotkeyService(QObject):
         self._setup_watcher()
 
     def _setup_watcher(self):
-        if self.config_path.exists():
-            watched = self._watcher.files()
-            p_str = str(self.config_path)
-            if p_str not in watched:
-                self._watcher.addPath(p_str)
-            self._watcher.fileChanged.connect(self._on_file_changed)
+        paths_to_watch = []
+        if self.custom_config_path:
+            paths_to_watch.append(self.custom_config_path)
+        else:
+            paths_to_watch.extend([self.user_hotkeys_path, self.default_hotkeys_path, self.legacy_hotkeys_path])
+
+        for p in paths_to_watch:
+            if p.exists():
+                p_str = str(p)
+                if p_str not in self._watcher.files():
+                    self._watcher.addPath(p_str)
+        try:
+            self._watcher.fileChanged.disconnect(self._on_file_changed)
+        except Exception:
+            pass
+        self._watcher.fileChanged.connect(self._on_file_changed)
 
     def _on_file_changed(self, path: str):
-        # На некоторых ОС при сохранении файл удаляется и создается заново
         self._reload_timer.start()
 
     def _on_reload_triggered(self):
-        if not self.config_path.exists():
-            return
-        p_str = str(self.config_path)
-        if p_str not in self._watcher.files():
-            self._watcher.addPath(p_str)
+        self._setup_watcher()
         self._load_from_disk()
         self.hotkeys_changed.emit(self._hotkeys)
-        print(f"[HotkeyService] Горячие клавиши перезагружены из {self.config_path.name}")
+        print("[HotkeyService] Горячие клавиши перезагружены")
 
     def _load_from_disk(self):
-        if not self.config_path.exists():
-            self._hotkeys = copy.deepcopy(DEFAULT_HOTKEYS)
-            self.save_to_disk()
-            return
+        merged = copy.deepcopy(DEFAULT_HOTKEYS)
 
-        try:
-            content = self.config_path.read_text(encoding="utf-8")
-            data = json.loads(content)
-            if isinstance(data, dict):
-                # Дополняем отсутствующими в файле дефолтными ключами
-                merged = copy.deepcopy(DEFAULT_HOTKEYS)
-                for action, val in data.items():
-                    if isinstance(val, dict):
-                        merged[action] = {
-                            "keys": val.get("keys", DEFAULT_HOTKEYS.get(action, {}).get("keys", [])),
-                            "description": val.get("description", DEFAULT_HOTKEYS.get(action, {}).get("description", ""))
-                        }
-                    elif isinstance(val, list):
-                        merged[action] = {
-                            "keys": val,
-                            "description": DEFAULT_HOTKEYS.get(action, {}).get("description", "")
-                        }
-                self._hotkeys = merged
-            else:
-                self._hotkeys = copy.deepcopy(DEFAULT_HOTKEYS)
-        except Exception as e:
-            print(f"[HotkeyService] Ошибка чтения {self.config_path.name}: {e}")
-            self._hotkeys = copy.deepcopy(DEFAULT_HOTKEYS)
+        def _merge_hk_dict(source_dict: dict):
+            for action, val in source_dict.items():
+                if action.startswith("_"):
+                    continue
+                if isinstance(val, dict):
+                    merged[action] = {
+                        "keys": val.get("keys", merged.get(action, {}).get("keys", [])),
+                        "description": val.get("description", merged.get(action, {}).get("description", ""))
+                    }
+                elif isinstance(val, list):
+                    merged[action] = {
+                        "keys": val,
+                        "description": merged.get(action, {}).get("description", "")
+                    }
+
+        # 1. Загрузка из default или legacy
+        if self.custom_config_path and self.custom_config_path.exists():
+            try:
+                data = json.loads(self.custom_config_path.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    _merge_hk_dict(data)
+            except Exception as e:
+                print(f"[HotkeyService] Ошибка чтения {self.custom_config_path.name}: {e}")
+        else:
+            if self.default_hotkeys_path.exists():
+                try:
+                    data = json.loads(self.default_hotkeys_path.read_text(encoding="utf-8"))
+                    if isinstance(data, dict):
+                        _merge_hk_dict(data)
+                except Exception as e:
+                    print(f"[HotkeyService] Ошибка чтения {self.default_hotkeys_path.name}: {e}")
+            elif self.legacy_hotkeys_path.exists():
+                try:
+                    data = json.loads(self.legacy_hotkeys_path.read_text(encoding="utf-8"))
+                    if isinstance(data, dict):
+                        _merge_hk_dict(data)
+                except Exception as e:
+                    print(f"[HotkeyService] Ошибка чтения {self.legacy_hotkeys_path.name}: {e}")
+
+            # 2. Переопределение из user_hotkeys_path
+            if self.user_hotkeys_path.exists():
+                try:
+                    data = json.loads(self.user_hotkeys_path.read_text(encoding="utf-8"))
+                    if isinstance(data, dict):
+                        _merge_hk_dict(data)
+                except Exception as e:
+                    print(f"[HotkeyService] Ошибка чтения {self.user_hotkeys_path.name}: {e}")
+
+        self._hotkeys = merged
 
     def save_to_disk(self) -> bool:
         try:

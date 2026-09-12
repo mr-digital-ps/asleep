@@ -51,6 +51,8 @@ class Backend(QObject):
     configUpdated = pyqtSignal(str)  # JSON-строка актуальной конфигурации
     hotkeysChanged = pyqtSignal()
     graphDataChanged = pyqtSignal()
+    themeConfigChanged = pyqtSignal()
+    appConfigChanged = pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -62,23 +64,51 @@ class Backend(QObject):
         self.graph_service = GraphService(self.block_engine, self.file_service)
         self.hotkey_service.hotkeys_changed.connect(lambda _: self.hotkeysChanged.emit())
 
-
         self.folder_watcher = QFileSystemWatcher(self)
         self.folder_watcher.directoryChanged.connect(self._on_directory_changed)
         self._current_folder: Path = None
         self._is_syncing_files = False
         self._last_config_mtime: int = 0
 
-        self.graph_watcher = QFileSystemWatcher(self)
-        self.graph_watcher.fileChanged.connect(self._on_graph_file_changed)
-        for cfg_p in [self.graph_service.project_root / "graph_user.json", self.graph_service.project_root / "graph_default.json"]:
-            if cfg_p.exists():
-                self.graph_watcher.addPath(str(cfg_p))
+        self.config_watcher = QFileSystemWatcher(self)
+        self.config_watcher.fileChanged.connect(self._on_config_file_changed)
+        self.config_watcher.directoryChanged.connect(self._on_config_dir_changed)
 
-    def _on_graph_file_changed(self, path: str):
-        if Path(path).exists() and path not in self.graph_watcher.files():
-            self.graph_watcher.addPath(path)
-        self.graphDataChanged.emit()
+        config_dir = self.config_service.config_dir
+        if config_dir.exists():
+            self.config_watcher.addPath(str(config_dir))
+            for f in config_dir.glob("*.json"):
+                self.config_watcher.addPath(str(f))
+
+        for root_f in [self.config_service.project_root / "graph_user.json", self.config_service.project_root / "graph_default.json", self.config_service.project_root / "hotkeys.json"]:
+            if root_f.exists():
+                self.config_watcher.addPath(str(root_f))
+
+    def _on_config_dir_changed(self, path: str):
+        config_dir = Path(path)
+        if config_dir.exists():
+            for f in config_dir.glob("*.json"):
+                f_str = str(f)
+                if f_str not in self.config_watcher.files():
+                    self.config_watcher.addPath(f_str)
+
+    def _on_config_file_changed(self, path: str):
+        p = Path(path)
+        if p.exists() and path not in self.config_watcher.files():
+            self.config_watcher.addPath(path)
+
+        name = p.name.lower()
+        if "graph" in name:
+            self.graphDataChanged.emit()
+        elif "hotkey" in name:
+            self.hotkey_service._reload_timer.start()
+        elif "theme" in name:
+            self.themeConfigChanged.emit()
+        elif "editor" in name:
+            self.config_service.load_folder_config(self._current_folder)
+            self.configUpdated.emit(json.dumps(self.config_service.current_config))
+        elif "app" in name:
+            self.appConfigChanged.emit()
 
     def _on_directory_changed(self, path: str):
         if not self._is_syncing_files and self._current_folder:
@@ -173,8 +203,20 @@ class Backend(QObject):
                     self._last_config_mtime = cfg_path.stat().st_mtime_ns
                 self.configUpdated.emit(json.dumps(new_cfg))
                 _safe_print(f"[ConfigService] Конфигурация обновлена из {path.name}")
-            if path.name.lower() in ["graph_user.json", "graph_default.json", "_graph_settings.json", "graph_settings.json"]:
+            
+            fn = path.name.lower()
+            if "graph" in fn:
                 self.graphDataChanged.emit()
+            elif "hotkey" in fn:
+                self.hotkey_service._reload_timer.start()
+            elif "theme" in fn:
+                self.themeConfigChanged.emit()
+            elif "editor" in fn:
+                self.config_service.load_folder_config(self._current_folder)
+                self.configUpdated.emit(json.dumps(self.config_service.current_config))
+            elif "app" in fn:
+                self.appConfigChanged.emit()
+
             self.folderFilesChanged.emit()
         return success
 
@@ -425,6 +467,27 @@ class Backend(QObject):
         """Возвращает текущую объединенную конфигурацию физики и визуала графа"""
         folder = self.file_service.to_path(folder_url) if folder_url else self._current_folder
         return self.graph_service.get_config(folder)
+
+    @pyqtSlot(result="QVariantMap")
+    @pyqtSlot(str, result="QVariantMap")
+    def get_theme_config(self, folder_url: str = "") -> dict:
+        """Возвращает актуальные настройки темы и интерфейса"""
+        folder = self.file_service.to_path(folder_url) if folder_url else self._current_folder
+        return self.config_service.get_theme_config(folder)
+
+    @pyqtSlot(result="QVariantMap")
+    @pyqtSlot(str, result="QVariantMap")
+    def get_editor_config(self, folder_url: str = "") -> dict:
+        """Возвращает актуальные настройки редактора из config/editor_*.json"""
+        folder = self.file_service.to_path(folder_url) if folder_url else self._current_folder
+        return self.config_service.get_editor_config(folder)
+
+    @pyqtSlot(result="QVariantMap")
+    @pyqtSlot(str, result="QVariantMap")
+    def get_app_config(self, folder_url: str = "") -> dict:
+        """Возвращает актуальные системные настройки приложения"""
+        folder = self.file_service.to_path(folder_url) if folder_url else self._current_folder
+        return self.config_service.get_app_config(folder)
 
 
 
