@@ -14,6 +14,40 @@ function wrapSelection(editor, prefix, suffix) {
     }
 }
 
+function toggleBold(editor) {
+    if (!editor) return
+    let start = editor.selectionStart
+    let end = editor.selectionEnd
+    if (start !== end) {
+        let selText = editor.selectedText
+        if (selText.startsWith("**") && selText.endsWith("**") && selText.length >= 4) {
+            let unwrapped = selText.substring(2, selText.length - 2)
+            editor.remove(start, end)
+            editor.insert(start, unwrapped)
+            editor.select(start, start + unwrapped.length)
+            return
+        }
+    }
+    wrapSelection(editor, "**", "**")
+}
+
+function toggleItalic(editor) {
+    if (!editor) return
+    let start = editor.selectionStart
+    let end = editor.selectionEnd
+    if (start !== end) {
+        let selText = editor.selectedText
+        if (selText.startsWith("*") && selText.endsWith("*") && !selText.startsWith("**") && selText.length >= 2) {
+            let unwrapped = selText.substring(1, selText.length - 1)
+            editor.remove(start, end)
+            editor.insert(start, unwrapped)
+            editor.select(start, start + unwrapped.length)
+            return
+        }
+    }
+    wrapSelection(editor, "*", "*")
+}
+
 function toggleHeading(editor, level) {
     let fullText = editor.text
     let pos = editor.cursorPosition

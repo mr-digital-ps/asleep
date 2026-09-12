@@ -27,6 +27,8 @@ RowLayout {
     signal syncNoticeRequested(string title)
     signal toggleHeaderFooterRequested()
     signal toggleFooterRequested()
+    signal toggleHeaderRequested()
+    signal toggleCenteredModeRequested()
 
     function isCloseKey(event) {
         if (!(event.modifiers & Qt.ControlModifier)) return false
@@ -49,6 +51,21 @@ RowLayout {
         if ((event.modifiers & Qt.AltModifier) && isF) return true
         return false
     }
+
+    function isToggleHeaderKey(event) {
+        let isU = event.key === Qt.Key_U || event.nativeScanCode === 22 || event.text === 'u' || event.text === 'U' || event.text === 'г' || event.text === 'Г'
+        if ((event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.ShiftModifier) && isU) return true
+        if ((event.modifiers & Qt.AltModifier) && isU) return true
+        return false
+    }
+
+    function isCenteredModeKey(event) {
+        let isW = event.key === Qt.Key_W || event.nativeScanCode === 17 || event.text === 'w' || event.text === 'W' || event.text === 'ц' || event.text === 'Ц'
+        if ((event.modifiers & Qt.AltModifier) && isW) return true
+        if ((event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.ShiftModifier) && isW) return true
+        return false
+    }
+
 
     function updateBracketHighlights() {
         if (bracketHighlightOverlay) {
@@ -173,18 +190,31 @@ RowLayout {
                 canvasRoot.toggleFooterRequested()
                 return
             }
+            if (canvasRoot.isToggleHeaderKey(event)) {
+                event.accepted = true
+                canvasRoot.toggleHeaderRequested()
+                return
+            }
+            if (canvasRoot.isCenteredModeKey(event)) {
+                event.accepted = true
+                canvasRoot.toggleCenteredModeRequested()
+                return
+            }
             if (event.modifiers & Qt.ControlModifier) {
-                if (event.key === Qt.Key_D) {
+                let isD = event.key === Qt.Key_D || event.nativeScanCode === 32 || event.text === 'd' || event.text === 'D' || event.text === 'в' || event.text === 'В'
+                if (isD) {
                     event.accepted = true
                     canvasRoot.detachRequested()
                     return
                 }
-                if (event.key === Qt.Key_B) {
+                let isB = event.key === Qt.Key_B || event.nativeScanCode === 48 || event.text === 'b' || event.text === 'B' || event.text === 'и' || event.text === 'И'
+                if (isB) {
                     event.accepted = true
                     Markdown.toggleBold(editorArea)
                     return
                 }
-                if (event.key === Qt.Key_I) {
+                let isI = event.key === Qt.Key_I || event.nativeScanCode === 23 || event.text === 'i' || event.text === 'I' || event.text === 'ш' || event.text === 'Ш'
+                if (isI) {
                     event.accepted = true
                     Markdown.toggleItalic(editorArea)
                     return
@@ -196,6 +226,7 @@ RowLayout {
                 }
             }
         }
+
 
         Keys.onTabPressed: (event) => {
             Markdown.handleTab(editorArea, false)
@@ -231,7 +262,33 @@ RowLayout {
         }
 
         Keys.onPressed: (event) => {
+            if (canvasRoot.isCloseKey(event)) {
+                event.accepted = true
+                canvasRoot.closeRequested()
+                return
+            }
+            if (canvasRoot.isToggleHeaderFooterKey(event)) {
+                event.accepted = true
+                canvasRoot.toggleHeaderFooterRequested()
+                return
+            }
+            if (canvasRoot.isToggleFooterKey(event)) {
+                event.accepted = true
+                canvasRoot.toggleFooterRequested()
+                return
+            }
+            if (canvasRoot.isToggleHeaderKey(event)) {
+                event.accepted = true
+                canvasRoot.toggleHeaderRequested()
+                return
+            }
+            if (canvasRoot.isCenteredModeKey(event)) {
+                event.accepted = true
+                canvasRoot.toggleCenteredModeRequested()
+                return
+            }
             if (event.key === Qt.Key_ParenRight && Markdown.handleAutoPair(editorArea, ")")) {
+
                 event.accepted = true
                 return
             }

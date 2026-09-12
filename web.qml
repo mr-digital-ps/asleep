@@ -2,7 +2,9 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
+import QtQml
 import "components/sidebar"
+
 import "components/editor"
 import "js/logic.js" as Logic
 import "js/tabs.js" as Tabs
@@ -405,32 +407,101 @@ Rectangle {
                     root.reloadFolderFiles()
                 }
             }
+            root.reloadHotkeys()
         }
     }
 
-    Shortcut {
-        sequences: [StandardKey.Save]
-        onActivated: Logic.saveFile(root, saveDialog, backend)
+    property var hotkeyMapping: ({})
+    property var flatHotkeysList: []
+
+    function reloadHotkeys() {
+        if (typeof backend !== "undefined" && backend) {
+            if (typeof backend.get_hotkeys === "function") {
+                root.hotkeyMapping = backend.get_hotkeys()
+            }
+            if (typeof backend.get_flat_shortcuts === "function") {
+                root.flatHotkeysList = backend.get_flat_shortcuts()
+            }
+        }
     }
 
-    Shortcut {
-        sequences: [StandardKey.Open]
-        onActivated: openDialog.open()
+    Connections {
+        target: (typeof backend !== "undefined") ? backend : null
+        function onHotkeysChanged() {
+            root.reloadHotkeys()
+        }
     }
 
-    Shortcut {
-        sequences: [StandardKey.New]
-        onActivated: root.createNewTab()
+
+    // Диспетчер выполнения команд горячих клавиш (hotkeys.json)
+    function executeAction(action) {
+        switch (action) {
+            case "toggle_header_footer":
+                if (splitLayout.primaryBar && typeof splitLayout.primaryBar.toggleHeaderFooter === "function") {
+                    splitLayout.primaryBar.toggleHeaderFooter()
+                }
+                if (splitLayout.isSplit && splitLayout.secondaryBar && typeof splitLayout.secondaryBar.toggleHeaderFooter === "function") {
+                    splitLayout.secondaryBar.toggleHeaderFooter()
+                }
+                break
+            case "toggle_footer":
+                if (splitLayout.primaryBar && typeof splitLayout.primaryBar.toggleFooterOnly === "function") {
+                    splitLayout.primaryBar.toggleFooterOnly()
+                }
+                if (splitLayout.isSplit && splitLayout.secondaryBar && typeof splitLayout.secondaryBar.toggleFooterOnly === "function") {
+                    splitLayout.secondaryBar.toggleFooterOnly()
+                }
+                break
+            case "toggle_header":
+                if (splitLayout.primaryBar && typeof splitLayout.primaryBar.toggleHeaderOnly === "function") {
+                    splitLayout.primaryBar.toggleHeaderOnly()
+                }
+                if (splitLayout.isSplit && splitLayout.secondaryBar && typeof splitLayout.secondaryBar.toggleHeaderOnly === "function") {
+                    splitLayout.secondaryBar.toggleHeaderOnly()
+                }
+                break
+            case "toggle_sidebar":
+                root.toggleSidebar()
+                break
+            case "toggle_split":
+                root.toggleSplit()
+                break
+            case "toggle_centered_mode":
+                if (splitLayout.primaryBar) {
+                    splitLayout.primaryBar.isCenteredMode = !splitLayout.primaryBar.isCenteredMode
+                }
+                if (splitLayout.isSplit && splitLayout.secondaryBar) {
+                    splitLayout.secondaryBar.isCenteredMode = splitLayout.primaryBar.isCenteredMode
+                }
+                break
+            case "close_tab":
+                root.closeActiveTab()
+                break
+            case "new_tab":
+                root.createNewTab()
+                break
+            case "open_file":
+                openDialog.open()
+                break
+            case "save_file":
+                Logic.saveFile(root, saveDialog, backend)
+                break
+            case "detach_window":
+                let targetIdx = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
+                Tabs.detachTab(root, targetIdx >= 0 ? targetIdx : 0)
+                break
+        }
     }
 
-    Shortcut {
-        sequence: "Ctrl+\\"
-        onActivated: root.toggleSplit()
-    }
-
-    Shortcut {
-        sequence: "Ctrl+B"
-        onActivated: root.toggleSidebar()
+    // Динамическая регистрация горячих клавиш из hotkeys.json
+    Instantiator {
+        id: dynamicHotkeys
+        model: root.flatHotkeysList
+        delegate: Shortcut {
+            sequence: modelData.key
+            context: Qt.ApplicationShortcut
+            onActivated: root.executeAction(modelData.action)
+        }
     }
 
     function closeActiveTab() {
@@ -454,25 +525,6 @@ Rectangle {
         return false
     }
 
-    // Закрытие активного сплита или вкладки (Ctrl+W, Ctrl+Q, Ctrl+F4)
-    Shortcut {
-        sequence: "Ctrl+W"
-        context: Qt.ApplicationShortcut
-        onActivated: root.closeActiveTab()
-    }
-
-    Shortcut {
-        sequence: "Ctrl+Q"
-        context: Qt.ApplicationShortcut
-        onActivated: root.closeActiveTab()
-    }
-
-    Shortcut {
-        sequence: "Ctrl+F4"
-        context: Qt.ApplicationShortcut
-        onActivated: root.closeActiveTab()
-    }
-
     Keys.onPressed: (event) => {
         if (root.isCloseKey(event)) {
             root.closeActiveTab()
@@ -480,46 +532,6 @@ Rectangle {
         }
     }
 
-    // Переключение ширины листа (вместо занятого Alt+Z)
-    Shortcut {
-        sequences: ["Alt+W", "Ctrl+Shift+W"]
-        onActivated: {
-            if (splitLayout.primaryBar) {
-                splitLayout.primaryBar.isCenteredMode = !splitLayout.primaryBar.isCenteredMode
-            }
-            if (splitLayout.isSplit && splitLayout.secondaryBar) {
-                splitLayout.secondaryBar.isCenteredMode = splitLayout.primaryBar.isCenteredMode
-            }
-        }
-    }
-
-    // Переключение видимости Header и Footer (F9, Ctrl+Shift+H, Alt+H)
-    Shortcut {
-        sequences: ["F9", "Ctrl+Shift+H", "Alt+H"]
-        context: Qt.ApplicationShortcut
-        onActivated: {
-            if (splitLayout.primaryBar && typeof splitLayout.primaryBar.toggleHeaderFooter === "function") {
-                splitLayout.primaryBar.toggleHeaderFooter()
-            }
-            if (splitLayout.isSplit && splitLayout.secondaryBar && typeof splitLayout.secondaryBar.toggleHeaderFooter === "function") {
-                splitLayout.secondaryBar.toggleHeaderFooter()
-            }
-        }
-    }
-
-    // Переключение видимости только Footer (Ctrl+Shift+F, Alt+F)
-    Shortcut {
-        sequences: ["Ctrl+Shift+F", "Alt+F"]
-        context: Qt.ApplicationShortcut
-        onActivated: {
-            if (splitLayout.primaryBar && typeof splitLayout.primaryBar.toggleFooterOnly === "function") {
-                splitLayout.primaryBar.toggleFooterOnly()
-            }
-            if (splitLayout.isSplit && splitLayout.secondaryBar && typeof splitLayout.secondaryBar.toggleFooterOnly === "function") {
-                splitLayout.secondaryBar.toggleFooterOnly()
-            }
-        }
-    }
 
     // =========================================================================
     // РАСКЛАДКА ОКНА

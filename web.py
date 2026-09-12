@@ -23,6 +23,8 @@ from services.window_manager import WindowManager
 from services.file_service import FileService, save_session_config, load_session_config
 from services.config_service import ConfigService
 from services.syntax_highlighter import MarkdownHighlighter
+from services.hotkey_service import HotkeyService
+
 
 # Обеспечиваем корректный вывод UTF-8 в консоль Windows
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
@@ -45,6 +47,7 @@ class Backend(QObject):
     folderFilesChanged = pyqtSignal()
     blockUpdated = pyqtSignal(str, str, str)  # (heading_norm, content, source_file_url)
     configUpdated = pyqtSignal(str)  # JSON-строка актуальной конфигурации
+    hotkeysChanged = pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -52,6 +55,9 @@ class Backend(QObject):
         self.file_service = FileService()
         self.window_manager = WindowManager()
         self.config_service = ConfigService()
+        self.hotkey_service = HotkeyService()
+        self.hotkey_service.hotkeys_changed.connect(lambda _: self.hotkeysChanged.emit())
+
 
         self.folder_watcher = QFileSystemWatcher(self)
         self.folder_watcher.directoryChanged.connect(self._on_directory_changed)
@@ -372,6 +378,22 @@ class Backend(QObject):
     def get_session_config(self) -> dict:
         """Возвращает параметры сохраненной сессии"""
         return load_session_config()
+
+    @pyqtSlot(result="QVariantMap")
+    def get_hotkeys(self) -> dict:
+        """Возвращает конфигурацию горячих клавиш"""
+        return self.hotkey_service.get_hotkeys()
+
+    @pyqtSlot(result="QVariantList")
+    def get_flat_shortcuts(self) -> list:
+        """Возвращает плоский список шорткатов для привязки в QML"""
+        return self.hotkey_service.get_flat_shortcuts()
+
+    @pyqtSlot(str, result="QVariantList")
+    def get_action_keys(self, action: str) -> list:
+        """Возвращает комбинации клавиш для указанного действия"""
+        return self.hotkey_service.get_action_keys(action)
+
 
 
 def setup_live_reload(engine: QQmlApplicationEngine, root_file: Path):

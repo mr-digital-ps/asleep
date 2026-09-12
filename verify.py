@@ -96,12 +96,23 @@ tags:
     highlighter = MarkdownHighlighter(test_doc)
     assert highlighter is not None, "Highlighter должен инициализироваться"
 
-    # 6. Тест Backend Facade
+    # 6. Тест HotkeyService
+    from services.hotkey_service import HotkeyService
+    hk_service = HotkeyService()
+    hks = hk_service.get_hotkeys()
+    assert "toggle_header_footer" in hks, "toggle_header_footer должен присутствовать в hotkeys"
+    flat_hks = hk_service.get_flat_shortcuts()
+    assert len(flat_hks) > 0, "Flat shortcuts не должен быть пустым"
+
+    # 7. Тест Backend Facade
     backend = Backend()
     assert backend is not None
     cfg_json = backend.get_current_config()
     assert "sheet_width" in cfg_json, "get_current_config должен возвращать JSON с настройками"
+    assert "toggle_header_footer" in backend.get_hotkeys(), "backend.get_hotkeys должен содержать действия"
+    assert len(backend.get_flat_shortcuts()) > 0, "backend.get_flat_shortcuts должен возвращать список"
     print("  -> Сервисы Python: OK")
+
 
 def test_qml():
     print("[2/3] Проверка компонентов QML...")
@@ -165,7 +176,10 @@ def test_structure():
         "services/window_manager.py",
         "services/config_service.py",
         "services/syntax_highlighter.py",
+        "services/hotkey_service.py",
+        "hotkeys.json",
         "js/tabs.js",
+
         "js/drag_manager.js",
         "js/markdown_shortcuts.js",
         "js/block_sync.js",

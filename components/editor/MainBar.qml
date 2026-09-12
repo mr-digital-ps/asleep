@@ -57,6 +57,12 @@ Item {
         mainBar.saveFooterVisibleState(mainBar.showFooter)
     }
 
+    function toggleHeaderOnly() {
+        mainBar.showHeader = !mainBar.showHeader
+        mainBar.saveHeaderVisibleState(mainBar.showHeader)
+    }
+
+
     readonly property string statsString: {
         let txt = (editorCanvas && editorCanvas.text) ? editorCanvas.text : ""
         let words = 0
@@ -541,7 +547,10 @@ Item {
                     onCursorVisibilityRequested: mainBar.requestEnsureCursorVisible()
                     onToggleHeaderFooterRequested: mainBar.toggleHeaderFooter()
                     onToggleFooterRequested: mainBar.toggleFooterOnly()
+                    onToggleHeaderRequested: mainBar.toggleHeaderOnly()
+                    onToggleCenteredModeRequested: mainBar.isCenteredMode = !mainBar.isCenteredMode
                     onTextChangedByUser: {
+
                         if (!mainBar.isReceivingExternalSync && activeFocus) {
                             blockSyncTimer.restart()
                         }
