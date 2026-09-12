@@ -1,7 +1,12 @@
 [project]
 name = "asleep-pyqt"
 version = "0.1.0"
-description = "Add your description here"
+description = "Asleep Text Editor with Block Transclusion and Modular Architecture"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "pyqt6>=6.5.0",
+    "pyyaml>=6.0.3",
+]
+
+
