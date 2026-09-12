@@ -77,17 +77,19 @@ class Backend(QObject):
         config_dir = self.config_service.config_dir
         if config_dir.exists():
             self.config_watcher.addPath(str(config_dir))
-            for f in config_dir.glob("*.json"):
+            for sub in [config_dir / "default", config_dir / "user"]:
+                if sub.exists():
+                    self.config_watcher.addPath(str(sub))
+            for f in config_dir.rglob("*.json"):
                 self.config_watcher.addPath(str(f))
-
-        for root_f in [self.config_service.project_root / "graph_user.json", self.config_service.project_root / "graph_default.json", self.config_service.project_root / "hotkeys.json"]:
-            if root_f.exists():
-                self.config_watcher.addPath(str(root_f))
 
     def _on_config_dir_changed(self, path: str):
         config_dir = Path(path)
         if config_dir.exists():
-            for f in config_dir.glob("*.json"):
+            for sub in [config_dir / "default", config_dir / "user"]:
+                if sub.exists() and str(sub) not in self.config_watcher.directories():
+                    self.config_watcher.addPath(str(sub))
+            for f in config_dir.rglob("*.json"):
                 f_str = str(f)
                 if f_str not in self.config_watcher.files():
                     self.config_watcher.addPath(f_str)

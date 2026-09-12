@@ -2,6 +2,7 @@ import json
 import copy
 from pathlib import Path
 from PyQt6.QtCore import QObject, pyqtSignal, QFileSystemWatcher, QTimer
+from services.config_service import parse_json_with_comments
 
 DEFAULT_HOTKEYS = {
     "toggle_header_footer": {
@@ -76,8 +77,8 @@ class HotkeyService(QObject):
         super().__init__(parent)
         self.project_root = Path(__file__).parent.parent.resolve()
         self.config_dir = self.project_root / "config"
-        self.user_hotkeys_path = self.config_dir / "hotkeys_user.json"
-        self.default_hotkeys_path = self.config_dir / "hotkeys_default.json"
+        self.user_hotkeys_path = self.config_dir / "user" / "hotkeys.json"
+        self.default_hotkeys_path = self.config_dir / "default" / "hotkeys.json"
         self.legacy_hotkeys_path = self.project_root / "hotkeys.json"
         self.custom_config_path = Path(config_file).resolve() if config_file else None
 
@@ -139,7 +140,7 @@ class HotkeyService(QObject):
         # 1. Загрузка из default или legacy
         if self.custom_config_path and self.custom_config_path.exists():
             try:
-                data = json.loads(self.custom_config_path.read_text(encoding="utf-8"))
+                data = parse_json_with_comments(self.custom_config_path.read_text(encoding="utf-8"))
                 if isinstance(data, dict):
                     _merge_hk_dict(data)
             except Exception as e:
@@ -147,14 +148,14 @@ class HotkeyService(QObject):
         else:
             if self.default_hotkeys_path.exists():
                 try:
-                    data = json.loads(self.default_hotkeys_path.read_text(encoding="utf-8"))
+                    data = parse_json_with_comments(self.default_hotkeys_path.read_text(encoding="utf-8"))
                     if isinstance(data, dict):
                         _merge_hk_dict(data)
                 except Exception as e:
                     print(f"[HotkeyService] Ошибка чтения {self.default_hotkeys_path.name}: {e}")
             elif self.legacy_hotkeys_path.exists():
                 try:
-                    data = json.loads(self.legacy_hotkeys_path.read_text(encoding="utf-8"))
+                    data = parse_json_with_comments(self.legacy_hotkeys_path.read_text(encoding="utf-8"))
                     if isinstance(data, dict):
                         _merge_hk_dict(data)
                 except Exception as e:
@@ -163,7 +164,7 @@ class HotkeyService(QObject):
             # 2. Переопределение из user_hotkeys_path
             if self.user_hotkeys_path.exists():
                 try:
-                    data = json.loads(self.user_hotkeys_path.read_text(encoding="utf-8"))
+                    data = parse_json_with_comments(self.user_hotkeys_path.read_text(encoding="utf-8"))
                     if isinstance(data, dict):
                         _merge_hk_dict(data)
                 except Exception as e:

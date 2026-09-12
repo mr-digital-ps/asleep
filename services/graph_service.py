@@ -3,6 +3,7 @@ import copy
 import re
 from pathlib import Path
 from PyQt6.QtCore import QUrl
+from services.config_service import parse_json_with_comments
 
 WIKILINK_REGEX = re.compile(r'\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]')
 MD_LINK_REGEX = re.compile(r'\[([^\]]+)\]\(([^)]+\.(?:md|markdown|txt))\)', re.IGNORECASE)
@@ -72,25 +73,29 @@ class GraphService:
         """
         cfg = copy.deepcopy(DEFAULT_GRAPH_CONFIG)
 
-        # 1. Стандартный файл проекта (в config/ или в корне)
-        default_file = self.project_root / "config" / "graph_default.json"
+        # 1. Стандартный файл проекта (в config/default/ или fallback)
+        default_file = self.project_root / "config" / "default" / "graph.json"
+        if not default_file.exists():
+            default_file = self.project_root / "config" / "graph_default.json"
         if not default_file.exists():
             default_file = self.project_root / "graph_default.json"
         if default_file.exists():
             try:
-                data = json.loads(default_file.read_text(encoding="utf-8"))
+                data = parse_json_with_comments(default_file.read_text(encoding="utf-8"))
                 if isinstance(data, dict):
                     cfg = _deep_merge(cfg, data)
             except Exception as e:
                 print(f"[GraphService] Ошибка чтения {default_file.name}: {e}")
 
-        # 2. Пользовательский файл проекта (в config/ или в корне)
-        user_file = self.project_root / "config" / "graph_user.json"
+        # 2. Пользовательский файл проекта (в config/user/ или fallback)
+        user_file = self.project_root / "config" / "user" / "graph.json"
+        if not user_file.exists():
+            user_file = self.project_root / "config" / "graph_user.json"
         if not user_file.exists():
             user_file = self.project_root / "graph_user.json"
         if user_file.exists():
             try:
-                data = json.loads(user_file.read_text(encoding="utf-8"))
+                data = parse_json_with_comments(user_file.read_text(encoding="utf-8"))
                 if isinstance(data, dict):
                     cfg = _deep_merge(cfg, data)
             except Exception as e:
@@ -102,7 +107,7 @@ class GraphService:
                 vault_cfg = folder_path / v_name
                 if vault_cfg.exists():
                     try:
-                        data = json.loads(vault_cfg.read_text(encoding="utf-8"))
+                        data = parse_json_with_comments(vault_cfg.read_text(encoding="utf-8"))
                         if isinstance(data, dict):
                             cfg = _deep_merge(cfg, data)
                         break

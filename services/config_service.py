@@ -15,6 +15,25 @@ def _safe_print(*args, **kwargs):
     except Exception:
         pass
 
+def strip_json_comments(text: str) -> str:
+    """
+    Удаляет комментарии вида // и /* */ из JSON, корректно сохраняя строки в кавычках
+    (включая URL и escape-последовательности), а также очищает завершающие запятые.
+    """
+    pattern = r'("(?:\\.|[^"\\])*")|//[^\r\n]*|/\*[\s\S]*?\*/'
+    def replace(match):
+        if match.group(1):
+            return match.group(1)
+        return ""
+    cleaned = re.sub(pattern, replace, text)
+    cleaned = re.sub(r',(\s*[}\]])', r'\1', cleaned)
+    return cleaned
+
+def parse_json_with_comments(text: str) -> dict:
+    """Безопасно парсит JSON с комментариями и висячими запятыми."""
+    import json
+    return json.loads(strip_json_comments(text))
+
 FRONTMATTER_REGEX = re.compile(r"^---\r?\n(.*?)\r?\n---", re.DOTALL)
 
 DEFAULT_CONFIG = {
@@ -180,26 +199,24 @@ class ConfigService:
     def load_category_config(self, category: str, folder_path: Path | None = None) -> dict:
         """
         Загружает настройки указанной категории (editor, theme, app, hotkeys, graph):
-        1. config/<category>_default.json
-        2. config/<category>_user.json
+        1. config/default/<category>.json
+        2. config/user/<category>.json
         3. folder_path/_<category>_settings.json (если передан)
         """
         cfg = {}
-        default_file = self.config_dir / f"{category}_default.json"
+        default_file = self.config_dir / "default" / f"{category}.json"
         if default_file.exists():
             try:
-                import json
-                data = json.loads(default_file.read_text(encoding="utf-8"))
+                data = parse_json_with_comments(default_file.read_text(encoding="utf-8"))
                 if isinstance(data, dict):
                     cfg = deep_merge(cfg, data)
             except Exception as e:
                 _safe_print(f"[ConfigService] Ошибка чтения {default_file.name}: {e}")
 
-        user_file = self.config_dir / f"{category}_user.json"
+        user_file = self.config_dir / "user" / f"{category}.json"
         if user_file.exists():
             try:
-                import json
-                data = json.loads(user_file.read_text(encoding="utf-8"))
+                data = parse_json_with_comments(user_file.read_text(encoding="utf-8"))
                 if isinstance(data, dict):
                     cfg = deep_merge(cfg, data)
             except Exception as e:
@@ -210,8 +227,7 @@ class ConfigService:
                 v_file = folder_path / fn
                 if v_file.exists():
                     try:
-                        import json
-                        data = json.loads(v_file.read_text(encoding="utf-8"))
+                        data = parse_json_with_comments(v_file.read_text(encoding="utf-8"))
                         if isinstance(data, dict):
                             cfg = deep_merge(cfg, data)
                         break

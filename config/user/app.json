@@ -1,0 +1,16 @@
+{
+  // Пользовательские параметры приложения.
+  // Переопределяют значения из config/default/app.json.
+
+  // Задержка автосохранения (мс)
+  "auto_save_delay_ms": 1000,
+
+  // Поддерживаемые форматы
+  "supported_extensions": [".md", ".markdown", ".txt"],
+
+  // Игнорируемые папки
+  "ignored_directories": [".git", ".venv", "__pycache__", "node_modules"],
+
+  // Язык интерфейса
+  "language": "ru"
+}

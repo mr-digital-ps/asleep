@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "../../js/graph_physics.js" as Physics
+import "../../js/graph_renderer.js" as Renderer
 
 Rectangle {
     id: graphRoot
@@ -110,122 +111,16 @@ Rectangle {
 
         onPaint: {
             var ctx = getContext("2d")
-            ctx.clearRect(0, 0, width, height)
-
-            ctx.save()
-            ctx.translate(width / 2 + graphRoot.panX, height / 2 + graphRoot.panY)
-            ctx.scale(graphRoot.zoomScale, graphRoot.zoomScale)
-            ctx.translate(-width / 2, -height / 2)
-
-            if (!sim || !sim.nodes) {
-                ctx.restore()
-                return
-            }
-
-            var nodes = sim.nodes
-            var links = sim.links
-            var hasHover = (hoveredNode !== null)
-            var q = graphRoot.searchQuery
-
-            var vis = (graphRoot.graphConfig && graphRoot.graphConfig.visual) ? graphRoot.graphConfig.visual : {}
-            var linkCol = vis.linkColor || "rgba(65, 65, 65, 0.35)"
-            var linkHoverCol = vis.linkHoverColor || "rgba(140, 140, 140, 0.75)"
-            var labelCol = vis.labelColor || "#666666"
-            var labelHoverCol = vis.labelHoverColor || "#d4d4d4"
-            var labelFontSize = (typeof vis.labelFontSize === "number") ? vis.labelFontSize : 10
-            var nodeColorFile = vis.nodeColorFile || "#282828"
-            var nodeColorBlock = vis.nodeColorBlock || "#342c44"
-            var nodeColorTag = vis.nodeColorTag || "#3c3322"
-
-            // 1. Отрисовка связей (Строгий темно-серый монохром)
-            for (var i = 0; i < links.length; i++) {
-                var l = links[i]
-                var s = l.source
-                var t = l.target
-                if (!s || !t) continue
-
-                var isConnectedToHover = hasHover && (s.id === hoveredNode.id || t.id === hoveredNode.id)
-                var alpha = hasHover ? (isConnectedToHover ? 0.75 : 0.08) : 0.35
-
-                ctx.beginPath()
-                ctx.moveTo(s.x, s.y)
-                ctx.lineTo(t.x, t.y)
-
-                if (isConnectedToHover) {
-                    ctx.strokeStyle = linkHoverCol
-                    ctx.lineWidth = 1.3
-                } else {
-                    ctx.strokeStyle = linkCol
-                    ctx.lineWidth = 0.8
-                }
-                ctx.stroke()
-            }
-
-            // 2. Отрисовка узлов
-            for (var j = 0; j < nodes.length; j++) {
-                var n = nodes[j]
-                var isDragged = (draggedNode && draggedNode.id === n.id)
-                var isHover = ((hoveredNode && hoveredNode.id === n.id) || isDragged)
-                var isConnected = highlightedNodeIds[n.id] === true
-                var matchesSearch = (!q || (n.label && n.label.toLowerCase().indexOf(q) !== -1))
-
-                var nodeAlpha = 1.0
-                if (q && !matchesSearch) {
-                    nodeAlpha = 0.12
-                } else if (hasHover && !isHover && !isConnected) {
-                    nodeAlpha = 0.35
-                }
-
-                ctx.save()
-                ctx.globalAlpha = nodeAlpha
-
-                ctx.beginPath()
-                ctx.arc(n.x, n.y, n.radius || 4.5, 0, 2 * Math.PI)
-
-                var baseFill = (n.type === "block" ? nodeColorBlock : (n.type === "tag" ? nodeColorTag : nodeColorFile))
-                var baseStroke = (n.type === "block" ? "#4a3e62" : (n.type === "tag" ? "#564830" : "#3c3c3c"))
-
-                if (isDragged) {
-                    ctx.fillStyle = "#555555"
-                    ctx.fill()
-                    ctx.strokeStyle = "#808080"
-                    ctx.lineWidth = 1.8
-                    ctx.stroke()
-                } else if (isHover) {
-                    // При наведении: чуть ярче
-                    ctx.fillStyle = (n.type === "block" ? "#4a3e64" : (n.type === "tag" ? "#55462c" : "#444444"))
-                    ctx.fill()
-                    ctx.strokeStyle = (n.type === "block" ? "#6d5894" : (n.type === "tag" ? "#7c663c" : "#686868"))
-                    ctx.lineWidth = 1.6
-                    ctx.stroke()
-                } else if (isConnected) {
-                    ctx.fillStyle = (n.type === "block" ? "#3c3250" : (n.type === "tag" ? "#453924" : "#363636"))
-                    ctx.fill()
-                    ctx.strokeStyle = "#4e4e4e"
-                    ctx.lineWidth = 1.2
-                    ctx.stroke()
-                } else {
-                    ctx.fillStyle = baseFill
-                    ctx.fill()
-                    ctx.strokeStyle = baseStroke
-                    ctx.lineWidth = 1.0
-                    ctx.stroke()
-                }
-
-                // Подпись узла
-                var shouldDrawLabel = isHover || isConnected || (q && matchesSearch) || (graphRoot.zoomScale > 0.9)
-                if (shouldDrawLabel && nodeAlpha > 0.25) {
-                    var curFontSize = isHover ? (labelFontSize + 0.5) : labelFontSize
-                    ctx.font = (isHover ? "500 " + curFontSize + "px sans-serif" : curFontSize + "px sans-serif")
-                    ctx.fillStyle = isHover ? labelHoverCol : (isConnected ? "#aaaaaa" : labelCol)
-                    ctx.textAlign = "center"
-                    ctx.fillText(n.label || "", n.x, n.y + (n.radius || 4.5) + 11)
-                }
-
-                ctx.restore()
-            }
-
-            ctx.restore()
+            Renderer.renderGraph(ctx, width, height, graphRoot.sim, {
+                panX: graphRoot.panX,
+                panY: graphRoot.panY,
+                zoomScale: graphRoot.zoomScale,
+                hoveredNode: graphRoot.hoveredNode,
+                draggedNode: graphRoot.draggedNode,
+                highlightedNodeIds: graphRoot.highlightedNodeIds,
+                searchQuery: graphRoot.searchQuery,
+                graphConfig: graphRoot.graphConfig
+            })
         }
     }
 
@@ -246,48 +141,15 @@ Rectangle {
         property real dragOffsetY: 0
 
         function toWorldX(screenX) {
-            return (screenX - (width / 2 + graphRoot.panX)) / graphRoot.zoomScale + width / 2
+            return Renderer.toWorldX(screenX, width, graphRoot.panX, graphRoot.zoomScale)
         }
 
         function toWorldY(screenY) {
-            return (screenY - (height / 2 + graphRoot.panY)) / graphRoot.zoomScale + height / 2
+            return Renderer.toWorldY(screenY, height, graphRoot.panY, graphRoot.zoomScale)
         }
 
-        // Надежный расчет попадания в узел (и в кружок, и в текст подписи)
         function findNodeAtScreen(screenX, screenY) {
-            if (!graphRoot.sim || !graphRoot.sim.nodes) return null
-            var nodes = graphRoot.sim.nodes
-            var bestNode = null
-            var bestDistSq = Infinity
-            var w = width
-            var h = height
-            var zs = graphRoot.zoomScale
-            var px = graphRoot.panX
-            var py = graphRoot.panY
-
-            for (var i = nodes.length - 1; i >= 0; i--) {
-                var n = nodes[i]
-                var sx = (n.x - w / 2) * zs + w / 2 + px
-                var sy = (n.y - h / 2) * zs + h / 2 + py
-                var dx = screenX - sx
-                var dy = screenY - sy
-                var distSq = dx * dx + dy * dy
-
-                // 1. Попадание в сам кружок (комфортный радиус минимум 22px на экране)
-                var circleRadius = Math.max(22, (n.radius || 4.5) * zs + 12)
-                var hitCircle = (distSq <= circleRadius * circleRadius)
-
-                // 2. Попадание в подпись под кружком
-                var labelLen = (n.label ? n.label.length : 6)
-                var labelHalfW = Math.max(26, (labelLen * 3.5 + 10) * Math.min(1.2, zs))
-                var hitLabel = (Math.abs(dx) <= labelHalfW && dy >= 0 && dy <= (26 * Math.min(1.2, zs)))
-
-                if ((hitCircle || hitLabel) && distSq < bestDistSq) {
-                    bestDistSq = distSq
-                    bestNode = n
-                }
-            }
-            return bestNode
+            return Renderer.findNodeAtScreen(graphRoot.sim, screenX, screenY, width, height, graphRoot.zoomScale, graphRoot.panX, graphRoot.panY)
         }
 
         onWheel: (wheel) => {

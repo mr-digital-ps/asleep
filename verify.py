@@ -88,6 +88,23 @@ tags:
         loaded = cfg_service.load_folder_config(tmp_p)
         assert loaded["editor"]["sheet_width"] == 1120, "Считанный sheet_width должен быть 1120"
 
+    # 4.5. Тест парсера JSON с комментариями и завершающими запятыми
+    from services.config_service import parse_json_with_comments
+    json_with_comments = """
+    {
+        // Однострочный комментарий
+        "physics": {
+            /* Многострочный
+               комментарий */
+            "repulsion": 3600, // комментарий в конце строки
+            "url": "http://example.com//not-a-comment",
+        },
+    }
+    """
+    parsed = parse_json_with_comments(json_with_comments)
+    assert parsed["physics"]["repulsion"] == 3600, "Ошибка парсинга числа с комментариями"
+    assert parsed["physics"]["url"] == "http://example.com//not-a-comment", "Строка с // не должна искажаться"
+
     # 5. Тест MarkdownHighlighter
     from services.syntax_highlighter import MarkdownHighlighter
     from PyQt6.QtGui import QTextDocument
@@ -166,6 +183,8 @@ def test_qml():
         "components/hotkeys/HotkeyManager.qml",
         "components/window/WindowFrame.qml",
         "components/graph/GraphView.qml",
+        "components/editor/EditorCanvas.qml",
+        "components/editor/MainBar.qml",
         "views/web.qml"
     ]:
         comp = QQmlComponent(engine, QUrl.fromLocalFile(str(PROJECT_DIR / qml_f)))
@@ -218,17 +237,32 @@ def test_structure():
         "services/hotkey_service.py",
         "services/graph_service.py",
         "services/reloader.py",
-        "config/editor_default.json",
-        "config/hotkeys_default.json",
-        "config/graph_default.json",
-        "config/theme_default.json",
-        "config/app_default.json",
+        "config/default/editor.json",
+        "config/default/hotkeys.json",
+        "config/default/graph.json",
+        "config/default/theme.json",
+        "config/default/app.json",
+        "config/user/editor.json",
+        "config/user/hotkeys.json",
+        "config/user/graph.json",
+        "config/user/theme.json",
+        "config/user/app.json",
+        "config/README.md",
+        "config/graph.md",
+        "config/editor.md",
+        "config/hotkeys.md",
+        "config/theme.md",
+        "config/app.md",
         "js/tabs.js",
         "js/drag_manager.js",
         "js/markdown_shortcuts.js",
         "js/block_sync.js",
         "js/graph_physics.js",
+        "js/graph_renderer.js",
+        "js/editor_keys.js",
+        "js/mainbar_lifecycle.js",
         "js/web_lifecycle.js",
+        "components/editor/EditorCanvas.qml",
         "components/editor/MainBar.qml",
         "components/editor/DocumentHeader.qml",
         "components/sidebar/Sidebar.qml",

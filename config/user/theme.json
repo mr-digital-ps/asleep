@@ -1,13 +1,21 @@
 {
+  // Пользовательская тема оформления.
+  // Переопределяет параметры из config/default/theme.json.
+
+  // Ширина сайдбара
   "sidebar_width": 260,
   "sidebar_min_width": 180,
   "sidebar_max_width": 480,
+
+  // Цветовая палитра темы
   "bg_app": "#141414",
   "bg_sidebar": "#171717",
   "border_color": "#262626",
   "accent_color": "#4da6ff",
   "text_primary": "#d4d4d4",
   "text_secondary": "#737373",
+
+  // Видимость элементов оформления
   "header_visible": true,
   "footer_visible": true
 }

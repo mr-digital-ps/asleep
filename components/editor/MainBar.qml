@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "../../js/block_sync.js" as BlockSync
+import "../../js/mainbar_lifecycle.js" as Lifecycle
 
 Item {
     id: mainBar
@@ -63,16 +64,7 @@ Item {
     }
 
 
-    readonly property string statsString: {
-        let txt = (editorCanvas && editorCanvas.text) ? editorCanvas.text : ""
-        let words = 0
-        let trimmed = txt.trim()
-        if (trimmed.length > 0) {
-            words = trimmed.split(/\s+/).length
-        }
-        let chars = txt.length
-        return words + " слов · " + chars + " знаков"
-    }
+    readonly property string statsString: Lifecycle.calculateStats((editorCanvas && editorCanvas.text) ? editorCanvas.text : "")
 
     function saveHeaderPinnedState(pinned) {
         if (typeof backend !== "undefined" && backend && typeof backend.save_header_pinned === "function") {
@@ -130,16 +122,12 @@ Item {
     readonly property bool isResizingSheet: (leftHandle && (leftHandle.containsMouse || leftHandle.pressed)) || (rightHandle && (rightHandle.containsMouse || rightHandle.pressed))
 
     function stripExt(name) {
-        if (!name) return ""
-        return name.replace(/\.md$/i, "")
+        return Lifecycle.stripExt(name)
     }
 
     function updateConfigParameterInText(key, value) {
-        if (!mainBar.fileName || (!mainBar.fileName.startsWith("_Настройка каталога") && !mainBar.fileName.startsWith("Настройка каталога"))) return
-        let txt = editorArea.text
-        let regex = new RegExp("^(\\s*" + key + "\\s*:\\s*)[^\\s#]+", "m")
-        if (regex.test(txt)) {
-            let newTxt = txt.replace(regex, "$1" + value)
+        let newTxt = Lifecycle.updateConfigParameterInText(mainBar.fileName, editorArea.text, key, value)
+        if (newTxt !== null) {
             let curPos = editorArea.cursorPosition
             editorArea.text = newTxt
             editorArea.cursorPosition = Math.min(curPos, newTxt.length)
@@ -169,38 +157,7 @@ Item {
     }
 
     function applyConfig(cfg) {
-        if (!cfg || !cfg.editor) return
-        if (!mainBar.isCustomWidthSetByUser && typeof cfg.editor.sheet_width === "number" && cfg.editor.sheet_width > 0) {
-            mainBar.customSheetWidth = cfg.editor.sheet_width
-        }
-        if (typeof cfg.editor.font_family === "string" && cfg.editor.font_family.length > 0) {
-            mainBar.customFontFamily = cfg.editor.font_family
-        }
-        if (!mainBar.isCustomFontSizeSetByUser && typeof cfg.editor.font_size === "number" && cfg.editor.font_size > 0) {
-            editorArea.font.pixelSize = cfg.editor.font_size
-        }
-        if (typeof cfg.editor.padding_left === "number") {
-            editorArea.leftPadding = cfg.editor.padding_left
-        }
-        if (typeof cfg.editor.padding_right === "number") {
-            editorArea.rightPadding = cfg.editor.padding_right
-        }
-        if (typeof cfg.editor.padding_top === "number") {
-            editorArea.topPadding = cfg.editor.padding_top
-        }
-        if (typeof cfg.editor.padding_bottom === "number") {
-            editorArea.bottomPadding = cfg.editor.padding_bottom
-        }
-        if (typeof cfg.editor.typewriter_mode === "boolean") {
-            mainBar.typewriterMode = cfg.editor.typewriter_mode
-        }
-        if (typeof cfg.editor.focus_mode === "boolean") {
-            mainBar.focusMode = cfg.editor.focus_mode
-        }
-        if (typeof backend !== "undefined" && backend && typeof backend.set_editor_line_height === "function") {
-            let percent = (typeof cfg.editor.line_height === "number" && cfg.editor.line_height > 0) ? (cfg.editor.line_height * 100) : 135.0
-            backend.set_editor_line_height(editorArea, percent)
-        }
+        Lifecycle.applyEditorConfig(mainBar, editorArea, cfg, (typeof backend !== "undefined" ? backend : null))
     }
 
     Component.onCompleted: {
