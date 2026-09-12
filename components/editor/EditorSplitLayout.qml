@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "../graph"
 
 Item {
     id: splitLayout
@@ -11,6 +12,10 @@ Item {
     property real splitRatio: 0.5
     property int activePane: 0 // 0: primary, 1: secondary
     property string dropZone: "" // "left" | "right" | "center" | "sidebar" | ""
+
+    // Свойства графа связей
+    property bool isGraphVisible: false
+    property string currentFolderUrl: ""
 
     // Свойства документов
     property string primaryFileName: "Новый документ"
@@ -42,6 +47,8 @@ Item {
     signal saveRequested()
     signal newRequested()
     signal toggleSidebarRequested()
+    signal nodeSelected(string fileUrl, string label)
+    signal closeGraphRequested()
 
 
     // Контейнер с панелями редактора
@@ -52,6 +59,7 @@ Item {
         // Левая / Основная панель
         MainBar {
             id: primaryBar
+            visible: !(splitLayout.isGraphVisible && splitLayout.activePane === 0)
             barSize: splitLayout.barSize
             fileName: splitLayout.primaryFileName
             fileUrl: splitLayout.primaryFileUrl
@@ -77,13 +85,26 @@ Item {
             onToggleSidebarRequested: splitLayout.toggleSidebarRequested()
         }
 
+        // Граф связей в основной панели (заменяет primaryBar при активации)
+        GraphView {
+            id: primaryGraph
+            visible: splitLayout.isGraphVisible && splitLayout.activePane === 0
+            folderUrl: splitLayout.currentFolderUrl
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: splitLayout.isSplit ? Math.round((parent.width - splitterDivider.width) * splitLayout.splitRatio) : parent.width
+
+            onCloseRequested: splitLayout.closeGraphRequested()
+            onNodeClicked: (fUrl, lbl, type) => splitLayout.nodeSelected(fUrl, lbl)
+        }
 
         // Вертикальный разделитель (виден только при включенном сплите)
         Item {
             id: splitterDivider
             visible: splitLayout.isSplit
             width: 7
-            anchors.left: primaryBar.right
+            anchors.left: (primaryBar.visible ? primaryBar.right : primaryGraph.right)
             anchors.top: parent.top
             anchors.bottom: parent.bottom
 
@@ -117,7 +138,7 @@ Item {
         // Правая / Вторичная панель
         MainBar {
             id: secondaryBar
-            visible: splitLayout.isSplit
+            visible: splitLayout.isSplit && !(splitLayout.isGraphVisible && splitLayout.activePane === 1)
             barSize: splitLayout.barSize
             fileName: splitLayout.secondaryFileName
             fileUrl: splitLayout.secondaryFileUrl
@@ -140,6 +161,20 @@ Item {
             onSaveRequested: splitLayout.saveRequested()
             onNewRequested: splitLayout.newRequested()
             onToggleSidebarRequested: splitLayout.toggleSidebarRequested()
+        }
+
+        // Граф связей во вторичной панели (заменяет secondaryBar при активации)
+        GraphView {
+            id: secondaryGraph
+            visible: splitLayout.isSplit && splitLayout.isGraphVisible && splitLayout.activePane === 1
+            folderUrl: splitLayout.currentFolderUrl
+            anchors.left: splitterDivider.right
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+
+            onCloseRequested: splitLayout.closeGraphRequested()
+            onNodeClicked: (fUrl, lbl, type) => splitLayout.nodeSelected(fUrl, lbl)
         }
 
 

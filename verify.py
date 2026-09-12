@@ -145,7 +145,6 @@ def test_qml():
         "components/dialogs/EditorDialogs.qml",
         "components/hotkeys/HotkeyManager.qml",
         "components/window/WindowFrame.qml",
-        "components/graph/GraphControls.qml",
         "components/graph/GraphView.qml",
         "views/web.qml"
     ]:
@@ -205,6 +204,7 @@ def test_structure():
         "js/markdown_shortcuts.js",
         "js/block_sync.js",
         "js/graph_physics.js",
+        "js/web_lifecycle.js",
         "components/editor/MainBar.qml",
         "components/editor/DocumentHeader.qml",
         "components/sidebar/Sidebar.qml",
@@ -216,7 +216,6 @@ def test_structure():
         "components/window/WindowFrame.qml",
         "components/window/qmldir",
         "components/graph/GraphView.qml",
-        "components/graph/GraphControls.qml",
         "components/graph/qmldir",
         "views/web.qml",
         "views/window.qml",

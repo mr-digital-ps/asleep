@@ -7,14 +7,13 @@ import "../components/sidebar"
 import "../components/editor"
 import "../components/dialogs"
 import "../components/hotkeys"
-import "../components/graph"
 import "../js/logic.js" as Logic
 import "../js/tabs.js" as Tabs
 import "../js/drag_manager.js" as DragMgr
 import "../js/markdown_shortcuts.js" as Markdown
+import "../js/web_lifecycle.js" as WebLifecycle
 
 Rectangle {
-
     id: root
     anchors.fill: parent
     color: "#141414"
@@ -124,67 +123,16 @@ Rectangle {
         id: folderFilesModel
     }
 
-    function reloadFolderFiles() {
-        if (typeof backend === "undefined" || !backend || !root.currentFolderUrl) return
-        let files = backend.get_folder_files(root.currentFolderUrl)
-        folderFilesModel.clear()
-        for (let i = 0; i < files.length; i++) {
-            folderFilesModel.append(files[i])
-        }
-    }
+    function reloadFolderFiles() { WebLifecycle.reloadFolderFiles(root, backend) }
+    function applyFolderConfig(configJson) { WebLifecycle.applyFolderConfig(root, splitLayout, configJson) }
 
     Connections {
         target: (typeof backend !== "undefined") ? backend : null
-        function onFolderFilesChanged() {
-            root.reloadFolderFiles()
-        }
+        function onFolderFilesChanged() { root.reloadFolderFiles() }
         function onBlockUpdated(headingNorm, content, sourceFileUrl) {
-            let primarySource = splitLayout && splitLayout.primaryBar ? (splitLayout.primaryBar.fileUrl || ("tab://" + (splitLayout.primaryBar.fileName || "doc"))) : ""
-            let secondarySource = (root.isSplit && splitLayout && splitLayout.secondaryBar) ? (splitLayout.secondaryBar.fileUrl || ("tab://" + (splitLayout.secondaryBar.fileName || "doc"))) : ""
-
-            // 1. Обновляем основную панель сплита, если она не является источником изменения
-            if (splitLayout && splitLayout.primaryBar && primarySource !== sourceFileUrl) {
-                splitLayout.primaryBar.applyExternalBlockUpdate(headingNorm, content)
-            }
-            // 2. Обновляем вторую панель сплита, если она открыта и не является источником
-            if (root.isSplit && splitLayout && splitLayout.secondaryBar && secondarySource !== sourceFileUrl) {
-                splitLayout.secondaryBar.applyExternalBlockUpdate(headingNorm, content)
-            }
-            // 3. Обновляем фоновые вкладки в tabsModel
-            for (let i = 0; i < root.tabsModel.count; i++) {
-                let tab = root.tabsModel.get(i)
-                let tabSource = tab ? (tab.fileUrl || ("tab://" + (tab.title || "doc"))) : ""
-                if (tab && tabSource !== sourceFileUrl) {
-                    let isDisplayed = (i === root.primaryTabIndex || (root.isSplit && i === root.secondaryTabIndex))
-                    if (!isDisplayed && tab.content) {
-                        let replaced = Tabs.replaceBlockInString(tab.content, headingNorm, content)
-                        if (replaced !== tab.content) {
-                            tab.content = replaced
-                        }
-                    }
-                }
-            }
+            WebLifecycle.handleBlockUpdated(root, splitLayout, Tabs, headingNorm, content, sourceFileUrl)
         }
-        function onConfigUpdated(configJson) {
-            root.applyFolderConfig(configJson)
-        }
-    }
-
-    function applyFolderConfig(configJson) {
-        if (!configJson) return
-        try {
-            let cfg = JSON.parse(configJson)
-            if (cfg && cfg.editor) {
-                if (splitLayout && splitLayout.primaryBar && typeof splitLayout.primaryBar.applyConfig === "function") {
-                    splitLayout.primaryBar.applyConfig(cfg)
-                }
-                if (root.isSplit && splitLayout && splitLayout.secondaryBar && typeof splitLayout.secondaryBar.applyConfig === "function") {
-                    splitLayout.secondaryBar.applyConfig(cfg)
-                }
-            }
-        } catch(e) {
-            console.warn("[QML] Ошибка применения конфигурации:", e)
-        }
+        function onConfigUpdated(configJson) { root.applyFolderConfig(configJson) }
     }
 
     function openFileFromFolder(fileUrl, fileName, isShift) {
@@ -212,57 +160,13 @@ Rectangle {
         root.isSidebarVisible = sideBar.isSidebarVisible
     }
 
-    // Клонирование окна приложения со скрытым сайдбаром (для открепленного файла)
+    // Делегирование управления окнами и клонированием в модуль WebLifecycle
     function spawnClonedAppWindow(fileUrl, title, content, wx, wy, ww, wh) {
-        let comp = Qt.createComponent("window.qml")
-        if (comp.status === Component.Ready) {
-            let winW = Math.max(750, ww || 850)
-            let winH = Math.max(550, wh || 600)
-            let appWin = root.Window.window
-            let newWin = comp.createObject(null, {
-                x: wx || (appWin ? (appWin.x + 50) : 100),
-                y: wy || (appWin ? (appWin.y + 50) : 100),
-                width: winW,
-                height: winH,
-                initialFileUrl: fileUrl || "",
-                initialTitle: title || "Документ",
-                initialContent: content || "",
-                startWithSidebarHidden: true
-            })
-            if (newWin && fileUrl) {
-                root.registerExternalFile(fileUrl, newWin)
-            }
-            return newWin
-        } else {
-            console.log("[QML] Ошибка создания нового окна приложения:", comp.errorString())
-            return null
-        }
+        return WebLifecycle.spawnClonedAppWindow(root, fileUrl, title, content, wx, wy, ww, wh)
     }
-
-    function registerExternalFile(fUrl, win) {
-        if (!fUrl) return
-        let list = (root.externalWindowFiles || []).slice()
-        if (list.indexOf(fUrl) === -1) {
-            list.push(fUrl)
-            root.externalWindowFiles = list
-        }
-        if (win && win.closing) {
-            win.closing.connect(function() {
-                if (root && typeof root.unregisterExternalFile === "function") {
-                    root.unregisterExternalFile(fUrl)
-                }
-            })
-        }
-    }
-
-    function unregisterExternalFile(fUrl) {
-        let list = (root.externalWindowFiles || []).slice()
-        let idx = list.indexOf(fUrl)
-        if (idx !== -1) {
-            list.splice(idx, 1)
-            root.externalWindowFiles = list
-        }
-    }
+    function registerExternalFile(fUrl, win) { WebLifecycle.registerExternalFile(root, fUrl, win) }
+    function unregisterExternalFile(fUrl) { WebLifecycle.unregisterExternalFile(root, fUrl) }
+    function applyInitialState() { return WebLifecycle.applyInitialState(root, Tabs) }
 
     // =========================================================================
     // ДИАЛОГИ ВЫБОРА И СОХРАНЕНИЯ ФАЙЛОВ И ПАПОК
@@ -322,86 +226,8 @@ Rectangle {
     property alias openDialog: editorDialogs.openDialog
     property alias saveDialog: editorDialogs.saveDialog
 
-    // Применение начальных параметров при клонировании окна
-    function applyInitialState() {
-        let appWin = root.Window.window
-        let initUrl = (appWin && appWin.initialFileUrl) ? appWin.initialFileUrl : root.initialFileUrl
-        let initTitle = (appWin && appWin.initialTitle) ? appWin.initialTitle : root.initialTitle
-        let initContent = (appWin && appWin.initialContent) ? appWin.initialContent : root.initialContent
-        let hideSidebar = (appWin && appWin.startWithSidebarHidden) || root.startWithSidebarHidden
-
-        if (hideSidebar) {
-            root.isSidebarVisible = false
-            if (sideBar) {
-                sideBar.isSidebarVisible = false
-                sideBar.currentWidth = 0
-            }
-        }
-
-        if (initUrl || initTitle) {
-            let cleanInit = root.stripExt(initTitle || "Документ")
-            tabsModel.setProperty(0, "title", cleanInit)
-            tabsModel.setProperty(0, "fileUrl", initUrl || "")
-            tabsModel.setProperty(0, "content", initContent || "")
-            root.currentFileName = cleanInit
-            root.currentFileUrl = initUrl || ""
-            root.primaryFileName = cleanInit
-            Tabs.syncEditorsFromModel(root)
-            return true
-        }
-        return false
-    }
-
     Component.onCompleted: {
-        let hasInitialDoc = applyInitialState()
-
-        if (typeof backend !== "undefined" && backend) {
-            root.currentFolderUrl = backend.get_default_folder()
-            root.currentFolderName = backend.get_folder_name(root.currentFolderUrl)
-            openDialog.currentFolder = root.currentFolderUrl
-            saveDialog.currentFolder = root.currentFolderUrl
-
-            backend.watch_folder(root.currentFolderUrl)
-            root.reloadFolderFiles()
-
-            // Если окно создано при клонировании с конкретным документом, не перезаписываем его
-            if (hasInitialDoc) {
-                // Уже применили в applyInitialState
-            } else if (folderFilesModel.count > 0) {
-                // Если есть файлы в папке — открываем первый обычный файл (не системный файл настроек)
-                let firstFile = null
-                for (let i = 0; i < folderFilesModel.count; ++i) {
-                    let candidate = folderFilesModel.get(i)
-                    if (candidate && !candidate.name.startsWith("_") && !candidate.isSystem) {
-                        firstFile = candidate
-                        break
-                    }
-                }
-                if (!firstFile) firstFile = folderFilesModel.get(0)
-
-                let content = backend.read_file(firstFile.fileUrl)
-                let cleanFirst = root.stripExt(firstFile.name)
-                tabsModel.setProperty(0, "title", cleanFirst)
-                tabsModel.setProperty(0, "fileUrl", firstFile.fileUrl)
-                tabsModel.setProperty(0, "content", content)
-                root.currentFileName = cleanFirst
-                root.currentFileUrl = firstFile.fileUrl
-                root.primaryFileName = cleanFirst
-                Tabs.syncEditorsFromModel(root)
-            } else {
-                let res = backend.create_file_in_folder(root.currentFolderUrl, "Новый документ")
-                if (res && res.success) {
-                    let cleanNew = root.stripExt(res.fileName)
-                    tabsModel.setProperty(0, "title", cleanNew)
-                    tabsModel.setProperty(0, "fileUrl", res.fileUrl)
-                    root.currentFileName = cleanNew
-                    root.currentFileUrl = res.fileUrl
-                    root.primaryFileName = cleanNew
-                    root.reloadFolderFiles()
-                }
-            }
-            root.reloadHotkeys()
-        }
+        WebLifecycle.initializeWorkspace(root, backend, Tabs, openDialog, saveDialog)
     }
 
     // =========================================================================
@@ -418,92 +244,11 @@ Rectangle {
     function reloadHotkeys() { hotkeyManager.reloadHotkeys() }
     function isCloseKey(event) { return hotkeyManager.isCloseKey(event) }
 
-
-    // Диспетчер выполнения команд горячих клавиш (hotkeys.json)
     function executeAction(action) {
-        switch (action) {
-            case "toggle_header_footer":
-                if (splitLayout.primaryBar && typeof splitLayout.primaryBar.toggleHeaderFooter === "function") {
-                    splitLayout.primaryBar.toggleHeaderFooter()
-                }
-                if (splitLayout.isSplit && splitLayout.secondaryBar && typeof splitLayout.secondaryBar.toggleHeaderFooter === "function") {
-                    splitLayout.secondaryBar.toggleHeaderFooter()
-                }
-                break
-            case "toggle_footer":
-                if (splitLayout.primaryBar && typeof splitLayout.primaryBar.toggleFooterOnly === "function") {
-                    splitLayout.primaryBar.toggleFooterOnly()
-                }
-                if (splitLayout.isSplit && splitLayout.secondaryBar && typeof splitLayout.secondaryBar.toggleFooterOnly === "function") {
-                    splitLayout.secondaryBar.toggleFooterOnly()
-                }
-                break
-            case "toggle_header":
-                if (splitLayout.primaryBar && typeof splitLayout.primaryBar.toggleHeaderOnly === "function") {
-                    splitLayout.primaryBar.toggleHeaderOnly()
-                }
-                if (splitLayout.isSplit && splitLayout.secondaryBar && typeof splitLayout.secondaryBar.toggleHeaderOnly === "function") {
-                    splitLayout.secondaryBar.toggleHeaderOnly()
-                }
-                break
-            case "toggle_sidebar":
-                root.toggleSidebar()
-                break
-            case "toggle_split":
-                root.toggleSplit()
-                break
-            case "toggle_centered_mode":
-                if (splitLayout.primaryBar) {
-                    splitLayout.primaryBar.isCenteredMode = !splitLayout.primaryBar.isCenteredMode
-                }
-                if (splitLayout.isSplit && splitLayout.secondaryBar) {
-                    splitLayout.secondaryBar.isCenteredMode = splitLayout.primaryBar.isCenteredMode
-                }
-                break
-            case "close_tab":
-                root.closeActiveTab()
-                break
-            case "new_tab":
-                root.createNewTab()
-                break
-            case "open_file":
-                openDialog.open()
-                break
-            case "save_file":
-                Logic.saveFile(root, saveDialog, backend)
-                break
-            case "detach_window":
-                let targetIdx = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
-                Tabs.detachTab(root, targetIdx >= 0 ? targetIdx : 0)
-                break
-            case "toggle_bold":
-                if (splitLayout && splitLayout.activeEditorArea) {
-                    Markdown.toggleBold(splitLayout.activeEditorArea)
-                }
-                break
-            case "toggle_italic":
-                if (splitLayout && splitLayout.activeEditorArea) {
-                    Markdown.toggleItalic(splitLayout.activeEditorArea)
-                }
-                break
-            case "toggle_graph":
-                root.isGraphVisible = !root.isGraphVisible
-                break
-        }
+        WebLifecycle.dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Markdown, Tabs, Logic, action)
     }
 
-
-    function closeActiveTab() {
-        if (root.tabsModel.count === 0) return
-        let targetIdx = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
-        if (targetIdx >= 0 && targetIdx < root.tabsModel.count) {
-            root.closeTab(targetIdx)
-        } else if (root.currentTabIndex >= 0 && root.currentTabIndex < root.tabsModel.count) {
-            root.closeTab(root.currentTabIndex)
-        } else {
-            root.closeTab(root.tabsModel.count - 1)
-        }
-    }
+    function closeActiveTab() { WebLifecycle.closeActiveTab(root) }
 
     Keys.forwardTo: (splitLayout ? [splitLayout] : [])
 
@@ -512,8 +257,6 @@ Rectangle {
             return
         }
     }
-
-
 
     // =========================================================================
     // РАСКЛАДКА ОКНА
@@ -621,7 +364,7 @@ Rectangle {
             onToggleMaximizeClicked: Logic.toggleMaximize(root.appWindow || Window.window)
         }
 
-        // 2. Главная область: Холст с поддержкой разделения экрана (Split View)
+        // 2. Главная область: Холст с поддержкой разделения экрана (Split View) и встроенным графом
         EditorSplitLayout {
             id: splitLayout
             Layout.fillWidth: true
@@ -636,6 +379,15 @@ Rectangle {
             secondaryFileUrl: (root.tabsModel.count > root.secondaryTabIndex && root.secondaryTabIndex >= 0) ? root.tabsModel.get(root.secondaryTabIndex).fileUrl : ""
 
             isPrimaryEmpty: root.tabsModel.count === 0 || root.primaryTabIndex < 0
+
+            // Передача состояния и событий графа
+            isGraphVisible: root.isGraphVisible
+            currentFolderUrl: root.currentFolderUrl
+            onCloseGraphRequested: root.isGraphVisible = false
+            onNodeSelected: (fUrl, lbl) => {
+                root.openFileFromFolder(fUrl, lbl, false)
+                root.isGraphVisible = false
+            }
 
             onFileDragStarted: (paneIdx, url, name, gx, gy) => {
                 root.isFileDragging = true
@@ -669,28 +421,6 @@ Rectangle {
             onSaveRequested: Logic.saveFile(root, saveDialog, backend)
             onNewRequested: root.createNewTab()
             onToggleSidebarRequested: root.toggleSidebar()
-        }
-
-    }
-
-    // 3. Интерактивный граф связей (Graph View)
-    GraphView {
-        id: graphView
-        anchors.left: sideBar.right
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.bottom: parent.bottom
-        visible: root.isGraphVisible
-        folderUrl: root.currentFolderUrl
-        z: 50
-
-        onCloseRequested: root.isGraphVisible = false
-
-        onNodeClicked: (fileUrl, label, nodeType) => {
-            if (fileUrl) {
-                root.openFileFromFolder(fileUrl, label, false)
-                root.isGraphVisible = false
-            }
         }
     }
 }
