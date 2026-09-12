@@ -15,15 +15,16 @@ function initSimulation(nodes, links, width, height, options) {
     for (var i = 0; i < nodes.length; i++) {
         var n = nodes[i]
         if (typeof n.x === "undefined" || isNaN(n.x)) {
-            // Разбрасываем по кругу вокруг центра
+            // Разбрасываем вокруг центра с умеренным радиусом
             var angle = (i / Math.max(1, nodes.length)) * 2 * Math.PI
-            var r = 50 + Math.random() * (Math.min(width, height) * 0.3)
+            var r = 80 + Math.random() * (Math.min(width, height) * 0.35)
             n.x = cx + Math.cos(angle) * r
             n.y = cy + Math.sin(angle) * r
         }
         n.vx = n.vx || 0
         n.vy = n.vy || 0
-        n.radius = Math.max(6, Math.min(22, 5 + (n.val || 1) * 2.5))
+        // Аккуратный компактный размер узлов как в Obsidian: 3.5px - 8.5px
+        n.radius = Math.max(3.5, Math.min(8.5, 3.2 + Math.sqrt(n.val || 1) * 1.3))
         nodeMap[n.id] = n
     }
 

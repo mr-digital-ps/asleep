@@ -29,9 +29,10 @@ Rectangle {
         if (!data || !data.nodes) return
 
         sim = Physics.initSimulation(data.nodes, data.links || [], canvas.width || 800, canvas.height || 600, {
-            repulsion: 2600,
-            linkDistance: 90,
-            gravity: 0.003,
+            repulsion: 5500,
+            linkDistance: 135,
+            linkStrength: 0.035,
+            gravity: 0.0008,
             damping: 0.88
         })
         wakeSimulation()
@@ -124,18 +125,18 @@ Rectangle {
                 if (!s || !t) continue
 
                 var isConnectedToHover = hasHover && (s.id === hoveredNode.id || t.id === hoveredNode.id)
-                var alpha = hasHover ? (isConnectedToHover ? 0.85 : 0.08) : 0.35
+                var alpha = hasHover ? (isConnectedToHover ? 0.75 : 0.08) : 0.35
 
                 ctx.beginPath()
                 ctx.moveTo(s.x, s.y)
                 ctx.lineTo(t.x, t.y)
 
                 if (isConnectedToHover) {
-                    ctx.strokeStyle = "rgba(200, 200, 200, " + alpha + ")"
-                    ctx.lineWidth = 1.8
+                    ctx.strokeStyle = "rgba(140, 140, 140, " + alpha + ")"
+                    ctx.lineWidth = 1.3
                 } else {
-                    ctx.strokeStyle = "rgba(75, 75, 75, " + alpha + ")"
-                    ctx.lineWidth = 1.0
+                    ctx.strokeStyle = "rgba(65, 65, 65, " + alpha + ")"
+                    ctx.lineWidth = 0.8
                 }
                 ctx.stroke()
             }
@@ -152,48 +153,52 @@ Rectangle {
                 if (q && !matchesSearch) {
                     nodeAlpha = 0.12
                 } else if (hasHover && !isHover && !isConnected) {
-                    nodeAlpha = 0.18
+                    nodeAlpha = 0.35
                 }
 
                 ctx.save()
                 ctx.globalAlpha = nodeAlpha
 
                 ctx.beginPath()
-                ctx.arc(n.x, n.y, n.radius || 7, 0, 2 * Math.PI)
+                ctx.arc(n.x, n.y, n.radius || 4.5, 0, 2 * Math.PI)
+
+                var baseFill = (n.type === "block" ? "#342c44" : (n.type === "tag" ? "#3c3322" : "#282828"))
+                var baseStroke = (n.type === "block" ? "#4a3e62" : (n.type === "tag" ? "#564830" : "#3c3c3c"))
 
                 if (isDragged) {
-                    ctx.fillStyle = "#ffffff"
+                    ctx.fillStyle = "#555555"
                     ctx.fill()
-                    ctx.strokeStyle = "rgba(255, 255, 255, 0.7)"
-                    ctx.lineWidth = 5
+                    ctx.strokeStyle = "#808080"
+                    ctx.lineWidth = 1.8
                     ctx.stroke()
                 } else if (isHover) {
-                    ctx.fillStyle = "#ffffff"
+                    // При наведении: просто чуть-чуть ярче, спокойный серебристый тон
+                    ctx.fillStyle = (n.type === "block" ? "#4a3e64" : (n.type === "tag" ? "#55462c" : "#444444"))
                     ctx.fill()
-                    ctx.strokeStyle = "rgba(255, 255, 255, 0.4)"
-                    ctx.lineWidth = 4
+                    ctx.strokeStyle = (n.type === "block" ? "#6d5894" : (n.type === "tag" ? "#7c663c" : "#686868"))
+                    ctx.lineWidth = 1.6
                     ctx.stroke()
                 } else if (isConnected) {
-                    ctx.fillStyle = "#bbbbbb"
+                    ctx.fillStyle = (n.type === "block" ? "#3c3250" : (n.type === "tag" ? "#453924" : "#363636"))
                     ctx.fill()
-                    ctx.strokeStyle = "#444444"
-                    ctx.lineWidth = 1.5
+                    ctx.strokeStyle = "#4e4e4e"
+                    ctx.lineWidth = 1.2
                     ctx.stroke()
                 } else {
-                    ctx.fillStyle = (n.isFixed ? "#383838" : "#2e2e2e")
+                    ctx.fillStyle = (n.isFixed ? "#343434" : baseFill)
                     ctx.fill()
-                    ctx.strokeStyle = (n.isFixed ? "#666666" : "#404040")
-                    ctx.lineWidth = (n.isFixed ? 1.8 : 1.2)
+                    ctx.strokeStyle = (n.isFixed ? "#555555" : baseStroke)
+                    ctx.lineWidth = (n.isFixed ? 1.5 : 1.0)
                     ctx.stroke()
                 }
 
                 // Подпись узла
-                var shouldDrawLabel = isHover || isConnected || (q && matchesSearch) || (graphRoot.zoomScale > 0.85)
-                if (shouldDrawLabel && nodeAlpha > 0.3) {
-                    ctx.font = (isHover ? "600 11px sans-serif" : "11px sans-serif")
-                    ctx.fillStyle = isHover ? "#ffffff" : (isConnected ? "#d0d0d0" : "#777777")
+                var shouldDrawLabel = isHover || isConnected || (q && matchesSearch) || (graphRoot.zoomScale > 0.9)
+                if (shouldDrawLabel && nodeAlpha > 0.25) {
+                    ctx.font = (isHover ? "500 10.5px sans-serif" : "10px sans-serif")
+                    ctx.fillStyle = isHover ? "#d4d4d4" : (isConnected ? "#aaaaaa" : "#666666")
                     ctx.textAlign = "center"
-                    ctx.fillText(n.label || "", n.x, n.y + (n.radius || 7) + 13)
+                    ctx.fillText(n.label || "", n.x, n.y + (n.radius || 4.5) + 11)
                 }
 
                 ctx.restore()
@@ -215,6 +220,8 @@ Rectangle {
         property bool isPanning: false
         property real dragStartX: 0
         property real dragStartY: 0
+        property real dragOffsetX: 0
+        property real dragOffsetY: 0
 
         function toWorldX(screenX) {
             return (screenX - (width / 2 + graphRoot.panX)) / graphRoot.zoomScale + width / 2
@@ -243,7 +250,7 @@ Rectangle {
                 var dx = screenX - sx
                 var dy = screenY - sy
                 var distSq = dx * dx + dy * dy
-                var effR = Math.max(20, (n.radius || 7) * zs + 10)
+                var effR = Math.max(16, (n.radius || 4.5) * zs + 8)
                 if (distSq <= effR * effR && distSq < bestDistSq) {
                     bestDistSq = distSq
                     bestNode = n
@@ -263,13 +270,13 @@ Rectangle {
             if (graphRoot.draggedNode) {
                 var wx = toWorldX(mouse.x)
                 var wy = toWorldY(mouse.y)
-                graphRoot.draggedNode.x = wx
-                graphRoot.draggedNode.y = wy
+                graphRoot.draggedNode.x = wx + dragOffsetX
+                graphRoot.draggedNode.y = wy + dragOffsetY
                 graphRoot.draggedNode.vx = 0
                 graphRoot.draggedNode.vy = 0
                 if (graphRoot.sim) {
                     graphRoot.sim.isSleeping = false
-                    graphRoot.sim.totalEnergy = 12
+                    graphRoot.sim.totalEnergy = 15
                 }
                 animTimer.running = true
                 canvas.requestPaint()
@@ -320,6 +327,10 @@ Rectangle {
                 graphRoot.draggedNode = node
                 node.isFixed = true
                 isPanning = false
+                var wx = toWorldX(mouse.x)
+                var wy = toWorldY(mouse.y)
+                dragOffsetX = node.x - wx
+                dragOffsetY = node.y - wy
                 cursorShape = Qt.ClosedHandCursor
                 graphRoot.wakeSimulation()
             } else {
@@ -336,7 +347,7 @@ Rectangle {
 
             if (wasDraggingNode) {
                 if (movedDist >= 5) {
-                    // Узел был передвинут — закрепляем его в новой позиции!
+                    // Узел был передвинут — закрепляем его в новой позиции на холсте!
                     nodeRef.isFixed = true
                     nodeRef.vx = 0
                     nodeRef.vy = 0
@@ -354,10 +365,9 @@ Rectangle {
             cursorShape = Qt.ArrowCursor
 
             // Если это был клик (смещение < 5px) — переходим к заметке
-            if (movedDist < 5) {
-                var clickedNode = findNodeAtScreen(mouse.x, mouse.y)
-                if (clickedNode && clickedNode.fileUrl) {
-                    graphRoot.nodeClicked(clickedNode.fileUrl, clickedNode.label, clickedNode.type)
+            if (movedDist < 5 && wasDraggingNode && nodeRef) {
+                if (nodeRef.fileUrl) {
+                    graphRoot.nodeClicked(nodeRef.fileUrl, nodeRef.label, nodeRef.type)
                 }
             }
         }
