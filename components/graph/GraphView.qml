@@ -34,11 +34,11 @@ Rectangle {
         var pureLinks = JSON.parse(JSON.stringify(data.links || []))
 
         sim = Physics.initSimulation(pureNodes, pureLinks, canvas.width || 800, canvas.height || 600, {
-            repulsion: 3800,
-            linkDistance: 90,
-            linkStrength: 0.055,
-            gravity: 0.0012,
-            damping: 0.85
+            repulsion: 3600,
+            linkDistance: 85,
+            linkStrength: 0.014,
+            gravity: 0.0005,
+            damping: 0.82
         })
         wakeSimulation()
     }
@@ -56,9 +56,9 @@ Rectangle {
         zoomScale = 1.0
         panX = 0
         panY = 0
-        if (sim && sim.nodes) {
-            for (var i = 0; i < sim.nodes.length; i++) {
-                sim.nodes[i].isFixed = false
+        if (sim && sim.links) {
+            for (var i = 0; i < sim.links.length; i++) {
+                sim.links[i].distance = sim.links[i].baseDistance || 85
             }
         }
         wakeSimulation()
@@ -341,6 +341,7 @@ Rectangle {
             if (node && mouse.button === Qt.LeftButton) {
                 graphRoot.draggedNode = node
                 node.isFixed = true
+                node.isDragging = true
                 isPanning = false
                 var wx = toWorldX(mouse.x)
                 var wy = toWorldY(mouse.y)
@@ -363,10 +364,11 @@ Rectangle {
             if (wasDraggingNode) {
                 // Узел остается полностью динамическим!
                 nodeRef.isFixed = false
+                nodeRef.isDragging = false
                 graphRoot.draggedNode = null
                 if (graphRoot.sim) {
                     graphRoot.sim.isSleeping = false
-                    graphRoot.sim.totalEnergy = 30
+                    graphRoot.sim.totalEnergy = 35
                 }
                 animTimer.running = true
                 canvas.requestPaint()

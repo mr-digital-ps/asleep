@@ -37,7 +37,9 @@ function initSimulation(nodes, links, width, height, options) {
             resolvedLinks.push({
                 source: s,
                 target: t,
-                type: l.type || "link"
+                type: l.type || "link",
+                distance: linkDistance,
+                baseDistance: linkDistance
             })
         }
     }
@@ -102,7 +104,7 @@ function stepSimulation(sim) {
         }
     }
 
-    // 2. Сила притяжения связей (Упругие резиновые пружины)
+    // 2. Сила притяжения связей (Высокоэластичные резиновые связи с остаточной деформацией)
     for (var k = 0; k < links.length; k++) {
         var link = links[k]
         var s = link.source
@@ -112,11 +114,19 @@ function stepSimulation(sim) {
         var ldy = t.y - s.y
         var ldist = Math.sqrt(ldx * ldx + ldy * ldy) + 0.01
 
-        var disp = ldist - linkDistance
-        // Прогрессивное натяжение резины: при умеренном растяжении связь мягкая,
-        // но при сильном растяжении сила быстро нарастает, не давая линии стать слишком длинной
-        var tension = (disp > 0) ? (disp + 0.015 * disp * disp) : disp
-        var lforce = tension * linkStrength
+        var targetDist = link.distance || linkDistance
+        var disp = ldist - targetDist
+
+        // Пластическая деформация: когда узел активно оттягивают, ребро пластически вытягивается
+        if (disp > 0 && (s.isDragging || t.isDragging)) {
+            link.distance = Math.min(300, targetDist + disp * 0.035)
+        } else if (link.distance > (link.baseDistance || linkDistance)) {
+            // Медленная релаксация остаточной деформации (память формы)
+            link.distance = link.distance * 0.9995 + (link.baseDistance || linkDistance) * 0.0005
+        }
+
+        // Мягкая сила эластичной резинки: не тянет за собой весь остальной проект
+        var lforce = disp * linkStrength
         var lfx = (ldx / ldist) * lforce
         var lfy = (ldy / ldist) * lforce
 
