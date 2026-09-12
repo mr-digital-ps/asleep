@@ -371,8 +371,10 @@ Item {
             id: scrollContentContainer
             width: editorScroll.availableWidth
             readonly property real singleLineHeight: (editorArea && editorArea.cursorRectangle.height > 0) ? editorArea.cursorRectangle.height : 24
+            readonly property real headerOffset: mainBar.isHeaderPinned ? 70 : 0
+            readonly property real lastLineTop: editorArea ? (editorCanvas.y + editorArea.topPadding + editorArea.contentHeight - singleLineHeight) : 0
             height: Math.max(mainBar.height, (editorArea && editorArea.lineCount > 1 && editorArea.contentHeight > 60)
-                ? (editorCanvas.y + editorCanvas.height + 70 + editorScroll.availableHeight - (editorArea.bottomPadding + singleLineHeight + (mainBar.isHeaderPinned ? 70 : 0) + 16))
+                ? Math.max(mainBar.height, lastLineTop - (headerOffset + 16) + editorScroll.availableHeight)
                 : mainBar.height)
 
             // Перетаскивание файла по пустому пространству вокруг документа (в режиме сплита)
