@@ -4,8 +4,9 @@ import QtQuick.Layouts
 import QtQuick.Dialogs
 import QtQml
 import "components/sidebar"
-
 import "components/editor"
+import "components/dialogs"
+import "components/hotkeys"
 import "js/logic.js" as Logic
 import "js/tabs.js" as Tabs
 import "js/drag_manager.js" as DragMgr
@@ -260,33 +261,23 @@ Rectangle {
     }
 
     // =========================================================================
-    // ДИАЛОГИ И ШОРТКАТЫ
+    // ДИАЛОГИ ВЫБОРА И СОХРАНЕНИЯ ФАЙЛОВ И ПАПОК
     // =========================================================================
-    FolderDialog {
-        id: folderDialog
-        title: "Выберите рабочую папку"
-        currentFolder: root.currentFolderUrl
-        onAccepted: {
-            root.currentFolderUrl = selectedFolder.toString()
+    EditorDialogs {
+        id: editorDialogs
+        currentFolderUrl: root.currentFolderUrl
+
+        onFolderAccepted: (folderUrl) => {
+            root.currentFolderUrl = folderUrl
             root.currentFolderName = backend.get_folder_name(root.currentFolderUrl)
             if (typeof backend !== "undefined" && backend) {
                 backend.save_last_folder(root.currentFolderUrl)
                 backend.watch_folder(root.currentFolderUrl)
             }
-            openDialog.currentFolder = root.currentFolderUrl
-            saveDialog.currentFolder = root.currentFolderUrl
             root.reloadFolderFiles()
         }
-    }
 
-    FileDialog {
-        id: openDialog
-        title: "Открыть файл"
-        fileMode: FileDialog.OpenFile
-        currentFolder: root.currentFolderUrl
-        nameFilters: ["Markdown (*.md)", "Текстовые файлы (*.txt)", "Все файлы (*.*)"]
-        defaultSuffix: "md"
-        onAccepted: {
+        onFileOpenAccepted: (selectedFile) => {
             let content = backend.read_file(selectedFile)
             let name = backend.get_filename(selectedFile)
 
@@ -308,28 +299,24 @@ Rectangle {
                 root.switchToTab(tabsModel.count - 1)
             }
         }
-    }
 
-    FileDialog {
-        id: saveDialog
-        title: "Сохранить файл как..."
-        fileMode: FileDialog.SaveFile
-        currentFolder: root.currentFolderUrl
-        nameFilters: ["Markdown (*.md)", "Текстовые файлы (*.txt)", "Все файлы (*.*)"]
-        defaultSuffix: "md"
-        onAccepted: {
+        onFileSaveAccepted: (selectedFile) => {
             let targetIndex = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
             backend.save_file(selectedFile, root.editorArea.text)
-            currentFileUrl = selectedFile
-            currentFileName = backend.get_filename(selectedFile)
+            root.currentFileUrl = selectedFile
+            root.currentFileName = backend.get_filename(selectedFile)
             if (tabsModel.count > 0 && targetIndex >= 0 && targetIndex < tabsModel.count) {
-                tabsModel.setProperty(targetIndex, "title", currentFileName)
-                tabsModel.setProperty(targetIndex, "fileUrl", currentFileUrl)
+                tabsModel.setProperty(targetIndex, "title", root.currentFileName)
+                tabsModel.setProperty(targetIndex, "fileUrl", root.currentFileUrl)
                 tabsModel.setProperty(targetIndex, "content", root.editorArea.text)
                 Tabs.syncEditorsFromModel(root)
             }
         }
     }
+
+    property alias folderDialog: editorDialogs.folderDialog
+    property alias openDialog: editorDialogs.openDialog
+    property alias saveDialog: editorDialogs.saveDialog
 
     // Применение начальных параметров при клонировании окна
     function applyInitialState() {
@@ -413,26 +400,19 @@ Rectangle {
         }
     }
 
-    property var hotkeyMapping: ({})
-    property var flatHotkeysList: []
-
-    function reloadHotkeys() {
-        if (typeof backend !== "undefined" && backend) {
-            if (typeof backend.get_hotkeys === "function") {
-                root.hotkeyMapping = backend.get_hotkeys()
-            }
-            if (typeof backend.get_flat_shortcuts === "function") {
-                root.flatHotkeysList = backend.get_flat_shortcuts()
-            }
-        }
+    // =========================================================================
+    // МЕНЕДЖЕР ГОРЯЧИХ КЛАВИШ
+    // =========================================================================
+    HotkeyManager {
+        id: hotkeyManager
+        onActionTriggered: (action) => root.executeAction(action)
+        onCloseActiveTabRequested: root.closeActiveTab()
     }
 
-    Connections {
-        target: (typeof backend !== "undefined") ? backend : null
-        function onHotkeysChanged() {
-            root.reloadHotkeys()
-        }
-    }
+    property alias hotkeyMapping: hotkeyManager.hotkeyMapping
+    property alias flatHotkeysList: hotkeyManager.flatHotkeysList
+    function reloadHotkeys() { hotkeyManager.reloadHotkeys() }
+    function isCloseKey(event) { return hotkeyManager.isCloseKey(event) }
 
 
     // Диспетчер выполнения команд горячих клавиш (hotkeys.json)
@@ -506,17 +486,6 @@ Rectangle {
     }
 
 
-    // Динамическая регистрация горячих клавиш из hotkeys.json
-    Instantiator {
-        id: dynamicHotkeys
-        model: root.flatHotkeysList
-        delegate: Shortcut {
-            sequence: modelData.key
-            context: Qt.ApplicationShortcut
-            onActivated: root.executeAction(modelData.action)
-        }
-    }
-
     function closeActiveTab() {
         if (root.tabsModel.count === 0) return
         let targetIdx = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
@@ -529,26 +498,10 @@ Rectangle {
         }
     }
 
-    function isCloseKey(event) {
-        if (!(event.modifiers & Qt.ControlModifier)) return false
-        // W key: Key_W, scan code 17, or Cyrillic 'ц'
-        if (event.key === Qt.Key_W || event.nativeScanCode === 17 || event.text === 'w' || event.text === 'W' || event.text === 'ц' || event.text === 'Ц' || event.key === 1062 || event.key === 1030) return true
-        // Q key: Key_Q, scan code 16, or Cyrillic 'й'
-        if (event.key === Qt.Key_Q || event.nativeScanCode === 16 || event.text === 'q' || event.text === 'Q' || event.text === 'й' || event.text === 'Й' || event.key === 1081 || event.key === 1049) return true
-        return false
-    }
-
     Keys.forwardTo: (splitLayout ? [splitLayout] : [])
 
     Keys.onPressed: (event) => {
-        if (root.isCloseKey(event)) {
-            root.closeActiveTab()
-            event.accepted = true
-            return
-        }
-        if (event.key === Qt.Key_F9) {
-            root.executeAction("toggle_header_footer")
-            event.accepted = true
+        if (hotkeyManager.handleKeyEvent(event)) {
             return
         }
     }

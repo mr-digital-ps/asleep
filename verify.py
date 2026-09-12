@@ -128,9 +128,10 @@ def test_qml():
     backend = Backend()
     engine.rootContext().setContextProperty("backend", backend)
 
-    # 1. Проверяем компиляцию web.qml напрямую
-    web_comp = QQmlComponent(engine, QUrl.fromLocalFile(str(PROJECT_DIR / "web.qml")))
-    assert web_comp.status() == QQmlComponent.Status.Ready, f"Ошибка в web.qml: {web_comp.errorString()}"
+    # 1. Проверяем компиляцию web.qml и вынесенных компонентов
+    for qml_f in ["components/dialogs/EditorDialogs.qml", "components/hotkeys/HotkeyManager.qml", "web.qml"]:
+        comp = QQmlComponent(engine, QUrl.fromLocalFile(str(PROJECT_DIR / qml_f)))
+        assert comp.status() == QQmlComponent.Status.Ready, f"Ошибка в {qml_f}: {comp.errorString()}"
 
     # 2. Проверяем загрузку window.qml и его внутреннего Loader
     qml_path = PROJECT_DIR / "window.qml"
@@ -177,9 +178,9 @@ def test_structure():
         "services/config_service.py",
         "services/syntax_highlighter.py",
         "services/hotkey_service.py",
+        "services/reloader.py",
         "hotkeys.json",
         "js/tabs.js",
-
         "js/drag_manager.js",
         "js/markdown_shortcuts.js",
         "js/block_sync.js",
@@ -187,6 +188,10 @@ def test_structure():
         "components/editor/DocumentHeader.qml",
         "components/sidebar/Sidebar.qml",
         "components/sidebar/SidebarHeader.qml",
+        "components/dialogs/EditorDialogs.qml",
+        "components/dialogs/qmldir",
+        "components/hotkeys/HotkeyManager.qml",
+        "components/hotkeys/qmldir",
         "web.py",
         "web.qml",
         "window.qml"
