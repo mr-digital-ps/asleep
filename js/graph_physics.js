@@ -102,7 +102,7 @@ function stepSimulation(sim) {
         }
     }
 
-    // 2. Сила притяжения связей (Spring force)
+    // 2. Сила притяжения связей (Упругие резиновые пружины)
     for (var k = 0; k < links.length; k++) {
         var link = links[k]
         var s = link.source
@@ -113,7 +113,10 @@ function stepSimulation(sim) {
         var ldist = Math.sqrt(ldx * ldx + ldy * ldy) + 0.01
 
         var disp = ldist - linkDistance
-        var lforce = disp * linkStrength
+        // Прогрессивное натяжение резины: при умеренном растяжении связь мягкая,
+        // но при сильном растяжении сила быстро нарастает, не давая линии стать слишком длинной
+        var tension = (disp > 0) ? (disp + 0.015 * disp * disp) : disp
+        var lforce = tension * linkStrength
         var lfx = (ldx / ldist) * lforce
         var lfy = (ldy / ldist) * lforce
 

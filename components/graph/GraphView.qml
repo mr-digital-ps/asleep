@@ -34,11 +34,11 @@ Rectangle {
         var pureLinks = JSON.parse(JSON.stringify(data.links || []))
 
         sim = Physics.initSimulation(pureNodes, pureLinks, canvas.width || 800, canvas.height || 600, {
-            repulsion: 5500,
-            linkDistance: 135,
-            linkStrength: 0.035,
-            gravity: 0.0008,
-            damping: 0.88
+            repulsion: 3800,
+            linkDistance: 90,
+            linkStrength: 0.055,
+            gravity: 0.0012,
+            damping: 0.85
         })
         wakeSimulation()
     }
@@ -190,10 +190,10 @@ Rectangle {
                     ctx.lineWidth = 1.2
                     ctx.stroke()
                 } else {
-                    ctx.fillStyle = (n.isFixed ? "#343434" : baseFill)
+                    ctx.fillStyle = baseFill
                     ctx.fill()
-                    ctx.strokeStyle = (n.isFixed ? "#555555" : baseStroke)
-                    ctx.lineWidth = (n.isFixed ? 1.5 : 1.0)
+                    ctx.strokeStyle = baseStroke
+                    ctx.lineWidth = 1.0
                     ctx.stroke()
                 }
 
@@ -361,16 +361,15 @@ Rectangle {
             var nodeRef = graphRoot.draggedNode
 
             if (wasDraggingNode) {
-                if (movedDist >= 4) {
-                    // Узел был передвинут — закрепляем его в новой позиции на холсте!
-                    nodeRef.isFixed = true
-                    nodeRef.vx = 0
-                    nodeRef.vy = 0
-                } else {
-                    nodeRef.isFixed = false
-                }
+                // Узел остается полностью динамическим!
+                nodeRef.isFixed = false
                 graphRoot.draggedNode = null
-                graphRoot.wakeSimulation()
+                if (graphRoot.sim) {
+                    graphRoot.sim.isSleeping = false
+                    graphRoot.sim.totalEnergy = 30
+                }
+                animTimer.running = true
+                canvas.requestPaint()
             }
 
             if (isPanning) {
@@ -384,15 +383,6 @@ Rectangle {
                 if (nodeRef.fileUrl) {
                     graphRoot.nodeClicked(nodeRef.fileUrl, nodeRef.label, nodeRef.type)
                 }
-            }
-        }
-
-        onDoubleClicked: (mouse) => {
-            var node = findNodeAtScreen(mouse.x, mouse.y)
-            if (node) {
-                // Двойной клик переключает фиксацию (unpin / pin)
-                node.isFixed = !node.isFixed
-                graphRoot.wakeSimulation()
             }
         }
     }
