@@ -13,6 +13,7 @@ Button {
 
     signal folderClicked()
     signal configClicked()
+    signal graphClicked()
 
     Layout.fillWidth: true
     Layout.preferredHeight: barSize
@@ -90,6 +91,46 @@ Button {
 
             ToolTip.visible: gearArea.containsMouse
             ToolTip.text: "Настройки каталога (Markdown)"
+        }
+
+        // Кнопка открытия графа связей (🕸)
+        Item {
+            visible: folderBtn.expanded && Boolean(folderBtn.currentFolderUrl)
+            Layout.preferredWidth: 26
+            Layout.fillHeight: true
+
+            Rectangle {
+                id: graphBg
+                anchors.centerIn: parent
+                width: 20
+                height: 20
+                radius: 4
+                color: graphArea.containsMouse ? "#333333" : "transparent"
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "🕸"
+                    font.pixelSize: 11
+                    color: graphArea.containsMouse ? "#7aa2f7" : "#888888"
+                }
+
+                MouseArea {
+                    id: graphArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    preventStealing: true
+                    onPressed: (mouse) => mouse.accepted = true
+                    onReleased: (mouse) => mouse.accepted = true
+                    onClicked: (mouse) => {
+                        mouse.accepted = true
+                        folderBtn.graphClicked()
+                    }
+                }
+            }
+
+            ToolTip.visible: graphArea.containsMouse
+            ToolTip.text: "Граф связей (Ctrl+G)"
         }
 
         // Индикатор смены

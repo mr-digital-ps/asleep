@@ -104,12 +104,24 @@ tags:
     flat_hks = hk_service.get_flat_shortcuts()
     assert len(flat_hks) > 0, "Flat shortcuts не должен быть пустым"
 
-    # 7. Тест Backend Facade
+    # 7. Тест GraphService
+    from services.graph_service import GraphService
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_p = Path(tmp_dir)
+        (tmp_p / "doc1.md").write_text("# ОбщийБлок\nТекст 1\nСмотри [[doc2]] и #проект\n", encoding="utf-8")
+        (tmp_p / "doc2.md").write_text("# ОбщийБлок\nТекст 2\nТоже #проект\n", encoding="utf-8")
+        gs = GraphService()
+        gdata = gs.build_graph(tmp_p)
+        assert len(gdata["nodes"]) >= 3, f"Ожидалось >= 3 узлов, получено {len(gdata['nodes'])}"
+        assert len(gdata["links"]) >= 2, f"Ожидалось >= 2 связей, получено {len(gdata['links'])}"
+
+    # 8. Тест Backend Facade
     backend = Backend()
     assert backend is not None
     cfg_json = backend.get_current_config()
     assert "sheet_width" in cfg_json, "get_current_config должен возвращать JSON с настройками"
     assert "toggle_header_footer" in backend.get_hotkeys(), "backend.get_hotkeys должен содержать действия"
+    assert "toggle_graph" in backend.get_hotkeys(), "backend.get_hotkeys должен содержать toggle_graph"
     assert len(backend.get_flat_shortcuts()) > 0, "backend.get_flat_shortcuts должен возвращать список"
     print("  -> Сервисы Python: OK")
 
@@ -129,7 +141,14 @@ def test_qml():
     engine.rootContext().setContextProperty("backend", backend)
 
     # 1. Проверяем компиляцию web.qml и вынесенных компонентов
-    for qml_f in ["components/dialogs/EditorDialogs.qml", "components/hotkeys/HotkeyManager.qml", "components/window/WindowFrame.qml", "views/web.qml"]:
+    for qml_f in [
+        "components/dialogs/EditorDialogs.qml",
+        "components/hotkeys/HotkeyManager.qml",
+        "components/window/WindowFrame.qml",
+        "components/graph/GraphControls.qml",
+        "components/graph/GraphView.qml",
+        "views/web.qml"
+    ]:
         comp = QQmlComponent(engine, QUrl.fromLocalFile(str(PROJECT_DIR / qml_f)))
         assert comp.status() == QQmlComponent.Status.Ready, f"Ошибка в {qml_f}: {comp.errorString()}"
 
@@ -178,12 +197,14 @@ def test_structure():
         "services/config_service.py",
         "services/syntax_highlighter.py",
         "services/hotkey_service.py",
+        "services/graph_service.py",
         "services/reloader.py",
         "hotkeys.json",
         "js/tabs.js",
         "js/drag_manager.js",
         "js/markdown_shortcuts.js",
         "js/block_sync.js",
+        "js/graph_physics.js",
         "components/editor/MainBar.qml",
         "components/editor/DocumentHeader.qml",
         "components/sidebar/Sidebar.qml",
@@ -194,6 +215,9 @@ def test_structure():
         "components/hotkeys/qmldir",
         "components/window/WindowFrame.qml",
         "components/window/qmldir",
+        "components/graph/GraphView.qml",
+        "components/graph/GraphControls.qml",
+        "components/graph/qmldir",
         "views/web.qml",
         "views/window.qml",
         "web.py"

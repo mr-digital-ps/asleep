@@ -29,6 +29,7 @@ Rectangle {
     signal newClicked()
     signal folderClicked()
     signal configClicked()
+    signal graphClicked()
     signal openClicked()
     signal saveClicked()
     signal closeClicked()
@@ -144,6 +145,7 @@ Rectangle {
             currentFolderName: sideBar.currentFolderName
             onFolderClicked: sideBar.folderClicked()
             onConfigClicked: sideBar.configClicked()
+            onGraphClicked: sideBar.graphClicked()
         }
 
         // 1. Кнопка «Новый документ»

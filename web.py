@@ -24,6 +24,7 @@ from services.file_service import FileService, save_session_config, load_session
 from services.config_service import ConfigService
 from services.syntax_highlighter import MarkdownHighlighter
 from services.hotkey_service import HotkeyService
+from services.graph_service import GraphService
 from services.reloader import setup_live_reload
 
 
@@ -49,6 +50,7 @@ class Backend(QObject):
     blockUpdated = pyqtSignal(str, str, str)  # (heading_norm, content, source_file_url)
     configUpdated = pyqtSignal(str)  # JSON-строка актуальной конфигурации
     hotkeysChanged = pyqtSignal()
+    graphDataChanged = pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -57,6 +59,7 @@ class Backend(QObject):
         self.window_manager = WindowManager()
         self.config_service = ConfigService()
         self.hotkey_service = HotkeyService()
+        self.graph_service = GraphService(self.block_engine, self.file_service)
         self.hotkey_service.hotkeys_changed.connect(lambda _: self.hotkeysChanged.emit())
 
 
@@ -79,6 +82,7 @@ class Backend(QObject):
                 elif self._last_config_mtime == 0:
                     self._last_config_mtime = cur_mtime
         self.folderFilesChanged.emit()
+        self.graphDataChanged.emit()
 
     # --- WindowManager Facade ---
     @pyqtSlot(QObject, QObject)
@@ -394,6 +398,13 @@ class Backend(QObject):
     def get_action_keys(self, action: str) -> list:
         """Возвращает комбинации клавиш для указанного действия"""
         return self.hotkey_service.get_action_keys(action)
+
+    @pyqtSlot(result="QVariantMap")
+    @pyqtSlot(str, result="QVariantMap")
+    def get_graph_data(self, folder_url: str = "") -> dict:
+        """Возвращает узлы и связи графа для текущей или указанной рабочей папки"""
+        folder = self.file_service.to_path(folder_url) if folder_url else self._current_folder
+        return self.graph_service.build_graph(folder)
 
 
 

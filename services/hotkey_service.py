@@ -56,6 +56,10 @@ DEFAULT_HOTKEYS = {
     "detach_window": {
         "keys": ["Ctrl+D"],
         "description": "Открепить документ в отдельное окно"
+    },
+    "toggle_graph": {
+        "keys": ["Ctrl+G", "Ctrl+Shift+G"],
+        "description": "Показать / скрыть интерактивный граф связей (Graph View)"
     }
 }
 

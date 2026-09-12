@@ -7,6 +7,7 @@ import "../components/sidebar"
 import "../components/editor"
 import "../components/dialogs"
 import "../components/hotkeys"
+import "../components/graph"
 import "../js/logic.js" as Logic
 import "../js/tabs.js" as Tabs
 import "../js/drag_manager.js" as DragMgr
@@ -20,6 +21,9 @@ Rectangle {
 
     // Ссылка на родительское ApplicationWindow
     property var appWindow: null
+
+    // Видимость интерактивного графа связей
+    property bool isGraphVisible: false
 
     // Переменные текущего активного файла
     property string currentFileUrl: ""
@@ -482,6 +486,9 @@ Rectangle {
                     Markdown.toggleItalic(splitLayout.activeEditorArea)
                 }
                 break
+            case "toggle_graph":
+                root.isGraphVisible = !root.isGraphVisible
+                break
         }
     }
 
@@ -607,6 +614,7 @@ Rectangle {
             onTabDragMoved: (gx, gy) => root.handleFileDragMoved(gx, gy)
             onTabDragEnded: (fUrl, fName, gx, gy) => root.handleFileDragEnded(fUrl, fName, gx, gy)
 
+            onGraphClicked: root.isGraphVisible = !root.isGraphVisible
             onOpenClicked: openDialog.open()
             onSaveClicked: Logic.saveFile(root, saveDialog, backend)
             onCloseClicked: (root.appWindow || Window.window).close()
@@ -663,5 +671,26 @@ Rectangle {
             onToggleSidebarRequested: root.toggleSidebar()
         }
 
+    }
+
+    // 3. Интерактивный граф связей (Graph View)
+    GraphView {
+        id: graphView
+        anchors.left: sideBar.right
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        visible: root.isGraphVisible
+        folderUrl: root.currentFolderUrl
+        z: 50
+
+        onCloseRequested: root.isGraphVisible = false
+
+        onNodeClicked: (fileUrl, label, nodeType) => {
+            if (fileUrl) {
+                root.openFileFromFolder(fileUrl, label, false)
+                root.isGraphVisible = false
+            }
+        }
     }
 }
