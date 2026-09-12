@@ -6,7 +6,7 @@ import "../../js/graph_physics.js" as Physics
 Rectangle {
     id: graphRoot
     anchors.fill: parent
-    color: "#141414"
+    color: (graphConfig && graphConfig.visual && graphConfig.visual.backgroundColor) ? graphConfig.visual.backgroundColor : "#141414"
     clip: true
 
     property string folderUrl: ""
@@ -16,6 +16,7 @@ Rectangle {
     property real panY: 0
     property string searchQuery: ""
 
+    property var graphConfig: ({})
     property var hoveredNode: null
     property var draggedNode: null
     property var highlightedNodeIds: ({})
@@ -28,18 +29,22 @@ Rectangle {
         var data = backend.get_graph_data(graphRoot.folderUrl)
         if (!data || !data.nodes) return
 
+        var config = {}
+        if (typeof backend.get_graph_config === "function") {
+            try {
+                config = JSON.parse(JSON.stringify(backend.get_graph_config(graphRoot.folderUrl) || {}))
+            } catch (e) {
+                config = {}
+            }
+        }
+        graphRoot.graphConfig = config
+
         // Преобразуем QVariant из Python в чистые нативные объекты JS,
         // иначе мутации координат (x, y) при перетаскивании не сохраняются в памяти JS!
         var pureNodes = JSON.parse(JSON.stringify(data.nodes))
         var pureLinks = JSON.parse(JSON.stringify(data.links || []))
 
-        sim = Physics.initSimulation(pureNodes, pureLinks, canvas.width || 800, canvas.height || 600, {
-            repulsion: 3600,
-            linkDistance: 85,
-            linkStrength: 0.014,
-            gravity: 0.0005,
-            damping: 0.82
-        })
+        sim = Physics.initSimulation(pureNodes, pureLinks, canvas.width || 800, canvas.height || 600, config)
         wakeSimulation()
     }
 
@@ -122,6 +127,16 @@ Rectangle {
             var hasHover = (hoveredNode !== null)
             var q = graphRoot.searchQuery
 
+            var vis = (graphRoot.graphConfig && graphRoot.graphConfig.visual) ? graphRoot.graphConfig.visual : {}
+            var linkCol = vis.linkColor || "rgba(65, 65, 65, 0.35)"
+            var linkHoverCol = vis.linkHoverColor || "rgba(140, 140, 140, 0.75)"
+            var labelCol = vis.labelColor || "#666666"
+            var labelHoverCol = vis.labelHoverColor || "#d4d4d4"
+            var labelFontSize = (typeof vis.labelFontSize === "number") ? vis.labelFontSize : 10
+            var nodeColorFile = vis.nodeColorFile || "#282828"
+            var nodeColorBlock = vis.nodeColorBlock || "#342c44"
+            var nodeColorTag = vis.nodeColorTag || "#3c3322"
+
             // 1. Отрисовка связей (Строгий темно-серый монохром)
             for (var i = 0; i < links.length; i++) {
                 var l = links[i]
@@ -137,10 +152,10 @@ Rectangle {
                 ctx.lineTo(t.x, t.y)
 
                 if (isConnectedToHover) {
-                    ctx.strokeStyle = "rgba(140, 140, 140, " + alpha + ")"
+                    ctx.strokeStyle = linkHoverCol
                     ctx.lineWidth = 1.3
                 } else {
-                    ctx.strokeStyle = "rgba(65, 65, 65, " + alpha + ")"
+                    ctx.strokeStyle = linkCol
                     ctx.lineWidth = 0.8
                 }
                 ctx.stroke()
@@ -167,7 +182,7 @@ Rectangle {
                 ctx.beginPath()
                 ctx.arc(n.x, n.y, n.radius || 4.5, 0, 2 * Math.PI)
 
-                var baseFill = (n.type === "block" ? "#342c44" : (n.type === "tag" ? "#3c3322" : "#282828"))
+                var baseFill = (n.type === "block" ? nodeColorBlock : (n.type === "tag" ? nodeColorTag : nodeColorFile))
                 var baseStroke = (n.type === "block" ? "#4a3e62" : (n.type === "tag" ? "#564830" : "#3c3c3c"))
 
                 if (isDragged) {
@@ -177,7 +192,7 @@ Rectangle {
                     ctx.lineWidth = 1.8
                     ctx.stroke()
                 } else if (isHover) {
-                    // При наведении: просто чуть-чуть ярче, спокойный серебристый тон
+                    // При наведении: чуть ярче
                     ctx.fillStyle = (n.type === "block" ? "#4a3e64" : (n.type === "tag" ? "#55462c" : "#444444"))
                     ctx.fill()
                     ctx.strokeStyle = (n.type === "block" ? "#6d5894" : (n.type === "tag" ? "#7c663c" : "#686868"))
@@ -200,8 +215,9 @@ Rectangle {
                 // Подпись узла
                 var shouldDrawLabel = isHover || isConnected || (q && matchesSearch) || (graphRoot.zoomScale > 0.9)
                 if (shouldDrawLabel && nodeAlpha > 0.25) {
-                    ctx.font = (isHover ? "500 10.5px sans-serif" : "10px sans-serif")
-                    ctx.fillStyle = isHover ? "#d4d4d4" : (isConnected ? "#aaaaaa" : "#666666")
+                    var curFontSize = isHover ? (labelFontSize + 0.5) : labelFontSize
+                    ctx.font = (isHover ? "500 " + curFontSize + "px sans-serif" : curFontSize + "px sans-serif")
+                    ctx.fillStyle = isHover ? labelHoverCol : (isConnected ? "#aaaaaa" : labelCol)
                     ctx.textAlign = "center"
                     ctx.fillText(n.label || "", n.x, n.y + (n.radius || 4.5) + 11)
                 }

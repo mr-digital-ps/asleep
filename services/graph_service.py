@@ -1,3 +1,5 @@
+import json
+import copy
 import re
 from pathlib import Path
 from PyQt6.QtCore import QUrl
@@ -7,14 +9,103 @@ MD_LINK_REGEX = re.compile(r'\[([^\]]+)\]\(([^)]+\.(?:md|markdown|txt))\)', re.I
 TAG_REGEX = re.compile(r'(?<!\S)#([a-zA-Zа-яА-ЯёЁ0-9_\-]+)(?!\S)')
 H1_REGEX = re.compile(r'^#\s+([^\n\r]+)', re.MULTILINE)
 
+DEFAULT_GRAPH_CONFIG = {
+    "physics": {
+        "repulsion": 3600,
+        "repulsionDistanceMax": 800,
+        "linkDistance": 85,
+        "linkStrength": 0.014,
+        "plasticDeformation": 0.035,
+        "plasticMaxDistance": 300,
+        "plasticRecoveryRate": 0.0005,
+        "gravity": 0.0005,
+        "damping": 0.82,
+        "maxVelocity": 15.0,
+        "initialSpread": 0.35
+    },
+    "visual": {
+        "nodeRadiusMin": 3.5,
+        "nodeRadiusMax": 8.5,
+        "nodeRadiusBase": 3.2,
+        "nodeRadiusWeight": 1.3,
+        "backgroundColor": "#141414",
+        "nodeColorFile": "#4da6ff",
+        "nodeColorBlock": "#bb9af7",
+        "nodeColorTag": "#e0af68",
+        "nodeHoverBrightness": 1.25,
+        "linkColor": "#333333",
+        "linkHoverColor": "#666666",
+        "labelColor": "#888888",
+        "labelHoverColor": "#e0e0e0",
+        "labelFontSize": 10
+    }
+}
+
+def _deep_merge(base: dict, override: dict) -> dict:
+    result = copy.deepcopy(base)
+    if not isinstance(override, dict):
+        return result
+    for k, v in override.items():
+        if k in result and isinstance(result[k], dict) and isinstance(v, dict):
+            result[k] = _deep_merge(result[k], v)
+        else:
+            result[k] = copy.deepcopy(v)
+    return result
+
 class GraphService:
     """
     Сервис сбора и построения интерактивного графа связей между заметками,
-    включая вики-ссылки [[...]], общие H1-блоки и теги.
+    включая вики-ссылки [[...]], общие H1-блоки, теги и настройки симуляции.
     """
     def __init__(self, block_engine=None, file_service=None):
         self.block_engine = block_engine
         self.file_service = file_service
+        self.project_root = Path(__file__).resolve().parent.parent
+
+    def get_config(self, folder_path: Path = None) -> dict:
+        """
+        Каскадная загрузка конфигурации графа:
+        1. Встроенный дефолт (DEFAULT_GRAPH_CONFIG)
+        2. Стандартный файл проекта (graph_default.json)
+        3. Пользовательский файл проекта (graph_user.json)
+        4. Локальный файл хранилища (_graph_settings.json)
+        """
+        cfg = copy.deepcopy(DEFAULT_GRAPH_CONFIG)
+
+        # 1. Стандартный файл проекта
+        default_file = self.project_root / "graph_default.json"
+        if default_file.exists():
+            try:
+                data = json.loads(default_file.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    cfg = _deep_merge(cfg, data)
+            except Exception as e:
+                print(f"[GraphService] Ошибка чтения graph_default.json: {e}")
+
+        # 2. Пользовательский файл проекта
+        user_file = self.project_root / "graph_user.json"
+        if user_file.exists():
+            try:
+                data = json.loads(user_file.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    cfg = _deep_merge(cfg, data)
+            except Exception as e:
+                print(f"[GraphService] Ошибка чтения graph_user.json: {e}")
+
+        # 3. Локальные настройки текущего каталога заметок (если есть)
+        if folder_path and folder_path.exists() and folder_path.is_dir():
+            for v_name in ["_graph_settings.json", "graph_settings.json"]:
+                vault_cfg = folder_path / v_name
+                if vault_cfg.exists():
+                    try:
+                        data = json.loads(vault_cfg.read_text(encoding="utf-8"))
+                        if isinstance(data, dict):
+                            cfg = _deep_merge(cfg, data)
+                        break
+                    except Exception as e:
+                        print(f"[GraphService] Ошибка чтения {v_name}: {e}")
+
+        return cfg
 
     def build_graph(self, folder_path: Path) -> dict:
         if not folder_path or not folder_path.exists() or not folder_path.is_dir():

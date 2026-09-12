@@ -2,11 +2,25 @@
 
 function initSimulation(nodes, links, width, height, options) {
     options = options || {}
-    var repulsion = options.repulsion || 3000
-    var linkDistance = options.linkDistance || 80
-    var linkStrength = options.linkStrength || 0.05
-    var gravity = options.gravity || 0.02
-    var damping = options.damping || 0.85
+    var physics = options.physics || options
+    var visual = options.visual || options
+
+    var repulsion = (typeof physics.repulsion === "number") ? physics.repulsion : 3600
+    var repulsionDistanceMax = (typeof physics.repulsionDistanceMax === "number") ? physics.repulsionDistanceMax : 800
+    var linkDistance = (typeof physics.linkDistance === "number") ? physics.linkDistance : 85
+    var linkStrength = (typeof physics.linkStrength === "number") ? physics.linkStrength : 0.014
+    var plasticDeformation = (typeof physics.plasticDeformation === "number") ? physics.plasticDeformation : 0.035
+    var plasticMaxDistance = (typeof physics.plasticMaxDistance === "number") ? physics.plasticMaxDistance : 300
+    var plasticRecoveryRate = (typeof physics.plasticRecoveryRate === "number") ? physics.plasticRecoveryRate : 0.0005
+    var gravity = (typeof physics.gravity === "number") ? physics.gravity : 0.0005
+    var damping = (typeof physics.damping === "number") ? physics.damping : 0.82
+    var maxVelocity = (typeof physics.maxVelocity === "number") ? physics.maxVelocity : 15.0
+    var initialSpread = (typeof physics.initialSpread === "number") ? physics.initialSpread : 0.35
+
+    var nodeRadiusMin = (typeof visual.nodeRadiusMin === "number") ? visual.nodeRadiusMin : 3.5
+    var nodeRadiusMax = (typeof visual.nodeRadiusMax === "number") ? visual.nodeRadiusMax : 8.5
+    var nodeRadiusBase = (typeof visual.nodeRadiusBase === "number") ? visual.nodeRadiusBase : 3.2
+    var nodeRadiusWeight = (typeof visual.nodeRadiusWeight === "number") ? visual.nodeRadiusWeight : 1.3
 
     var cx = width / 2
     var cy = height / 2
@@ -15,16 +29,16 @@ function initSimulation(nodes, links, width, height, options) {
     for (var i = 0; i < nodes.length; i++) {
         var n = nodes[i]
         if (typeof n.x === "undefined" || isNaN(n.x)) {
-            // Разбрасываем вокруг центра с умеренным радиусом
+            // Разбрасываем вокруг центра с настраиваемым радиусом
             var angle = (i / Math.max(1, nodes.length)) * 2 * Math.PI
-            var r = 80 + Math.random() * (Math.min(width, height) * 0.35)
+            var r = 80 + Math.random() * (Math.min(width, height) * initialSpread)
             n.x = cx + Math.cos(angle) * r
             n.y = cy + Math.sin(angle) * r
         }
         n.vx = n.vx || 0
         n.vy = n.vy || 0
-        // Аккуратный компактный размер узлов как в Obsidian: 3.5px - 8.5px
-        n.radius = Math.max(3.5, Math.min(8.5, 3.2 + Math.sqrt(n.val || 1) * 1.3))
+        // Аккуратный настраиваемый размер узлов
+        n.radius = Math.max(nodeRadiusMin, Math.min(nodeRadiusMax, nodeRadiusBase + Math.sqrt(n.val || 1) * nodeRadiusWeight))
         nodeMap[n.id] = n
     }
 
@@ -51,10 +65,17 @@ function initSimulation(nodes, links, width, height, options) {
         width: width,
         height: height,
         repulsion: repulsion,
+        repulsionDistanceMax: repulsionDistanceMax,
         linkDistance: linkDistance,
         linkStrength: linkStrength,
+        plasticDeformation: plasticDeformation,
+        plasticMaxDistance: plasticMaxDistance,
+        plasticRecoveryRate: plasticRecoveryRate,
         gravity: gravity,
         damping: damping,
+        maxVelocity: maxVelocity,
+        initialSpread: initialSpread,
+        visual: visual,
         isSleeping: false,
         totalEnergy: 100
     }
@@ -77,6 +98,12 @@ function stepSimulation(sim) {
 
     var nLen = nodes.length
 
+    var repulsionDistMax = sim.repulsionDistanceMax || 800
+    var plasticDef = (typeof sim.plasticDeformation === "number") ? sim.plasticDeformation : 0.035
+    var plasticMax = (typeof sim.plasticMaxDistance === "number") ? sim.plasticMaxDistance : 300
+    var recoveryRate = (typeof sim.plasticRecoveryRate === "number") ? sim.plasticRecoveryRate : 0.0005
+    var maxV = sim.maxVelocity || 15.0
+
     // 1. Отталкивание (Repulsion) всех пар узлов
     for (var i = 0; i < nLen; i++) {
         var n1 = nodes[i]
@@ -87,7 +114,7 @@ function stepSimulation(sim) {
             var distSq = dx * dx + dy * dy + 0.1
             var dist = Math.sqrt(distSq)
 
-            if (dist < 800) {
+            if (dist < repulsionDistMax) {
                 var force = repulsion / distSq
                 var fx = (dx / dist) * force
                 var fy = (dy / dist) * force
@@ -119,10 +146,10 @@ function stepSimulation(sim) {
 
         // Пластическая деформация: когда узел активно оттягивают, ребро пластически вытягивается
         if (disp > 0 && (s.isDragging || t.isDragging)) {
-            link.distance = Math.min(300, targetDist + disp * 0.035)
+            link.distance = Math.min(plasticMax, targetDist + disp * plasticDef)
         } else if (link.distance > (link.baseDistance || linkDistance)) {
             // Медленная релаксация остаточной деформации (память формы)
-            link.distance = link.distance * 0.9995 + (link.baseDistance || linkDistance) * 0.0005
+            link.distance = link.distance * (1.0 - recoveryRate) + (link.baseDistance || linkDistance) * recoveryRate
         }
 
         // Мягкая сила эластичной резинки: не тянет за собой весь остальной проект
@@ -157,9 +184,9 @@ function stepSimulation(sim) {
 
             // Ограничение максимальной скорости
             var speed = Math.sqrt(n.vx * n.vx + n.vy * n.vy)
-            if (speed > 15) {
-                n.vx = (n.vx / speed) * 15
-                n.vy = (n.vy / speed) * 15
+            if (speed > maxV) {
+                n.vx = (n.vx / speed) * maxV
+                n.vy = (n.vy / speed) * maxV
             }
 
             n.x += n.vx

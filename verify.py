@@ -115,6 +115,18 @@ tags:
         assert len(gdata["nodes"]) >= 3, f"Ожидалось >= 3 узлов, получено {len(gdata['nodes'])}"
         assert len(gdata["links"]) >= 2, f"Ожидалось >= 2 связей, получено {len(gdata['links'])}"
 
+        # Проверка get_config и каскада
+        cfg = gs.get_config(tmp_p)
+        assert "physics" in cfg and "visual" in cfg, "Конфигурация графа должна содержать physics и visual"
+        assert cfg["physics"]["repulsion"] > 0, "repulsion должен быть положительным"
+        assert cfg["physics"]["linkStrength"] > 0, "linkStrength должен быть положительным"
+
+        # Проверка локального переопределения через _graph_settings.json
+        (tmp_p / "_graph_settings.json").write_text('{"physics": {"linkStrength": 0.099}}', encoding="utf-8")
+        vault_cfg = gs.get_config(tmp_p)
+        assert vault_cfg["physics"]["linkStrength"] == 0.099, "Локальный _graph_settings.json должен переопределять linkStrength"
+        assert vault_cfg["physics"]["repulsion"] == cfg["physics"]["repulsion"], "Неуказанные параметры должны сохраняться"
+
     # 8. Тест Backend Facade
     backend = Backend()
     assert backend is not None
@@ -123,6 +135,8 @@ tags:
     assert "toggle_header_footer" in backend.get_hotkeys(), "backend.get_hotkeys должен содержать действия"
     assert "toggle_graph" in backend.get_hotkeys(), "backend.get_hotkeys должен содержать toggle_graph"
     assert len(backend.get_flat_shortcuts()) > 0, "backend.get_flat_shortcuts должен возвращать список"
+    graph_cfg = backend.get_graph_config()
+    assert "physics" in graph_cfg and "visual" in graph_cfg, "backend.get_graph_config должен возвращать словарь с physics и visual"
     print("  -> Сервисы Python: OK")
 
 
