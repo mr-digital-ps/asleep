@@ -28,7 +28,12 @@ Rectangle {
         var data = backend.get_graph_data(graphRoot.folderUrl)
         if (!data || !data.nodes) return
 
-        sim = Physics.initSimulation(data.nodes, data.links || [], canvas.width || 800, canvas.height || 600, {
+        // Преобразуем QVariant из Python в чистые нативные объекты JS,
+        // иначе мутации координат (x, y) при перетаскивании не сохраняются в памяти JS!
+        var pureNodes = JSON.parse(JSON.stringify(data.nodes))
+        var pureLinks = JSON.parse(JSON.stringify(data.links || []))
+
+        sim = Physics.initSimulation(pureNodes, pureLinks, canvas.width || 800, canvas.height || 600, {
             repulsion: 5500,
             linkDistance: 135,
             linkStrength: 0.035,
@@ -213,6 +218,7 @@ Rectangle {
         id: graphMouse
         anchors.fill: parent
         hoverEnabled: true
+        preventStealing: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton
 
         property real lastMouseX: 0
@@ -231,7 +237,7 @@ Rectangle {
             return (screenY - (height / 2 + graphRoot.panY)) / graphRoot.zoomScale + height / 2
         }
 
-        // Надежный расчет попадания в узел в пикселях экрана
+        // Надежный расчет попадания в узел (и в кружок, и в текст подписи)
         function findNodeAtScreen(screenX, screenY) {
             if (!graphRoot.sim || !graphRoot.sim.nodes) return null
             var nodes = graphRoot.sim.nodes
@@ -250,8 +256,17 @@ Rectangle {
                 var dx = screenX - sx
                 var dy = screenY - sy
                 var distSq = dx * dx + dy * dy
-                var effR = Math.max(16, (n.radius || 4.5) * zs + 8)
-                if (distSq <= effR * effR && distSq < bestDistSq) {
+
+                // 1. Попадание в сам кружок (комфортный радиус минимум 22px на экране)
+                var circleRadius = Math.max(22, (n.radius || 4.5) * zs + 12)
+                var hitCircle = (distSq <= circleRadius * circleRadius)
+
+                // 2. Попадание в подпись под кружком
+                var labelLen = (n.label ? n.label.length : 6)
+                var labelHalfW = Math.max(26, (labelLen * 3.5 + 10) * Math.min(1.2, zs))
+                var hitLabel = (Math.abs(dx) <= labelHalfW && dy >= 0 && dy <= (26 * Math.min(1.2, zs)))
+
+                if ((hitCircle || hitLabel) && distSq < bestDistSq) {
                     bestDistSq = distSq
                     bestNode = n
                 }
@@ -346,7 +361,7 @@ Rectangle {
             var nodeRef = graphRoot.draggedNode
 
             if (wasDraggingNode) {
-                if (movedDist >= 5) {
+                if (movedDist >= 4) {
                     // Узел был передвинут — закрепляем его в новой позиции на холсте!
                     nodeRef.isFixed = true
                     nodeRef.vx = 0
@@ -364,8 +379,8 @@ Rectangle {
 
             cursorShape = Qt.ArrowCursor
 
-            // Если это был клик (смещение < 5px) — переходим к заметке
-            if (movedDist < 5 && wasDraggingNode && nodeRef) {
+            // Если это был клик (смещение < 4px) — переходим к заметке
+            if (movedDist < 4 && wasDraggingNode && nodeRef) {
                 if (nodeRef.fileUrl) {
                     graphRoot.nodeClicked(nodeRef.fileUrl, nodeRef.label, nodeRef.type)
                 }

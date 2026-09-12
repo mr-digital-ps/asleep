@@ -19,12 +19,11 @@ ApplicationWindow {
     property string initialContent: ""
     property bool startWithSidebarHidden: false
 
-    Keys.forwardTo: (hotLoader && hotLoader.item) ? [hotLoader.item] : []
-
     Loader {
         id: hotLoader
         objectName: "hotLoader"
         anchors.fill: parent
+        focus: true
         source: "web.qml"
         onLoaded: {
             if (item) {
