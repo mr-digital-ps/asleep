@@ -240,9 +240,9 @@ Item {
             return
         }
 
-        // Запас отступа сверху и снизу
+        // Запас отступа сверху и снизу (~70-90px или 2-3 строки), чтобы курсор не прилипал к краю экрана
         let topMargin = Math.min(70, viewH * 0.2)
-        let bottomMargin = Math.max(70, mainBar.isFooterPinned ? 70 : 30)
+        let bottomMargin = Math.max(90, viewH * 0.2)
 
         if (cursorBottom + bottomMargin > viewH) {
             let diff = (cursorBottom + bottomMargin) - viewH
@@ -372,7 +372,7 @@ Item {
             width: editorScroll.availableWidth
             readonly property real singleLineHeight: (editorArea && editorArea.cursorRectangle.height > 0) ? editorArea.cursorRectangle.height : 24
             height: Math.max(mainBar.height, (editorArea && editorArea.lineCount > 1 && editorArea.contentHeight > 60)
-                ? (editorCanvas.y + editorCanvas.height + 44 + editorScroll.availableHeight - (editorArea.bottomPadding + singleLineHeight + (mainBar.isHeaderPinned ? 70 : 0) + 16))
+                ? (editorCanvas.y + editorCanvas.height + 70 + editorScroll.availableHeight - (editorArea.bottomPadding + singleLineHeight + (mainBar.isHeaderPinned ? 70 : 0) + 16))
                 : mainBar.height)
 
             // Перетаскивание файла по пустому пространству вокруг документа (в режиме сплита)
@@ -523,19 +523,30 @@ Item {
                     onSyncNoticeRequested: (t) => mainBar.showSyncNotice(t)
                 }
 
-                // 3. Нижний контейнер со статистикой и разделителем (когда откреплен)
+                // 3. Нижний контейнер со статистикой и разделителем (прилипает к низу экрана)
                 EditorFooter {
-                    id: unpinnedFooter
+                    id: docFooter
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    y: editorCanvas.y + editorCanvas.height + 4
-                    isPinned: false
+                    height: 70
+                    z: 20
+                    isPinned: mainBar.isFooterPinned
                     statsText: mainBar.statsString
-                    visible: !mainBar.isFooterPinned
+                    visible: !mainBar.isEmpty
+                    y: {
+                        let naturalY = editorCanvas.y + editorCanvas.height + 4
+                        let screenBottomY = (editorScroll && editorScroll.contentItem)
+                            ? (editorScroll.contentItem.contentY + editorScroll.availableHeight - height)
+                            : naturalY
+                        if (mainBar.isFooterPinned) {
+                            return screenBottomY
+                        }
+                        return Math.max(naturalY, screenBottomY)
+                    }
 
                     onPinToggled: {
-                        mainBar.isFooterPinned = true
-                        mainBar.saveFooterPinnedState(true)
+                        mainBar.isFooterPinned = !mainBar.isFooterPinned
+                        mainBar.saveFooterPinnedState(mainBar.isFooterPinned)
                         mainBar.paneActivated()
                     }
                     onActivated: mainBar.paneActivated()
@@ -608,26 +619,6 @@ Item {
         isEmpty: mainBar.isEmpty
         isFooterPinned: mainBar.isFooterPinned
         barSize: 36
-        onActivated: mainBar.paneActivated()
-    }
-
-    // Закрепленный внизу экрана статус-бар с разделителем (когда isFooterPinned == true)
-    EditorFooter {
-        id: pinnedFooterBar
-        anchors.bottom: parent.bottom
-        anchors.horizontalCenter: parent.horizontalCenter
-        width: paperSheet.width
-        z: 25
-        isPinned: true
-        statsText: mainBar.statsString
-        visible: mainBar.isFooterPinned && !mainBar.isEmpty
-        opacity: (mainBar.isSplitMode && !mainBar.isActivePane) ? 0.55 : 1.0
-
-        onPinToggled: {
-            mainBar.isFooterPinned = false
-            mainBar.saveFooterPinnedState(false)
-            mainBar.paneActivated()
-        }
         onActivated: mainBar.paneActivated()
     }
 }

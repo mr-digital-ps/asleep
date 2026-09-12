@@ -13,7 +13,7 @@ Item {
     width: barSize
     property bool isFooterPinned: false
     property real topMargin: 76
-    property real bottomMargin: isFooterPinned ? 48 : 24
+    property real bottomMargin: 76
 
     anchors.top: parent ? parent.top : undefined
     anchors.topMargin: topMargin

@@ -3,11 +3,11 @@ import QtQuick.Layouts
 
 Item {
     id: footerRoot
-    height: 44
+    height: 70
 
     property bool isPinned: false
     property string statsText: ""
-    property bool showBackground: isPinned
+    property bool showBackground: true
 
     signal pinToggled()
     signal activated()
@@ -63,10 +63,12 @@ Item {
 
         // Информационная строка со статистикой (слова, знаки)
         RowLayout {
+            id: statsRow
             Layout.fillWidth: true
+            Layout.fillHeight: true
             Layout.leftMargin: 36
             Layout.rightMargin: 36
-            Layout.preferredHeight: 30
+            Layout.bottomMargin: 12
             spacing: 12
 
             Text {

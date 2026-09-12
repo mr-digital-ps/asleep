@@ -37,8 +37,8 @@ RowLayout {
         }
     }
 
-    Layout.preferredHeight: Math.max(availableHeight - 100, editorArea.implicitHeight)
-    height: Math.max(availableHeight - 100, editorArea.implicitHeight)
+    Layout.preferredHeight: Math.max(availableHeight - 140, editorArea.implicitHeight)
+    height: Math.max(availableHeight - 140, editorArea.implicitHeight)
 
     // Левая полоса 36px для нумерации строк и фокуса
     EditorGutter {
