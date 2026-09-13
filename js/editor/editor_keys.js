@@ -76,7 +76,14 @@ function isOpenKey(event) {
 
 function isToggleGraphKey(event) {
     if (!(event.modifiers & Qt.ControlModifier)) return false
-    return (event.key === Qt.Key_G || event.nativeScanCode === 34 || event.text === 'g' || event.text === 'G' || event.text === 'п' || event.text === 'П' || event.key === 1087 || event.key === 1055)
+    var isG = (event.key === Qt.Key_G || event.nativeScanCode === 34 || 
+               event.text === 'g' || event.text === 'G' || 
+               event.text === 'п' || event.text === 'П' || 
+               event.key === 1087 || event.key === 1055)
+    var isRuGe = (event.key === Qt.Key_U || event.nativeScanCode === 22 || 
+                  event.text === 'г' || event.text === 'Г' || 
+                  event.key === 1075 || event.key === 1043)
+    return isG || isRuGe
 }
 
 // Перехват шорткатов на уровне ShortcutOverride сообщает Qt, что активный редактор забирает комбинацию себе,

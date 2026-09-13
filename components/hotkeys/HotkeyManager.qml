@@ -43,6 +43,28 @@ Item {
         }
     }
 
+    // Резервные глобальные шорткаты для надежного срабатывания в русской раскладке
+    Shortcut {
+        sequence: "Ctrl+П"
+        context: Qt.ApplicationShortcut
+        onActivated: hotkeyRoot.actionTriggered("toggle_graph")
+    }
+    Shortcut {
+        sequence: "Ctrl+п"
+        context: Qt.ApplicationShortcut
+        onActivated: hotkeyRoot.actionTriggered("toggle_graph")
+    }
+    Shortcut {
+        sequence: "Ctrl+Г"
+        context: Qt.ApplicationShortcut
+        onActivated: hotkeyRoot.actionTriggered("toggle_graph")
+    }
+    Shortcut {
+        sequence: "Ctrl+г"
+        context: Qt.ApplicationShortcut
+        onActivated: hotkeyRoot.actionTriggered("toggle_graph")
+    }
+
     function isCloseKey(event) {
         if (!(event.modifiers & Qt.ControlModifier)) return false
         // W key: Key_W, scan code 17, or Cyrillic 'ц'
@@ -59,8 +81,10 @@ Item {
             return true
         }
         if (event.modifiers & Qt.ControlModifier) {
-            // G key: Key_G, scan code 34, or Cyrillic 'п' / 'П'
-            if (event.key === Qt.Key_G || event.nativeScanCode === 34 || event.text === 'g' || event.text === 'G' || event.text === 'п' || event.text === 'П' || event.key === 1087 || event.key === 1055) {
+            // G key: Key_G (34, 'g', 'п'), or Russian letter 'Г' (Key_U / 22, 'г')
+            var isG = (event.key === Qt.Key_G || event.nativeScanCode === 34 || event.text === 'g' || event.text === 'G' || event.text === 'п' || event.text === 'П' || event.key === 1087 || event.key === 1055)
+            var isRuGe = (event.key === Qt.Key_U || event.nativeScanCode === 22 || event.text === 'г' || event.text === 'Г' || event.key === 1075 || event.key === 1043)
+            if (isG || isRuGe) {
                 hotkeyRoot.actionTriggered("toggle_graph")
                 event.accepted = true
                 return true

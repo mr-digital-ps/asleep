@@ -21,11 +21,15 @@ function zoomAt(graphRoot, canvas, sx, sy, zoomFactor) {
 
 function keepActiveNodeCentered(graphRoot) {
     if (!graphRoot.activeNodeId || !graphRoot.sim || !graphRoot.sim.nodes) return
+    var curW = (graphRoot.width > 50) ? graphRoot.width : 0
+    var curH = (graphRoot.height > 50) ? graphRoot.height : 0
+    if (!curW || !curH) return
+
     for (var i = 0; i < graphRoot.sim.nodes.length; i++) {
         var n = graphRoot.sim.nodes[i]
         if (n.id === graphRoot.activeNodeId) {
-            graphRoot.panX = -(n.x - graphRoot.width / 2) * graphRoot.zoomScale
-            graphRoot.panY = -(n.y - graphRoot.height / 2) * graphRoot.zoomScale
+            graphRoot.panX = -(n.x - curW / 2) * graphRoot.zoomScale
+            graphRoot.panY = -(n.y - curH / 2) * graphRoot.zoomScale
             break
         }
     }
@@ -33,6 +37,10 @@ function keepActiveNodeCentered(graphRoot) {
 
 function centerOnNode(graphRoot, canvas, targetFileUrl) {
     if (!graphRoot.sim || !graphRoot.sim.nodes || graphRoot.sim.nodes.length === 0) return false
+    var curW = (graphRoot.width > 50) ? graphRoot.width : (canvas && canvas.width > 50 ? canvas.width : 0)
+    var curH = (graphRoot.height > 50) ? graphRoot.height : (canvas && canvas.height > 50 ? canvas.height : 0)
+    if (!curW || !curH) return false
+
     var target = targetFileUrl || graphRoot.activeFileUrl
     if (!target) return false
     var normTarget = normalizeUrl(target)
@@ -47,8 +55,8 @@ function centerOnNode(graphRoot, canvas, targetFileUrl) {
     }
     if (found) {
         graphRoot.activeNodeId = found.id
-        graphRoot.panX = -(found.x - graphRoot.width / 2) * graphRoot.zoomScale
-        graphRoot.panY = -(found.y - graphRoot.height / 2) * graphRoot.zoomScale
+        graphRoot.panX = -(found.x - curW / 2) * graphRoot.zoomScale
+        graphRoot.panY = -(found.y - curH / 2) * graphRoot.zoomScale
         if (canvas) canvas.requestPaint()
         return true
     }
@@ -112,7 +120,33 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer) {
         }
     }
 
-    var sim = Physics.initSimulation(pureNodes, pureLinks, (canvas && canvas.width) || 800, (canvas && canvas.height) || 600, config)
+    var canW = (canvas && canvas.width > 50) ? canvas.width : ((graphRoot && graphRoot.width > 50) ? graphRoot.width : 800)
+    var canH = (canvas && canvas.height > 50) ? canvas.height : ((graphRoot && graphRoot.height > 50) ? graphRoot.height : 600)
+    var targetCX = canW / 2
+    var targetCY = canH / 2
+
+    // Если координаты были загружены из кэша, центрируем центр масс графа в (targetCX, targetCY),
+    // чтобы исключить любой скачок или дрейф («улетание») при переключении
+    if (pureNodes.length > 0) {
+        var sumX = 0, sumY = 0, countWithPos = 0
+        for (var c = 0; c < pureNodes.length; c++) {
+            if (typeof pureNodes[c].x === "number" && !isNaN(pureNodes[c].x)) {
+                sumX += pureNodes[c].x
+                sumY += pureNodes[c].y
+                countWithPos++
+            }
+        }
+        if (countWithPos === pureNodes.length && countWithPos > 0) {
+            var shiftX = targetCX - (sumX / countWithPos)
+            var shiftY = targetCY - (sumY / countWithPos)
+            for (var m = 0; m < pureNodes.length; m++) {
+                pureNodes[m].x += shiftX
+                pureNodes[m].y += shiftY
+            }
+        }
+    }
+
+    var sim = Physics.initSimulation(pureNodes, pureLinks, canW, canH, config)
     graphRoot.sim = sim
 
     // Прогрев симуляции до стабильного геометрического равновесия
@@ -311,7 +345,15 @@ function handleKey(graphRoot, event) {
         return true
     }
     if (event.modifiers & Qt.ControlModifier) {
-        if (event.key === Qt.Key_G || event.nativeScanCode === 34 || event.text === 'g' || event.text === 'G' || event.text === 'п' || event.text === 'П' || event.key === 1087 || event.key === 1055) {
+        // Поддержка Ctrl+G (EN) и обоих русских вариантов: Ctrl+П (физическая клавиша G) и Ctrl+Г (буква Г для графа, клавиша U)
+        var isG = (event.key === Qt.Key_G || event.nativeScanCode === 34 || 
+                   event.text === 'g' || event.text === 'G' || 
+                   event.text === 'п' || event.text === 'П' || 
+                   event.key === 1087 || event.key === 1055)
+        var isRuGe = (event.key === Qt.Key_U || event.nativeScanCode === 22 || 
+                      event.text === 'г' || event.text === 'Г' || 
+                      event.key === 1075 || event.key === 1043)
+        if (isG || isRuGe) {
             graphRoot.closeRequested()
             event.accepted = true
             return true

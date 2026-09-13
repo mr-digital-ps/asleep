@@ -337,10 +337,9 @@ Item {
                     activeFileUrl: mainBar.fileUrl
                     anchors.top: parent.top
                     anchors.topMargin: mainBar.showHeader ? 70 : 0
-                    anchors.bottom: parent.bottom
-                    anchors.bottomMargin: mainBar.showFooter ? 70 : 0
                     anchors.left: parent.left
                     anchors.right: parent.right
+                    height: Math.max(100, mainBar.height - (mainBar.showHeader ? 70 : 0) - (mainBar.showFooter ? 70 : 0))
 
                     onNodeClicked: (fUrl, lbl, type) => {
                         mainBar.paneActivated()

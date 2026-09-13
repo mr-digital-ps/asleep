@@ -34,6 +34,37 @@ Rectangle {
     focus: true
     Keys.onPressed: (event) => Interaction.handleKey(graphRoot, event)
 
+    Shortcut {
+        sequence: "Ctrl+G"
+        enabled: graphRoot.visible
+        onActivated: graphRoot.closeRequested()
+    }
+    Shortcut {
+        sequence: "Ctrl+Shift+G"
+        enabled: graphRoot.visible
+        onActivated: graphRoot.closeRequested()
+    }
+    Shortcut {
+        sequence: "Ctrl+П"
+        enabled: graphRoot.visible
+        onActivated: graphRoot.closeRequested()
+    }
+    Shortcut {
+        sequence: "Ctrl+п"
+        enabled: graphRoot.visible
+        onActivated: graphRoot.closeRequested()
+    }
+    Shortcut {
+        sequence: "Ctrl+Г"
+        enabled: graphRoot.visible
+        onActivated: graphRoot.closeRequested()
+    }
+    Shortcut {
+        sequence: "Ctrl+г"
+        enabled: graphRoot.visible
+        onActivated: graphRoot.closeRequested()
+    }
+
     function reloadGraph() {
         Interaction.reloadGraph(graphRoot, canvas, (typeof backend !== "undefined" ? backend : null), Physics, animTimer)
     }
