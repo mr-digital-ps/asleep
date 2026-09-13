@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "../../js/editor/mainbar_controller.js" as Controller
 import "../theme"
 
 Item {
@@ -62,36 +63,6 @@ Item {
             function onFontChanged() { gutterCanvas.requestPaint() }
         }
 
-        onPaint: {
-            let ctx = getContext("2d")
-            ctx.clearRect(0, 0, width, height)
-            if (!gutterItem.editorArea) return
-            let txt = gutterItem.editorArea.text
-            if (txt === undefined || txt === null) return
-
-            let lines = txt.split("\n")
-            let pos = 0
-            let curPos = gutterItem.editorArea.cursorPosition
-            let centerX = width / 2
-
-            // Динамический масштаб точек в зависимости от размера шрифта
-            let fontSize = (gutterItem.editorArea.font && gutterItem.editorArea.font.pixelSize) ? gutterItem.editorArea.font.pixelSize : 15
-            let scale = Math.max(0.6, Math.min(2.5, fontSize / 15.0))
-
-            for (let i = 0; i < lines.length; i++) {
-                let lineLen = lines[i].length
-                let isCurrentLine = (curPos >= pos && curPos <= pos + lineLen)
-                let r = gutterItem.editorArea.positionToRectangle(pos)
-                let dotY = r.y + (r.height / 2)
-
-                ctx.beginPath()
-                let radius = (isCurrentLine ? 3.2 : 2.2) * scale
-                ctx.arc(centerX, dotY, radius, 0, 2 * Math.PI)
-                ctx.fillStyle = isCurrentLine ? Theme.gutterActive : Theme.gutterText
-                ctx.fill()
-
-                pos += lineLen + 1
-            }
-        }
+        onPaint: Controller.drawGutterDots(gutterCanvas, gutterItem.editorArea, width, height, Theme.gutterActive, Theme.gutterText)
     }
 }

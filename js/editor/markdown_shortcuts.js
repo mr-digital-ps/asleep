@@ -432,3 +432,42 @@ function findMatchingBracket(text, cursorPosition) {
     return null;
 }
 
+function updateBracketHighlights(editorArea, primaryHighlight, matchHighlight) {
+    if (!primaryHighlight || !matchHighlight) return;
+    if (!editorArea || !editorArea.activeFocus || editorArea.selectionStart !== editorArea.selectionEnd) {
+        primaryHighlight.visible = false;
+        matchHighlight.visible = false;
+        return;
+    }
+
+    var pair = findMatchingBracket(editorArea.text, editorArea.cursorPosition);
+    if (!pair) {
+        primaryHighlight.visible = false;
+        matchHighlight.visible = false;
+        return;
+    }
+
+    var r1 = editorArea.positionToRectangle(pair.primary);
+    var r2 = editorArea.positionToRectangle(pair.match);
+
+    if (r1 && r1.height > 0) {
+        primaryHighlight.x = r1.x;
+        primaryHighlight.y = r1.y;
+        primaryHighlight.width = Math.max(8, r1.width);
+        primaryHighlight.height = r1.height;
+        primaryHighlight.visible = true;
+    } else {
+        primaryHighlight.visible = false;
+    }
+
+    if (r2 && r2.height > 0) {
+        matchHighlight.x = r2.x;
+        matchHighlight.y = r2.y;
+        matchHighlight.width = Math.max(8, r2.width);
+        matchHighlight.height = r2.height;
+        matchHighlight.visible = true;
+    } else {
+        matchHighlight.visible = false;
+    }
+}
+
