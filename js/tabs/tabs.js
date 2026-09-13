@@ -83,6 +83,11 @@ function detachTab(root, tabIndex) {
     })
 }
 
+function openInNewWindow(root, fileUrl, fileName, wx, wy) {
+    return Model.openInNewWindow(root, fileUrl, fileName, wx, wy)
+}
+
+
 function openFileFromFolder(root, fileUrl, fileName, isShift) {
     return Model.openFileFromFolder(root, fileUrl, fileName, isShift, Sync.syncCurrentPaneText, Sync.syncEditorsFromModel, Split.setActivePane, function(r, i) {
         Split.switchToTab(r, i, Sync.syncCurrentPaneText, Sync.syncEditorsFromModel)

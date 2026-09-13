@@ -246,6 +246,15 @@ function detachTab(root, tabIndex, closeTab) {
     if (closeTab) closeTab(root, tabIndex)
 }
 
+function openInNewWindow(root, fileUrl, fileName, wx, wy) {
+    let content = (typeof backend !== "undefined" && backend && fileUrl) ? backend.read_file(fileUrl) : ""
+    let appWin = root.appWindow || (root.Window ? root.Window.window : null)
+    let targetX = wx || (appWin ? appWin.x + 50 : 100)
+    let targetY = wy || (appWin ? appWin.y + 50 : 100)
+    return root.spawnClonedAppWindow(fileUrl, fileName, content, targetX, targetY, 850, 600)
+}
+
+
 function openFileFromFolder(root, fileUrl, fileName, isShift, syncCurrentPaneText, syncEditorsFromModel, setActivePane, switchToTab) {
     if (typeof backend === "undefined" || !backend || !fileUrl) return
 
