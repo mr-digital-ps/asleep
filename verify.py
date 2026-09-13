@@ -218,7 +218,7 @@ def test_qml():
     # 3. Тест клиентской логики auto-pair скобок и кавычек в JS
     from PyQt6.QtQml import QJSEngine
     js_engine = QJSEngine()
-    js_code = (PROJECT_DIR / "js" / "markdown_shortcuts.js").read_text(encoding="utf-8")
+    js_code = (PROJECT_DIR / "js" / "editor" / "markdown_shortcuts.js").read_text(encoding="utf-8")
     js_engine.evaluate(js_code)
     test_js = """
     (function() {
@@ -270,15 +270,6 @@ def test_structure():
         "config/hotkeys.md",
         "config/theme.md",
         "config/app.md",
-        "js/tabs.js",
-        "js/drag_manager.js",
-        "js/markdown_shortcuts.js",
-        "js/block_sync.js",
-        "js/graph_physics.js",
-        "js/graph_renderer.js",
-        "js/editor_keys.js",
-        "js/mainbar_lifecycle.js",
-        "js/web_lifecycle.js",
         "js/editor/editor_keys.js",
         "js/editor/markdown_shortcuts.js",
         "js/editor/block_sync.js",
