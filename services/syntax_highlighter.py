@@ -14,7 +14,6 @@ syntax_highlighter.py — подсветка синтаксиса Markdown дл�
 - Горизонтальные разделители (---, ***)
 """
 
-import sys
 from PyQt6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor, QFont
 from PyQt6.QtCore import QRegularExpression
 

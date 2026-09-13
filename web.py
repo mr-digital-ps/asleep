@@ -12,8 +12,8 @@ os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
 
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtQml import QQmlApplicationEngine
-from PyQt6.QtCore import QObject, pyqtSlot, pyqtSignal, QFileSystemWatcher, QTimer, QUrl, QEvent, Qt
-from PyQt6.QtGui import QWindow, QTextCursor, QTextOption, QFontDatabase
+from PyQt6.QtCore import QObject, pyqtSlot, pyqtSignal, QFileSystemWatcher, QTimer, QUrl, Qt
+from PyQt6.QtGui import QTextCursor, QTextOption
 from PyQt6.QtQuick import QQuickTextDocument
 
 
