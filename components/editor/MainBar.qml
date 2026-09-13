@@ -37,7 +37,7 @@ Item {
     property string currentFolderName: ""
     readonly property string graphStatsText: sheetGraphView ? sheetGraphView.getGraphStats() : ""
 
-    onIsGraphModeChanged: Controller.handleGraphModeChanged(mainBar, editorScroll, sheetGraphView, editorArea)
+    onIsGraphModeChanged: Controller.handleGraphModeChanged(mainBar, editorScroll, sheetGraphView, editorArea, smoothScrollAnim)
 
     function toggleHeaderFooter() {
         Controller.toggleHeaderFooter(mainBar, (typeof backend !== "undefined" ? backend : null))

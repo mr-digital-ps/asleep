@@ -208,8 +208,11 @@ function handleWheelZoomFont(event, editorArea, mainBar, backend) {
     }
 }
 
-function handleGraphModeChanged(mainBar, editorScroll, sheetGraphView, editorArea) {
+function handleGraphModeChanged(mainBar, editorScroll, sheetGraphView, editorArea, smoothScrollAnim) {
     if (mainBar.isGraphMode) {
+        if (smoothScrollAnim && smoothScrollAnim.running) {
+            smoothScrollAnim.stop()
+        }
         if (editorScroll && editorScroll.contentItem) {
             editorScroll.contentItem.contentY = 0
         }

@@ -115,13 +115,13 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer) {
     var sim = Physics.initSimulation(pureNodes, pureLinks, (canvas && canvas.width) || 800, (canvas && canvas.height) || 600, config)
     graphRoot.sim = sim
 
-    // Мягкий прогрев симуляции, оставляющий энергию для живого движения
-    for (var tick = 0; tick < 60; tick++) {
+    // Прогрев симуляции до стабильного геометрического равновесия
+    for (var tick = 0; tick < 180; tick++) {
         Physics.stepSimulation(sim)
         if (sim.isSleeping) break
     }
     sim.isSleeping = false
-    sim.totalEnergy = 25
+    sim.totalEnergy = 10
     if (animTimer) {
         animTimer.running = true
     }
@@ -137,9 +137,17 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer) {
 }
 
 function wakeSimulation(graphRoot, canvas, animTimer) {
-    if (graphRoot.sim) {
+    if (graphRoot.sim && graphRoot.sim.nodes) {
+        // Мягкий органичный микро-импульс для естественного колыхания на месте (без улетания)
+        for (var i = 0; i < graphRoot.sim.nodes.length; i++) {
+            var n = graphRoot.sim.nodes[i]
+            if (!n.isFixed) {
+                n.vx += (Math.random() - 0.5) * 0.4
+                n.vy += (Math.random() - 0.5) * 0.4
+            }
+        }
         graphRoot.sim.isSleeping = false
-        graphRoot.sim.totalEnergy = 25
+        graphRoot.sim.totalEnergy = 15
         if (animTimer) animTimer.running = true
         if (canvas) canvas.requestPaint()
     }

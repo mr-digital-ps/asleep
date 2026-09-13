@@ -77,10 +77,18 @@ Rectangle {
     }
 
     onWidthChanged: {
+        if (sim) {
+            sim.width = width
+            sim.cx = width / 2
+        }
         if (activeNodeId) Interaction.keepActiveNodeCentered(graphRoot)
         canvas.requestPaint()
     }
     onHeightChanged: {
+        if (sim) {
+            sim.height = height
+            sim.cy = height / 2
+        }
         if (activeNodeId) Interaction.keepActiveNodeCentered(graphRoot)
         canvas.requestPaint()
     }
