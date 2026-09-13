@@ -248,8 +248,9 @@ Item {
 
                 width: mainBar.isCenteredMode ? Math.min(parent.width, Math.max(mainBar.minSheetWidth, mainBar.customSheetWidth)) : parent.width
                 height: parent.height
+                y: mainBar.isGraphMode ? (editorScroll && editorScroll.contentItem ? editorScroll.contentItem.contentY : 0) : 0
                 anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: parent.top
+                anchors.top: mainBar.isGraphMode ? undefined : parent.top
 
                 color: Theme.bgPaper
 

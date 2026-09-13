@@ -124,83 +124,64 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer) {
     var canH = (canvas && canvas.height > 50) ? canvas.height : ((graphRoot && graphRoot.height > 50) ? graphRoot.height : 600)
     var targetCX = canW / 2
     var targetCY = canH / 2
+    var sim = Physics.initSimulation(pureNodes, pureLinks, canW, canH, config)
+    graphRoot.sim = sim
 
+    // 1. Прогрев симуляции до стабильного геометрического равновесия
+    for (var tick = 0; tick < 250; tick++) {
+        Physics.stepSimulation(sim)
+        if (sim.isSleeping) break
+    }
+
+    // 2. Находим активный узел в стабилизированном графе
     var normActive = normalizeUrl(graphRoot.activeFileUrl)
     var activeNode = null
     if (normActive) {
-        for (var a = 0; a < pureNodes.length; a++) {
-            if (pureNodes[a].type === "file" && pureNodes[a].fileUrl && 
-                (pureNodes[a].fileUrl === graphRoot.activeFileUrl || normalizeUrl(pureNodes[a].fileUrl) === normActive)) {
-                activeNode = pureNodes[a]
-                graphRoot.activeNodeId = activeNode.id
+        for (var a = 0; a < sim.nodes.length; a++) {
+            var sn = sim.nodes[a]
+            if (sn.type === "file" && sn.fileUrl && 
+                (sn.fileUrl === graphRoot.activeFileUrl || normalizeUrl(sn.fileUrl) === normActive)) {
+                activeNode = sn
+                graphRoot.activeNodeId = sn.id
                 break
             }
         }
     }
 
-    // Центрируем граф строго в (targetCX, targetCY):
-    // Если есть активный файл, совмещаем активный узел с (targetCX, targetCY) и сбрасываем panX=0, panY=0.
-    // Это исключает конфликт между panY камеры и центральной гравитацией cy, из-за которого граф улетал наверх!
-    if (pureNodes.length > 0) {
-        var shiftX = 0, shiftY = 0
-        if (activeNode && typeof activeNode.x === "number" && !isNaN(activeNode.x)) {
-            shiftX = targetCX - activeNode.x
-            shiftY = targetCY - activeNode.y
-        } else {
-            var sumX = 0, sumY = 0, countWithPos = 0
-            for (var c = 0; c < pureNodes.length; c++) {
-                if (typeof pureNodes[c].x === "number" && !isNaN(pureNodes[c].x)) {
-                    sumX += pureNodes[c].x
-                    sumY += pureNodes[c].y
-                    countWithPos++
-                }
-            }
-            if (countWithPos > 0) {
-                shiftX = targetCX - (sumX / countWithPos)
-                shiftY = targetCY - (sumY / countWithPos)
-            }
+    // 3. Точно совмещаем активный узел (или центр масс графа) со строго центральной точкой окна (targetCX, targetCY).
+    // Это исключает появление узлов внизу экрана и последующее смещение в середину: граф сразу открывается в идеальном центре.
+    var shiftX = 0, shiftY = 0
+    if (activeNode && typeof activeNode.x === "number" && !isNaN(activeNode.x)) {
+        shiftX = targetCX - activeNode.x
+        shiftY = targetCY - activeNode.y
+    } else if (sim.nodes.length > 0) {
+        var sumX = 0, sumY = 0
+        for (var c = 0; c < sim.nodes.length; c++) {
+            sumX += sim.nodes[c].x
+            sumY += sim.nodes[c].y
         }
-        for (var m = 0; m < pureNodes.length; m++) {
-            if (typeof pureNodes[m].x === "number" && !isNaN(pureNodes[m].x)) {
-                pureNodes[m].x += shiftX
-                pureNodes[m].y += shiftY
-            } else {
-                pureNodes[m].x = targetCX
-                pureNodes[m].y = targetCY
-            }
-            pureNodes[m].vx = 0
-            pureNodes[m].vy = 0
-        }
+        shiftX = targetCX - (sumX / sim.nodes.length)
+        shiftY = targetCY - (sumY / sim.nodes.length)
     }
 
-    var sim = Physics.initSimulation(pureNodes, pureLinks, canW, canH, config)
-    graphRoot.sim = sim
-
-    // Прогрев симуляции до стабильного геометрического равновесия
-    for (var tick = 0; tick < 180; tick++) {
-        Physics.stepSimulation(sim)
-        if (sim.isSleeping) break
-    }
-
-    // После прогрева гасим остаточные линейные импульсы, чтобы граф не улетал при открытии
-    for (var z = 0; z < sim.nodes.length; z++) {
-        sim.nodes[z].vx = 0
-        sim.nodes[z].vy = 0
-    }
-
-    sim.isSleeping = false
-    sim.totalEnergy = 10
-    if (animTimer) {
-        animTimer.running = true
-    }
-
-    for (var s = 0; s < pureNodes.length; s++) {
-        graphRoot.nodePositionsCache[pureNodes[s].id] = { x: pureNodes[s].x, y: pureNodes[s].y }
+    for (var m = 0; m < sim.nodes.length; m++) {
+        sim.nodes[m].x += shiftX
+        sim.nodes[m].y += shiftY
+        sim.nodes[m].vx = 0
+        sim.nodes[m].vy = 0
+        graphRoot.nodePositionsCache[sim.nodes[m].id] = { x: sim.nodes[m].x, y: sim.nodes[m].y }
     }
 
     // Камера центрирована строго без смещений
     graphRoot.panX = 0
     graphRoot.panY = 0
+
+    // Граф открывается полностью спокойным и центрированным (без уплываний и прыжков)
+    sim.isSleeping = true
+    sim.totalEnergy = 0
+    if (animTimer) {
+        animTimer.running = false
+    }
 
     if (canvas) canvas.requestPaint()
 }
