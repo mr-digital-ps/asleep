@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "../theme"
 
 Button {
     id: folderBtn
@@ -21,8 +22,8 @@ Button {
     hoverEnabled: true
 
     background: Rectangle {
-        color: folderBtn.down ? "#222222" : (folderBtn.hovered ? "#222222" : "#181818")
-        border.color: folderBtn.hovered ? "#2e2e2e" : "transparent"
+        color: folderBtn.down ? Theme.bgActive : (folderBtn.hovered ? Theme.bgHover : Theme.bgSidebar)
+        border.color: folderBtn.hovered ? Theme.borderColor : "transparent"
         border.width: 1
     }
 
@@ -46,7 +47,7 @@ Button {
             Layout.fillWidth: true
             Layout.fillHeight: true
             text: folderBtn.currentFolderName || "Выбрать папку"
-            color: folderBtn.hovered ? "#ffffff" : "#e0e0e0"
+            color: folderBtn.hovered ? Theme.textPrimary : Theme.textSecondary
             font.pixelSize: 12
             font.bold: true
             verticalAlignment: Text.AlignVCenter
@@ -65,13 +66,13 @@ Button {
                 width: 20
                 height: 20
                 radius: 4
-                color: gearArea.containsMouse ? "#333333" : "transparent"
+                color: gearArea.containsMouse ? Theme.bgHover : "transparent"
 
                 Text {
                     anchors.centerIn: parent
                     text: "⚙"
                     font.pixelSize: 11
-                    color: gearArea.containsMouse ? "#ffffff" : "#888888"
+                    color: gearArea.containsMouse ? Theme.textPrimary : Theme.textMuted
                 }
 
                 MouseArea {
@@ -105,13 +106,13 @@ Button {
                 width: 20
                 height: 20
                 radius: 4
-                color: graphArea.containsMouse ? "#333333" : "transparent"
+                color: graphArea.containsMouse ? Theme.bgHover : "transparent"
 
                 Text {
                     anchors.centerIn: parent
                     text: "🕸"
                     font.pixelSize: 11
-                    color: graphArea.containsMouse ? "#7aa2f7" : "#888888"
+                    color: graphArea.containsMouse ? Theme.textPrimary : Theme.textMuted
                 }
 
                 MouseArea {
@@ -140,7 +141,7 @@ Button {
             Layout.fillHeight: true
             Layout.rightMargin: 6
             text: "▾"
-            color: folderBtn.hovered ? "#cccccc" : "#777777"
+            color: folderBtn.hovered ? Theme.textSecondary : Theme.textMuted
             font.pixelSize: 11
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter

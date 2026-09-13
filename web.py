@@ -13,7 +13,7 @@ os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtQml import QQmlApplicationEngine
 from PyQt6.QtCore import QObject, pyqtSlot, pyqtSignal, QFileSystemWatcher, QTimer, QUrl, QEvent, Qt
-from PyQt6.QtGui import QWindow, QTextCursor, QTextOption
+from PyQt6.QtGui import QWindow, QTextCursor, QTextOption, QFontDatabase
 from PyQt6.QtQuick import QQuickTextDocument
 
 
@@ -124,6 +124,16 @@ class Backend(QObject):
                     self.configUpdated.emit(json.dumps(self.config_service.current_config))
                 elif self._last_config_mtime == 0:
                     self._last_config_mtime = cur_mtime
+
+            # Фоновая проекция структуры связей в _Граф связей.md
+            try:
+                self._is_syncing_files = True
+                self.graph_service.sync_graph_markdown_file(self._current_folder)
+            except Exception as e:
+                _safe_print(f"[Backend] Ошибка синхронизации графа связей: {e}")
+            finally:
+                self._is_syncing_files = False
+
         self.folderFilesChanged.emit()
         self.graphDataChanged.emit()
 
@@ -167,6 +177,15 @@ class Backend(QObject):
                 if cfg_path and cfg_path.exists():
                     self._last_config_mtime = cfg_path.stat().st_mtime_ns
                 self.configUpdated.emit(json.dumps(self.config_service.current_config))
+
+                # Первичная генерация _Граф связей.md при открытии каталога
+                try:
+                    self._is_syncing_files = True
+                    self.graph_service.sync_graph_markdown_file(folder)
+                except Exception as e:
+                    _safe_print(f"[Backend] Ошибка создания _Граф связей.md: {e}")
+                finally:
+                    self._is_syncing_files = False
         except Exception as e:
             print(f"[Backend] Ошибка отслеживания папки: {e}")
 
@@ -341,7 +360,7 @@ class Backend(QObject):
     @pyqtSlot(QObject, float)
     @pyqtSlot(QObject)
     def set_editor_line_height(self, editor_area_item: QObject, percent: float = 100.0):
-        """Устанавливает высоту строки без разрывов при выделении"""
+        """Устанавливает высоту строки пропорционально размеру шрифта (ProportionalHeight)"""
         try:
             if not editor_area_item:
                 return
@@ -351,8 +370,10 @@ class Backend(QObject):
                 cursor = QTextCursor(qtdoc)
                 cursor.select(QTextCursor.SelectionType.Document)
                 bf = cursor.blockFormat()
-                # SingleHeight (0) исключает появление визуальных разрывов между строками при выделении
-                bf.setLineHeight(100.0, 0)
+                # 1 = QTextBlockFormat.LineHeightTypes.ProportionalHeight
+                # percent, например 135.0 (135%) или 200.0 (200%)
+                target_percent = float(percent) if (percent and percent > 0) else 135.0
+                bf.setLineHeight(target_percent, 1)
                 cursor.setBlockFormat(bf)
                 opt = qtdoc.defaultTextOption()
                 opt.setFlags(opt.flags() | QTextOption.Flag.AddSpaceForLineAndParagraphSeparators)
@@ -465,6 +486,28 @@ class Backend(QObject):
 
     @pyqtSlot(result="QVariantMap")
     @pyqtSlot(str, result="QVariantMap")
+    def sync_graph_file(self, folder_url: str = "") -> dict:
+        """Синхронизирует _Граф связей.md в рабочей папке и возвращает метаданные для открытия"""
+        folder = self.file_service.to_path(folder_url) if folder_url else self._current_folder
+        if not folder or not folder.exists() or not folder.is_dir():
+            return {}
+        try:
+            self._is_syncing_files = True
+            p = self.graph_service.sync_graph_markdown_file(folder)
+            if p and p.exists():
+                return {
+                    "fileUrl": QUrl.fromLocalFile(str(p.resolve())).toString(),
+                    "fileName": p.name,
+                    "filePath": str(p)
+                }
+        except Exception as e:
+            _safe_print(f"[Backend] Ошибка sync_graph_file: {e}")
+        finally:
+            self._is_syncing_files = False
+        return {}
+
+    @pyqtSlot(result="QVariantMap")
+    @pyqtSlot(str, result="QVariantMap")
     def get_graph_config(self, folder_url: str = "") -> dict:
         """Возвращает текущую объединенную конфигурацию физики и визуала графа"""
         folder = self.file_service.to_path(folder_url) if folder_url else self._current_folder
@@ -493,12 +536,32 @@ class Backend(QObject):
 
 
 
+def load_application_fonts():
+    """Сканирует папку fonts/ в корне проекта и регистрирует все TTF/OTF шрифты в QFontDatabase."""
+    fonts_dir = PROJECT_DIR / "fonts"
+    if not fonts_dir.exists():
+        fonts_dir.mkdir(exist_ok=True)
+        return
+    for ext in ["*.ttf", "*.otf", "*.TTF", "*.OTF"]:
+        for font_file in fonts_dir.glob(ext):
+            font_id = QFontDatabase.addApplicationFont(str(font_file.resolve()))
+            if font_id != -1:
+                families = QFontDatabase.applicationFontFamilies(font_id)
+                _safe_print(f"[Fonts] Загружен шрифт '{font_file.name}': {', '.join(families)}")
+            else:
+                _safe_print(f"[Fonts] Не удалось загрузить шрифт '{font_file.name}'")
+
+
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("Asleep Text Editor")
     app.setOrganizationName("Asleep")
 
+    load_application_fonts()
+
     engine = QQmlApplicationEngine()
+    engine.addImportPath(str(PROJECT_DIR))
+    engine.addImportPath(str(PROJECT_DIR / "components"))
     backend = Backend()
     engine.rootContext().setContextProperty("backend", backend)
 

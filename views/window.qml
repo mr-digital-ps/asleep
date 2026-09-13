@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import "../components/window"
+import "../components/theme"
 
 ApplicationWindow {
     id: root
@@ -11,13 +12,23 @@ ApplicationWindow {
     height: 650
     minimumWidth: 600
     minimumHeight: 400
-    color: "#1e1e1e"
+    color: Theme.bgApp
 
     // Начальные параметры для окна (передаются при клонировании)
     property string initialFileUrl: ""
     property string initialTitle: ""
     property string initialContent: ""
     property bool startWithSidebarHidden: false
+
+    Keys.forwardTo: (hotLoader && hotLoader.item) ? [hotLoader.item] : []
+
+    Keys.onPressed: (event) => {
+        if (hotLoader && hotLoader.item && typeof hotLoader.item.handleGlobalKeyEvent === "function") {
+            if (hotLoader.item.handleGlobalKeyEvent(event)) {
+                return
+            }
+        }
+    }
 
     Loader {
         id: hotLoader

@@ -1,4 +1,5 @@
 import QtQuick
+import "../theme"
 
 MouseArea {
     id: handleRoot
@@ -65,7 +66,7 @@ MouseArea {
         anchors.centerIn: parent
         width: 2
         height: parent.height
-        color: (handleRoot.isDragging || handleRoot.pressed) ? "#ffffff" : "#70ffffff"
+        color: (handleRoot.isDragging || handleRoot.pressed) ? Theme.textSelected : Theme.borderHover
         opacity: (handleRoot.forceVisible || handleRoot.containsMouse || handleRoot.isDragging || handleRoot.pressed) ? 1.0 : 0.0
         Behavior on opacity {
             NumberAnimation { duration: 100 }

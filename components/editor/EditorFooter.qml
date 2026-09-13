@@ -1,11 +1,13 @@
 import QtQuick
 import QtQuick.Layouts
+import "../theme"
 
 Item {
     id: footerRoot
     height: 70
 
     property bool isPinned: false
+    property bool isGraphMode: false
     property string statsText: ""
     property bool showBackground: true
 
@@ -14,7 +16,7 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        color: "#181818"
+        color: Theme.bgFooter
         visible: footerRoot.showBackground
     }
 
@@ -43,9 +45,9 @@ Item {
                 width: parent.width
                 height: 2
                 radius: 1
-                color: footerRoot.isPinned
-                    ? (footerDividerMouse.containsMouse ? "#888888" : "#666666")
-                    : (footerDividerMouse.containsMouse ? "#4a4a4a" : "#3a3a3a")
+                color: (footerRoot.isPinned || footerRoot.isGraphMode)
+                    ? (footerDividerMouse.containsMouse ? Theme.textSecondary : Theme.textMuted)
+                    : (footerDividerMouse.containsMouse ? Theme.borderHover : Theme.borderColor)
                 Behavior on color { ColorAnimation { duration: 150 } }
             }
 
@@ -53,10 +55,12 @@ Item {
                 id: footerDividerMouse
                 anchors.fill: parent
                 hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
+                cursorShape: footerRoot.isGraphMode ? Qt.ArrowCursor : Qt.PointingHandCursor
                 onClicked: {
-                    footerRoot.pinToggled()
-                    footerRoot.activated()
+                    if (!footerRoot.isGraphMode) {
+                        footerRoot.pinToggled()
+                        footerRoot.activated()
+                    }
                 }
             }
         }
@@ -75,7 +79,7 @@ Item {
                 id: docStatsText
                 Layout.alignment: Qt.AlignVCenter
                 font.pixelSize: 12
-                color: "#666666"
+                color: Theme.textSecondary
                 text: footerRoot.statsText
             }
 

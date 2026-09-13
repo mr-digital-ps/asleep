@@ -1,4 +1,5 @@
 import QtQuick
+import "../theme"
 
 Item {
     id: frame
@@ -7,8 +8,8 @@ Item {
 
     property var targetWindow: Window.window
     property int borderWidth: 1
-    property color activeColor: "#3c3c3c"
-    property color inactiveColor: "#262626"
+    property color activeColor: Theme.borderHover
+    property color inactiveColor: Theme.borderColor
     property int resizeMargin: 8
     property int cornerMargin: 16
 

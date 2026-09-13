@@ -64,6 +64,8 @@ function initSimulation(nodes, links, width, height, options) {
         nodeMap: nodeMap,
         width: width,
         height: height,
+        cx: cx,
+        cy: cy,
         repulsion: repulsion,
         repulsionDistanceMax: repulsionDistanceMax,
         linkDistance: linkDistance,
@@ -88,8 +90,8 @@ function stepSimulation(sim) {
 
     var nodes = sim.nodes
     var links = sim.links
-    var cx = sim.width / 2
-    var cy = sim.height / 2
+    var cx = (typeof sim.cx === "number") ? sim.cx : sim.width / 2
+    var cy = (typeof sim.cy === "number") ? sim.cy : sim.height / 2
     var repulsion = sim.repulsion
     var linkDistance = sim.linkDistance
     var linkStrength = sim.linkStrength

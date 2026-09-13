@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "../theme"
 
 Item {
     id: fileListContainer
@@ -117,7 +118,7 @@ Item {
             implicitWidth: sidebarVBar.hovered || sidebarVBar.pressed ? 6 : 4
             implicitHeight: 24
             radius: 3
-            color: sidebarVBar.pressed ? "#ffffff" : (sidebarVBar.hovered ? "#cccccc" : "#555555")
+            color: sidebarVBar.pressed ? Theme.textSelected : (sidebarVBar.hovered ? Theme.scrollbarHover : Theme.scrollbarThumb)
             anchors.right: parent.right
 
             Behavior on implicitWidth { NumberAnimation { duration: 100 } }
@@ -129,7 +130,7 @@ Item {
             width: 4
             height: parent.height
             radius: 2
-            color: "#12ffffff"
+            color: "transparent"
         }
     }
 

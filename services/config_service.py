@@ -82,9 +82,15 @@ DEFAULT_CONFIG = {
         "Alt+Shift+T": "toggle_typewriter_mode", # Режим печатной машинки (курсор по центру)
         "Alt+Shift+F": "toggle_focus_mode",      # Режим фокусировки (подсветка активной строки)
 
-        # Вид и размеры
-        "Alt+Z": "toggle_full_width",          # Переключить ширину листа (занять всё пространство)
-        "Alt+F": "toggle_full_width",          # Альтернатива: развернуть лист на всю ширину
+        # Вид, интерфейс и размеры
+        "Alt+W": "toggle_centered_mode",       # Переключить ширину листа (по центру / на всю ширину)
+        "Alt+Z": "toggle_centered_mode",       # Альтернатива: переключить ширину листа
+        "Alt+F": "toggle_footer",              # Показать / скрыть статус-бар (Footer)
+        "Alt+U": "toggle_header",              # Показать / скрыть заголовок (Header)
+        "Alt+H": "toggle_header_footer",        # Показать / скрыть заголовок и статус-бар
+        "F9": "toggle_header_footer",           # Альтернатива: скрыть заголовок и статус-бар
+        "Alt+S": "toggle_sidebar",             # Показать / скрыть боковую панель
+        "Alt+D": "detach_window",              # Открепить документ в отдельное окно
     },
     "tags": [],
     "pinned": [],
@@ -161,9 +167,13 @@ hotkeys:
   Ctrl+3: heading_3                 # ### Заголовок 3
   Ctrl+0: heading_clear             # Обычный текст
 
-  # Вид и размеры
-  Alt+Z: toggle_full_width          # Переключить ширину листа (занять всё пространство)
-  Alt+F: toggle_full_width          # Альтернатива: развернуть лист на всю ширину
+  # Вид, интерфейс и размеры
+  Alt+W: toggle_centered_mode       # Переключить ширину листа (по центру / на всю ширину)
+  Alt+F: toggle_footer              # Показать / скрыть нижний статус-бар (Footer)
+  Alt+U: toggle_header              # Показать / скрыть верхний заголовок (Header)
+  Alt+H: toggle_header_footer       # Показать / скрыть заголовок и статус-бар (F9)
+  Alt+S: toggle_sidebar             # Показать / скрыть боковую панель
+  Alt+D: detach_window              # Открепить вкладку в отдельное окно (Ctrl+D)
 
 # === Теги папки (для фильтрации и поиска) ===
 tags:

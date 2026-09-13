@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import "../theme"
 
 Rectangle {
     id: noticeRoot
@@ -8,8 +9,8 @@ Rectangle {
     anchors.margins: 20
     height: 32
     radius: 16
-    color: "#222222"
-    border.color: "#383838"
+    color: Theme.bgDialog
+    border.color: Theme.borderColor
     border.width: 1
     opacity: 0.0
     z: 100
@@ -25,14 +26,14 @@ Rectangle {
         Text {
             text: "⚡"
             font.pixelSize: 12
-            color: "#64b5f6"
+            color: Theme.accentColor
         }
 
         Text {
             text: noticeRoot.noticeText
             font.pixelSize: 12
             font.bold: true
-            color: "#e0e0e0"
+            color: Theme.textPrimary
         }
     }
 

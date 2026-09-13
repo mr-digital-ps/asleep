@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "../theme"
 
 Item {
     id: gutterItem
@@ -83,7 +84,7 @@ Item {
                 ctx.beginPath()
                 let radius = (isCurrentLine ? 3.2 : 2.2) * scale
                 ctx.arc(centerX, dotY, radius, 0, 2 * Math.PI)
-                ctx.fillStyle = isCurrentLine ? "#888888" : "#444444"
+                ctx.fillStyle = isCurrentLine ? Theme.gutterActive : Theme.gutterText
                 ctx.fill()
 
                 pos += lineLen + 1

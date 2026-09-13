@@ -69,31 +69,31 @@
     "nodeRadiusWeight": 1.3,
 
     // Фоновый цвет интерактивного холста графа
-    "backgroundColor": "#141414",
+    "backgroundColor": "#181818",
 
     // Цвет узлов документов и файлов Markdown
-    "nodeColorFile": "#4da6ff",
+    "nodeColorFile": "#383838",
 
     // Цвет узлов отдельных блоков (трансклюзий)
-    "nodeColorBlock": "#bb9af7",
+    "nodeColorBlock": "#2a2a2a",
 
     // Цвет узлов тегов (#тег)
-    "nodeColorTag": "#e0af68",
+    "nodeColorTag": "#323232",
 
     // Коэффициент подсветки узла при наведении курсора мыши (1.0 = без подсветки)
     "nodeHoverBrightness": 1.25,
 
     // Базовый цвет соединительных линий в покое
-    "linkColor": "#333333",
+    "linkColor": "#242424",
 
     // Цвет соединительных линий при наведении или перетаскивании узла
-    "linkHoverColor": "#666666",
+    "linkHoverColor": "#444444",
 
     // Базовый цвет текстовых подписей узлов
-    "labelColor": "#888888",
+    "labelColor": "#737373",
 
     // Цвет текстовой подписи при наведении мыши
-    "labelHoverColor": "#e0e0e0",
+    "labelHoverColor": "#ffffff",
 
     // Размер шрифта подписей узлов в пикселях
     "labelFontSize": 10

@@ -1,5 +1,7 @@
 import QtQuick
-import "../../js/markdown_shortcuts.js" as Markdown
+import "../../js/editor/markdown_shortcuts.js" as Markdown
+import "../theme"
+
 
 Item {
     id: bracketOverlay
@@ -10,8 +12,8 @@ Item {
     Rectangle {
         id: primaryBracketHighlight
         visible: false
-        color: "#25ffffff"
-        border.color: "#70ffffff"
+        color: Qt.rgba(Theme.bracketMatch.r, Theme.bracketMatch.g, Theme.bracketMatch.b, 0.2)
+        border.color: Theme.bracketMatch
         border.width: 1
         radius: 2
     }
@@ -19,8 +21,8 @@ Item {
     Rectangle {
         id: matchBracketHighlight
         visible: false
-        color: "#25ffffff"
-        border.color: "#70ffffff"
+        color: Qt.rgba(Theme.bracketMatch.r, Theme.bracketMatch.g, Theme.bracketMatch.b, 0.2)
+        border.color: Theme.bracketMatch
         border.width: 1
         radius: 2
     }

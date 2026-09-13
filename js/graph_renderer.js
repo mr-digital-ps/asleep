@@ -44,6 +44,11 @@ function findNodeAtScreen(sim, screenX, screenY, width, height, zoomScale, panX,
     return bestNode
 }
 
+function normalizeUrl(url) {
+    if (!url) return ""
+    return decodeURIComponent(url.toString().replace(/^file:\/\/\/?/i, "").toLowerCase().replace(/\\/g, "/"))
+}
+
 function renderGraph(ctx, width, height, sim, state) {
     ctx.clearRect(0, 0, width, height)
     if (!sim || !sim.nodes) return
@@ -54,6 +59,9 @@ function renderGraph(ctx, width, height, sim, state) {
     var hoveredNode = state.hoveredNode
     var draggedNode = state.draggedNode
     var highlightedNodeIds = state.highlightedNodeIds || {}
+    var activeNodeId = state.activeNodeId || ""
+    var activeFileUrl = state.activeFileUrl || ""
+    var normActiveUrl = normalizeUrl(activeFileUrl)
     var q = state.searchQuery || ""
     var graphConfig = state.graphConfig || {}
 
@@ -67,14 +75,25 @@ function renderGraph(ctx, width, height, sim, state) {
     var hasHover = (hoveredNode !== null)
 
     var vis = (graphConfig && graphConfig.visual) ? graphConfig.visual : {}
-    var linkCol = vis.linkColor || "rgba(65, 65, 65, 0.35)"
-    var linkHoverCol = vis.linkHoverColor || "rgba(140, 140, 140, 0.75)"
-    var labelCol = vis.labelColor || "#666666"
-    var labelHoverCol = vis.labelHoverColor || "#d4d4d4"
+    var theme = state.theme || {}
+
+    var textMuted = (theme.textMuted ? theme.textMuted.toString() : "#666666")
+    var textPrimary = (theme.textPrimary ? theme.textPrimary.toString() : "#d4d4d4")
+    var textSecondary = (theme.textSecondary ? theme.textSecondary.toString() : "#888888")
+    var borderColor = (theme.borderColor ? theme.borderColor.toString() : "#282828")
+    var borderHover = (theme.borderHover ? theme.borderHover.toString() : "#383838")
+    var bgActive = (theme.bgActive ? theme.bgActive.toString() : "#282828")
+    var bgHover = (theme.bgHover ? theme.bgHover.toString() : "#202020")
+
+    var linkCol = vis.linkColor || borderColor
+    var linkHoverCol = vis.linkHoverColor || borderHover
+    var labelCol = vis.labelColor || textMuted
+    var labelHoverCol = vis.labelHoverColor || textPrimary
     var labelFontSize = (typeof vis.labelFontSize === "number") ? vis.labelFontSize : 10
-    var nodeColorFile = vis.nodeColorFile || "#282828"
-    var nodeColorBlock = vis.nodeColorBlock || "#342c44"
-    var nodeColorTag = vis.nodeColorTag || "#3c3322"
+
+    var nodeColorFile = (vis.nodeColorFile && vis.nodeColorFile !== "#4da6ff") ? vis.nodeColorFile : (theme.bgActive ? theme.bgActive.toString() : "#383838")
+    var nodeColorBlock = (vis.nodeColorBlock && vis.nodeColorBlock !== "#bb9af7") ? vis.nodeColorBlock : (theme.bgHover ? theme.bgHover.toString() : "#2a2a2a")
+    var nodeColorTag = (vis.nodeColorTag && vis.nodeColorTag !== "#e0af68") ? vis.nodeColorTag : (theme.bgHover ? theme.bgHover.toString() : "#323232")
 
     // 1. Отрисовка связей (ребер)
     for (var i = 0; i < links.length; i++) {
@@ -104,40 +123,59 @@ function renderGraph(ctx, width, height, sim, state) {
         var isDragged = (draggedNode && draggedNode.id === n.id)
         var isHover = ((hoveredNode && hoveredNode.id === n.id) || isDragged)
         var isConnected = highlightedNodeIds[n.id] === true
+        var isActivePlayer = (n.type === "file") && (
+            (activeNodeId && n.id === activeNodeId) ||
+            (normActiveUrl && n.fileUrl && normalizeUrl(n.fileUrl) === normActiveUrl)
+        )
         var matchesSearch = (!q || (n.label && n.label.toLowerCase().indexOf(q) !== -1))
 
         var nodeAlpha = 1.0
         if (q && !matchesSearch) {
             nodeAlpha = 0.12
-        } else if (hasHover && !isHover && !isConnected) {
+        } else if (hasHover && !isHover && !isConnected && !isActivePlayer) {
             nodeAlpha = 0.35
         }
 
         ctx.save()
         ctx.globalAlpha = nodeAlpha
 
+        var baseFill = (n.type === "block" ? nodeColorBlock : (n.type === "tag" ? nodeColorTag : nodeColorFile))
+        var baseStroke = borderColor
+
+        // Механика игровой миникарты: маркер "Вы здесь" (двойное кольцо)
+        if (isActivePlayer) {
+            ctx.beginPath()
+            ctx.arc(n.x, n.y, (n.radius || 4.5) + 4.5, 0, 2 * Math.PI)
+            ctx.strokeStyle = textPrimary
+            ctx.lineWidth = 1.8
+            ctx.stroke()
+        }
+
         ctx.beginPath()
         ctx.arc(n.x, n.y, n.radius || 4.5, 0, 2 * Math.PI)
 
-        var baseFill = (n.type === "block" ? nodeColorBlock : (n.type === "tag" ? nodeColorTag : nodeColorFile))
-        var baseStroke = (n.type === "block" ? "#4a3e62" : (n.type === "tag" ? "#564830" : "#3c3c3c"))
-
         if (isDragged) {
-            ctx.fillStyle = "#555555"
+            ctx.fillStyle = borderHover
             ctx.fill()
-            ctx.strokeStyle = "#808080"
+            ctx.strokeStyle = textPrimary
             ctx.lineWidth = 1.8
             ctx.stroke()
         } else if (isHover) {
-            ctx.fillStyle = (n.type === "block" ? "#4a3e64" : (n.type === "tag" ? "#55462c" : "#444444"))
+            ctx.fillStyle = borderHover
             ctx.fill()
-            ctx.strokeStyle = (n.type === "block" ? "#6d5894" : (n.type === "tag" ? "#7c663c" : "#686868"))
+            ctx.strokeStyle = textSecondary
             ctx.lineWidth = 1.6
             ctx.stroke()
-        } else if (isConnected) {
-            ctx.fillStyle = (n.type === "block" ? "#3c3250" : (n.type === "tag" ? "#453924" : "#363636"))
+        } else if (isActivePlayer) {
+            ctx.fillStyle = textPrimary
             ctx.fill()
-            ctx.strokeStyle = "#4e4e4e"
+            ctx.strokeStyle = borderHover
+            ctx.lineWidth = 1.2
+            ctx.stroke()
+        } else if (isConnected) {
+            ctx.fillStyle = bgActive
+            ctx.fill()
+            ctx.strokeStyle = borderHover
             ctx.lineWidth = 1.2
             ctx.stroke()
         } else {
@@ -149,11 +187,17 @@ function renderGraph(ctx, width, height, sim, state) {
         }
 
         // Текстовая подпись узла
-        var shouldDrawLabel = isHover || isConnected || (q && matchesSearch) || (zoomScale > 0.9)
+        var shouldDrawLabel = isHover || isConnected || isActivePlayer || (q && matchesSearch) || (zoomScale > 0.9)
         if (shouldDrawLabel && nodeAlpha > 0.25) {
-            var curFontSize = isHover ? (labelFontSize + 0.5) : labelFontSize
-            ctx.font = (isHover ? "500 " + curFontSize + "px sans-serif" : curFontSize + "px sans-serif")
-            ctx.fillStyle = isHover ? labelHoverCol : (isConnected ? "#aaaaaa" : labelCol)
+            if (isActivePlayer) {
+                var playerFontSize = labelFontSize + 1
+                ctx.font = "600 " + playerFontSize + "px sans-serif"
+                ctx.fillStyle = textPrimary
+            } else {
+                var curFontSize = isHover ? (labelFontSize + 0.5) : labelFontSize
+                ctx.font = (isHover ? "500 " + curFontSize + "px sans-serif" : curFontSize + "px sans-serif")
+                ctx.fillStyle = isHover ? labelHoverCol : (isConnected ? textSecondary : labelCol)
+            }
             ctx.textAlign = "center"
             ctx.fillText(n.label || "", n.x, n.y + (n.radius || 4.5) + 11)
         }

@@ -13,7 +13,7 @@ function pollCursorState(root, sideBar, Tabs) {
 }
 
 function handleFileDragMoved(root, gx, gy) {
-    let appWin = root.appWindow || root.Window.window
+    let appWin = root.appWindow || (root.Window ? root.Window.window : null)
     if (!appWin) return
 
     let sideW = (root.sideBar && root.sideBar.isSidebarVisible) ? root.sideBar.currentWidth : 0
@@ -137,7 +137,7 @@ function handleFileDragEnded(root, fileUrl, fileName, gx, gy, Tabs) {
     root.draggingPaneIndex = -1
     root.dropZone = ""
 
-    let appWin = root.appWindow || root.Window.window
+    let appWin = root.appWindow || (root.Window ? root.Window.window : null)
     let sideW = (root.sideBar && root.sideBar.isSidebarVisible) ? root.sideBar.currentWidth : 0
     let isInsideCurrentWin = appWin && (gx >= appWin.x && gx <= (appWin.x + appWin.width) &&
                                          gy >= appWin.y && gy <= (appWin.y + appWin.height))

@@ -1,89 +1,89 @@
 {
-  // Пользовательские комбинации горячих клавиш.
-  // Переопределяют системные комбинации из config/default/hotkeys.json.
-  // Можно переназначить любое действие или добавить свои клавиши в список "keys".
+	// Пользовательские комбинации горячих клавиш.
+	// Переопределяют системные комбинации из config/default/hotkeys.json.
+	// Можно переназначить любое действие или добавить свои клавиши в список "keys".
 
-  // Показать / скрыть заголовок и статус-бар
-  "toggle_header_footer": {
-    "keys": ["F9", "Ctrl+Shift+H", "Alt+H"],
-    "description": "Показать / скрыть заголовок и статус-бар (Header и Footer)"
-  },
+	// Показать / скрыть заголовок и статус-бар
+	"toggle_header_footer": {
+		"keys": ["F9", "Ctrl+Shift+H", "Alt+H"],
+		"description": "Показать / скрыть заголовок и статус-бар (Header и Footer)"
+	},
 
-  // Показать / скрыть статус-бар
-  "toggle_footer": {
-    "keys": ["Ctrl+Shift+F", "Alt+F"],
-    "description": "Показать / скрыть только нижний статус-бар (Footer)"
-  },
+	// Показать / скрыть статус-бар
+	"toggle_footer": {
+		"keys": ["Ctrl+Shift+F", "Alt+F"],
+		"description": "Показать / скрыть только нижний статус-бар (Footer)"
+	},
 
-  // Показать / скрыть верхний заголовок
-  "toggle_header": {
-    "keys": ["Ctrl+Shift+U", "Alt+U"],
-    "description": "Показать / скрыть только верхний заголовок (Header)"
-  },
+	// Показать / скрыть верхний заголовок
+	"toggle_header": {
+		"keys": ["Ctrl+Shift+U", "Alt+U"],
+		"description": "Показать / скрыть только верхний заголовок (Header)"
+	},
 
-  // Боковая панель
-  "toggle_sidebar": {
-    "keys": ["Ctrl+Shift+B", "Alt+S"],
-    "description": "Показать / скрыть боковую панель"
-  },
+	// Боковая панель
+	"toggle_sidebar": {
+		"keys": ["Ctrl+Shift+B", "Alt+S"],
+		"description": "Показать / скрыть боковую панель"
+	},
 
-  // Сплит экрана
-  "toggle_split": {
-    "keys": ["Ctrl+\\"],
-    "description": "Разделить экран (Split View)"
-  },
+	// Сплит экрана
+	"toggle_split": {
+		"keys": ["Ctrl+\\"],
+		"description": "Разделить экран (Split View)"
+	},
 
-  // Центрированный / полный лист
-  "toggle_centered_mode": {
-    "keys": ["Alt+W", "Ctrl+Shift+W"],
-    "description": "Переключить ширину листа (по центру / на всю ширину)"
-  },
+	// Центрированный / полный лист
+	"toggle_centered_mode": {
+		"keys": ["Alt+W", "Ctrl+Shift+W"],
+		"description": "Переключить ширину листа (по центру / на всю ширину)"
+	},
 
-  // Закрыть вкладку
-  "close_tab": {
-    "keys": ["Ctrl+W", "Ctrl+Q", "Ctrl+F4"],
-    "description": "Закрыть текущую вкладку или сплит"
-  },
+	// Закрыть вкладку
+	"close_tab": {
+		"keys": ["Ctrl+W", "Ctrl+Q", "Ctrl+F4"],
+		"description": "Закрыть текущую вкладку или сплит"
+	},
 
-  // Новый документ
-  "new_tab": {
-    "keys": ["Ctrl+N"],
-    "description": "Создать новый документ"
-  },
+	// Новый документ
+	"new_tab": {
+		"keys": ["Ctrl+N"],
+		"description": "Создать новый документ"
+	},
 
-  // Открыть файл
-  "open_file": {
-    "keys": ["Ctrl+O"],
-    "description": "Открыть файл"
-  },
+	// Открыть файл
+	"open_file": {
+		"keys": ["Ctrl+O"],
+		"description": "Открыть файл"
+	},
 
-  // Сохранить файл
-  "save_file": {
-    "keys": ["Ctrl+S"],
-    "description": "Сохранить файл"
-  },
+	// Сохранить файл
+	"save_file": {
+		"keys": ["Ctrl+S"],
+		"description": "Сохранить файл"
+	},
 
-  // Жирный шрифт
-  "toggle_bold": {
-    "keys": ["Ctrl+B"],
-    "description": "Сделать выделенный текст жирным (**текст**)"
-  },
+	// Жирный шрифт
+	"toggle_bold": {
+		"keys": ["Ctrl+B"],
+		"description": "Сделать выделенный текст жирным (**текст**)"
+	},
 
-  // Курсив
-  "toggle_italic": {
-    "keys": ["Ctrl+I"],
-    "description": "Сделать выделенный текст курсивом (*текст*)"
-  },
+	// Курсив
+	"toggle_italic": {
+		"keys": ["Ctrl+I"],
+		"description": "Сделать выделенный текст курсивом (*текст*)"
+	},
 
-  // Открепить окно
-  "detach_window": {
-    "keys": ["Ctrl+D"],
-    "description": "Открепить документ в отдельное окно"
-  },
+	// Открепить окно
+	"detach_window": {
+		"keys": ["Ctrl+D", "Alt+D"],
+		"description": "Открепить документ в отдельное окно"
+	},
 
-  // Открыть / закрыть интерактивный граф
-  "toggle_graph": {
-    "keys": ["Ctrl+G", "Ctrl+Shift+G"],
-    "description": "Показать / скрыть интерактивный граф связей (Graph View)"
-  }
+	// Открыть / закрыть интерактивный граф
+	"toggle_graph": {
+		"keys": ["Ctrl+G", "Ctrl+Shift+G"],
+		"description": "Показать / скрыть интерактивный граф связей (Graph View)"
+	}
 }

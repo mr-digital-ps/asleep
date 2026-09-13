@@ -7,22 +7,33 @@ import "../components/sidebar"
 import "../components/editor"
 import "../components/dialogs"
 import "../components/hotkeys"
-import "../js/logic.js" as Logic
-import "../js/tabs.js" as Tabs
-import "../js/drag_manager.js" as DragMgr
-import "../js/markdown_shortcuts.js" as Markdown
-import "../js/web_lifecycle.js" as WebLifecycle
+import "../components/theme"
+import "../js/app/logic.js" as Logic
+import "../js/tabs/tabs.js" as Tabs
+import "../js/tabs/drag_manager.js" as DragMgr
+import "../js/editor/markdown_shortcuts.js" as Markdown
+import "../js/app/web_lifecycle.js" as WebLifecycle
 
 Rectangle {
     id: root
     anchors.fill: parent
-    color: "#141414"
+    color: Theme.bgApp
+    focus: true
 
     // Ссылка на родительское ApplicationWindow
     property var appWindow: null
 
     // Видимость интерактивного графа связей
     property bool isGraphVisible: false
+    onIsGraphVisibleChanged: {
+        if (!isGraphVisible) {
+            Qt.callLater(() => {
+                if (splitLayout && splitLayout.activeEditorArea) {
+                    splitLayout.activeEditorArea.forceActiveFocus()
+                }
+            })
+        }
+    }
 
     // Переменные текущего активного файла
     property string currentFileUrl: ""
@@ -54,8 +65,7 @@ Rectangle {
     property string secondaryFileName: "Новый документ"
 
     function stripExt(name) {
-        if (!name) return ""
-        return name.replace(/\.md$/i, "")
+        return WebLifecycle.stripExt ? WebLifecycle.stripExt(name) : (name ? name.replace(/\.md$/i, "") : "")
     }
 
     property alias editorArea: splitLayout.activeEditorArea
@@ -86,22 +96,9 @@ Rectangle {
         id: autoSaveTimer
         interval: 1000
         repeat: false
-        onTriggered: {
-            if (typeof backend === "undefined" || !backend) return
-            if (root.primaryTabIndex >= 0 && root.primaryTabIndex < root.tabsModel.count) {
-                let pTab = root.tabsModel.get(root.primaryTabIndex)
-                if (pTab && pTab.fileUrl && splitLayout && splitLayout.primaryBar) {
-                    backend.save_file(pTab.fileUrl, splitLayout.primaryBar.text)
-                }
-            }
-            if (root.isSplit && root.secondaryTabIndex >= 0 && root.secondaryTabIndex < root.tabsModel.count) {
-                let sTab = root.tabsModel.get(root.secondaryTabIndex)
-                if (sTab && sTab.fileUrl && splitLayout && splitLayout.secondaryBar) {
-                    backend.save_file(sTab.fileUrl, splitLayout.secondaryBar.text)
-                }
-            }
-        }
+        onTriggered: WebLifecycle.handleAutoSave(root, splitLayout, (typeof backend !== "undefined" ? backend : null))
     }
+
 
     property alias tabsModel: tabsModel
     property alias folderFilesModel: folderFilesModel
@@ -136,12 +133,19 @@ Rectangle {
     }
 
     function openFileFromFolder(fileUrl, fileName, isShift) {
+        root.isGraphVisible = false
         Tabs.openFileFromFolder(root, fileUrl, fileName, isShift)
     }
 
     // Делегированные методы управления вкладками и сплитом
-    function createNewTab() { Tabs.createNewTab(root) }
-    function switchToTab(index) { Tabs.switchToTab(root, index) }
+    function createNewTab() {
+        root.isGraphVisible = false
+        Tabs.createNewTab(root)
+    }
+    function switchToTab(index) {
+        root.isGraphVisible = false
+        Tabs.switchToTab(root, index)
+    }
     function closeTab(index) { Tabs.closeTab(root, index) }
     function renameTab(index, newTitle) { Tabs.renameTab(root, index, newTitle) }
     function detachTab(index, spawnX, spawnY) { Tabs.detachTab(root, index, spawnX, spawnY) }
@@ -175,52 +179,11 @@ Rectangle {
         id: editorDialogs
         currentFolderUrl: root.currentFolderUrl
 
-        onFolderAccepted: (folderUrl) => {
-            root.currentFolderUrl = folderUrl
-            root.currentFolderName = backend.get_folder_name(root.currentFolderUrl)
-            if (typeof backend !== "undefined" && backend) {
-                backend.save_last_folder(root.currentFolderUrl)
-                backend.watch_folder(root.currentFolderUrl)
-            }
-            root.reloadFolderFiles()
-        }
-
-        onFileOpenAccepted: (selectedFile) => {
-            let content = backend.read_file(selectedFile)
-            let name = backend.get_filename(selectedFile)
-
-            let targetIndex = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
-            let curTab = (targetIndex >= 0 && targetIndex < tabsModel.count) ? tabsModel.get(targetIndex) : null
-
-            if (curTab && !curTab.isDetached && curTab.fileUrl === "" && root.editorArea.text === "") {
-                tabsModel.setProperty(targetIndex, "title", name)
-                tabsModel.setProperty(targetIndex, "fileUrl", selectedFile)
-                tabsModel.setProperty(targetIndex, "content", content)
-                Tabs.syncEditorsFromModel(root)
-            } else {
-                tabsModel.append({
-                    title: name,
-                    fileUrl: selectedFile,
-                    content: content,
-                    isDetached: false
-                })
-                root.switchToTab(tabsModel.count - 1)
-            }
-        }
-
-        onFileSaveAccepted: (selectedFile) => {
-            let targetIndex = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
-            backend.save_file(selectedFile, root.editorArea.text)
-            root.currentFileUrl = selectedFile
-            root.currentFileName = backend.get_filename(selectedFile)
-            if (tabsModel.count > 0 && targetIndex >= 0 && targetIndex < tabsModel.count) {
-                tabsModel.setProperty(targetIndex, "title", root.currentFileName)
-                tabsModel.setProperty(targetIndex, "fileUrl", root.currentFileUrl)
-                tabsModel.setProperty(targetIndex, "content", root.editorArea.text)
-                Tabs.syncEditorsFromModel(root)
-            }
-        }
+        onFolderAccepted: (folderUrl) => WebLifecycle.handleFolderAccepted(root, (typeof backend !== "undefined" ? backend : null), folderUrl)
+        onFileOpenAccepted: (selectedFile) => WebLifecycle.handleFileOpenAccepted(root, (typeof backend !== "undefined" ? backend : null), Tabs, selectedFile)
+        onFileSaveAccepted: (selectedFile) => WebLifecycle.handleFileSaveAccepted(root, (typeof backend !== "undefined" ? backend : null), Tabs, selectedFile)
     }
+
 
     property alias folderDialog: editorDialogs.folderDialog
     property alias openDialog: editorDialogs.openDialog
@@ -250,10 +213,22 @@ Rectangle {
 
     function closeActiveTab() { WebLifecycle.closeActiveTab(root) }
 
+    function handleGlobalKeyEvent(event) {
+        if (hotkeyManager.handleKeyEvent(event)) {
+            return true
+        }
+        if (event.key === Qt.Key_Escape && root.isGraphVisible) {
+            root.isGraphVisible = false
+            event.accepted = true
+            return true
+        }
+        return false
+    }
+
     Keys.forwardTo: (splitLayout ? [splitLayout] : [])
 
     Keys.onPressed: (event) => {
-        if (hotkeyManager.handleKeyEvent(event)) {
+        if (handleGlobalKeyEvent(event)) {
             return
         }
     }
@@ -297,69 +272,20 @@ Rectangle {
             }
             externalWindowFiles: root.externalWindowFiles
 
-            onFolderClicked: {
-                if (typeof backend !== "undefined" && backend) {
-                    let res = backend.choose_folder_dialog(root.currentFolderUrl)
-                    if (res && res.success) {
-                        root.currentFolderUrl = res.folderUrl
-                        root.currentFolderName = res.folderName
-                        openDialog.currentFolder = res.folderUrl
-                        saveDialog.currentFolder = res.folderUrl
-                        root.reloadFolderFiles()
-                    }
-                } else {
-                    folderDialog.open()
-                }
-            }
-            onConfigClicked: {
-                if (typeof backend !== "undefined" && backend && typeof backend.open_or_create_folder_config === "function") {
-                    let res = backend.open_or_create_folder_config(root.currentFolderUrl)
-                    if (res && res.success && res.fileUrl) {
-                        root.openFileFromFolder(res.fileUrl, res.fileName, false)
-                    }
-                }
-            }
+            onFolderClicked: WebLifecycle.handleSidebarFolderClicked(root, (typeof backend !== "undefined" ? backend : null), openDialog, saveDialog, folderDialog)
+            onConfigClicked: WebLifecycle.handleSidebarConfigClicked(root, (typeof backend !== "undefined" ? backend : null))
             onNewClicked: root.createNewTab()
             onFileSelected: (fUrl, fName, isShift) => root.openFileFromFolder(fUrl, fName, isShift)
             onOpenInNewWindowRequested: (fUrl, fName) => root.openInNewWindow(fUrl, fName)
-            onFileDeleteRequested: (fUrl) => {
-                for (let i = tabsModel.count - 1; i >= 0; i--) {
-                    if (tabsModel.get(i).fileUrl === fUrl) {
-                        root.closeTab(i)
-                    }
-                }
-                backend.delete_file(fUrl)
-            }
-            onFileRenameRequested: (fUrl, newName) => {
-                let res = backend.rename_file(fUrl, newName)
-                if (res && res.success) {
-                    for (let i = 0; i < tabsModel.count; i++) {
-                        if (tabsModel.get(i).fileUrl === fUrl) {
-                            tabsModel.setProperty(i, "fileUrl", res.fileUrl)
-                            tabsModel.setProperty(i, "title", res.fileName)
-                            if (i === root.primaryTabIndex) root.primaryFileName = res.fileName
-                            if (i === root.secondaryTabIndex) root.secondaryFileName = res.fileName
-                        }
-                    }
-                    if (root.currentFileUrl === fUrl) {
-                        root.currentFileUrl = res.fileUrl
-                        root.currentFileName = res.fileName
-                    }
-                }
-            }
-            onTabDragStarted: (url, name, gx, gy) => {
-                root.isFileDragging = true
-                root.draggingFileUrl = url
-                root.draggingFileName = name
-                root.draggingPaneIndex = -1
-                dragTrackerTimer.running = true
-            }
+            onFileDeleteRequested: (fUrl) => WebLifecycle.handleFileDeleteRequested(root, (typeof backend !== "undefined" ? backend : null), fUrl)
+            onFileRenameRequested: (fUrl, newName) => WebLifecycle.handleFileRenameRequested(root, (typeof backend !== "undefined" ? backend : null), fUrl, newName)
+            onTabDragStarted: (url, name, gx, gy) => WebLifecycle.handleTabDragStarted(root, dragTrackerTimer, url, name, gx, gy)
             onTabDragMoved: (gx, gy) => root.handleFileDragMoved(gx, gy)
             onTabDragEnded: (fUrl, fName, gx, gy) => root.handleFileDragEnded(fUrl, fName, gx, gy)
 
             onGraphClicked: root.isGraphVisible = !root.isGraphVisible
             onOpenClicked: openDialog.open()
-            onSaveClicked: Logic.saveFile(root, saveDialog, backend)
+            onSaveClicked: Logic.saveFile(root, saveDialog, (typeof backend !== "undefined" ? backend : null))
             onCloseClicked: (root.appWindow || Window.window).close()
             onToggleMaximizeClicked: Logic.toggleMaximize(root.appWindow || Window.window)
         }
@@ -383,7 +309,10 @@ Rectangle {
             // Передача состояния и событий графа
             isGraphVisible: root.isGraphVisible
             currentFolderUrl: root.currentFolderUrl
+            currentFolderName: root.currentFolderName
             onCloseGraphRequested: root.isGraphVisible = false
+            onToggleGraphModeRequested: (toGraph) => WebLifecycle.handleToggleGraphMode(root, (typeof backend !== "undefined" ? backend : null), toGraph)
+
             onNodeSelected: (fUrl, lbl) => {
                 root.openFileFromFolder(fUrl, lbl, false)
                 root.isGraphVisible = false
@@ -419,8 +348,10 @@ Rectangle {
             onCloseSplitRequested: () => Tabs.closeSplit(root)
             onPaneActivated: (paneIndex) => Tabs.setActivePane(root, paneIndex)
             onSaveRequested: Logic.saveFile(root, saveDialog, backend)
+            onOpenRequested: root.executeAction("open_file")
             onNewRequested: root.createNewTab()
             onToggleSidebarRequested: root.toggleSidebar()
+            onToggleGraphRequested: root.executeAction("toggle_graph")
         }
     }
 }

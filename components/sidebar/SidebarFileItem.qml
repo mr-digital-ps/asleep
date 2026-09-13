@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "../theme"
 
 Rectangle {
     id: fileItem
@@ -31,7 +32,7 @@ Rectangle {
     width: parent ? parent.width : 200
     height: barSize
 
-    color: isActive ? "#262626" : (isBackgroundOpen ? "#1e1e1e" : (fileHover.hovered ? "#222222" : "transparent"))
+    color: isActive ? Theme.bgActive : (isBackgroundOpen ? Theme.bgHover : (fileHover.hovered ? Theme.bgHover : "transparent"))
     opacity: fileHover.isDraggingFile ? 0.45 : 1.0
 
     Behavior on color {
@@ -46,7 +47,7 @@ Rectangle {
         width: fileItem.isActive ? 3 : (fileItem.isBackgroundOpen ? 2 : 0)
         height: fileItem.isActive ? 20 : (fileItem.isBackgroundOpen ? 14 : 0)
         radius: 1.5
-        color: fileItem.isActive ? "#ffffff" : "#666666"
+        color: fileItem.isActive ? Theme.textSelected : Theme.textMuted
         visible: fileItem.isActive || fileItem.isBackgroundOpen
 
         Behavior on width { NumberAnimation { duration: 120 } }
@@ -169,8 +170,8 @@ Rectangle {
             Layout.fillHeight: true
             text: fileItem.isSystemFile ? "⚙" : ((fileItem.fileIndex + 1 < 10 ? "0" : "") + (fileItem.fileIndex + 1))
             color: fileItem.isSystemFile
-                ? (fileItem.isActive ? "#ffffff" : "#666666")
-                : (fileItem.isActive ? "#ffffff" : (fileItem.isBackgroundOpen ? "#888888" : "#444444"))
+                ? (fileItem.isActive ? Theme.textPrimary : Theme.textMuted)
+                : (fileItem.isActive ? Theme.textPrimary : (fileItem.isBackgroundOpen ? Theme.textSecondary : Theme.textMuted))
             Behavior on color { ColorAnimation { duration: 120 } }
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
@@ -187,8 +188,8 @@ Rectangle {
             Layout.rightMargin: 12
             text: fileItem.stripExt(fileItem.fileName)
             color: fileItem.isSystemFile
-                ? (fileItem.isActive ? "#ffffff" : "#888888")
-                : (fileItem.isActive ? "#ffffff" : (fileItem.isBackgroundOpen ? "#aaaaaa" : (fileHover.hovered ? "#dddddd" : "#777777")))
+                ? (fileItem.isActive ? Theme.textPrimary : Theme.textMuted)
+                : (fileItem.isActive ? Theme.textPrimary : (fileItem.isBackgroundOpen ? Theme.textSecondary : (fileHover.hovered ? Theme.textPrimary : Theme.textSecondary)))
             Behavior on color { ColorAnimation { duration: 120 } }
             font.bold: fileItem.isActive
             font.italic: fileItem.isSystemFile
@@ -205,15 +206,15 @@ Rectangle {
             Layout.preferredHeight: 26
             Layout.rightMargin: 12
             font.pixelSize: 12
-            color: "#ffffff"
+            color: Theme.textPrimary
             selectByMouse: true
-            selectionColor: "#282828"
-            selectedTextColor: "#ffffff"
+            selectionColor: Theme.selectionColor
+            selectedTextColor: Theme.textSelected
             property bool isCancelled: false
 
             background: Rectangle {
-                color: "#1a1a1a"
-                border.color: "#ffffff"
+                color: (typeof Theme !== "undefined" && Theme.bgInput) ? Theme.bgInput : "#1a1a1a"
+                border.color: (typeof Theme !== "undefined" && Theme.accentColor) ? Theme.accentColor : "#444444"
                 radius: 2
             }
 

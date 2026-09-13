@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "../theme"
 
 Rectangle {
     id: sideBar
@@ -46,6 +47,8 @@ Rectangle {
         if (!isSidebarVisible) {
             isSidebarVisible = true
             currentWidth = 180
+        } else if (expanded) {
+            currentWidth = barSize
         } else {
             isSidebarVisible = false
             currentWidth = 0
@@ -55,7 +58,7 @@ Rectangle {
     Layout.preferredWidth: isSidebarVisible ? currentWidth : 0
     Layout.fillHeight: true
     clip: true
-    color: (themeConfig && themeConfig.bg_sidebar) ? themeConfig.bg_sidebar : "#181818"
+    color: Theme.bgSidebar
 
     property var themeConfig: ({})
 
@@ -109,8 +112,8 @@ Rectangle {
         hoverEnabled: true
 
         background: Rectangle {
-            color: btn.down ? "#222222" : (btn.hovered ? "#222222" : "transparent")
-            border.color: btn.hovered ? "#2e2e2e" : "transparent"
+            color: btn.down ? Theme.bgActive : (btn.hovered ? Theme.bgHover : "transparent")
+            border.color: btn.hovered ? Theme.borderColor : "transparent"
             border.width: 1
         }
 
@@ -121,7 +124,7 @@ Rectangle {
                 width: sideBar.barSize
                 height: sideBar.barSize
                 text: btn.iconText
-                color: btn.down ? "#aaaaaa" : (btn.hovered ? "#ffffff" : "#cccccc")
+                color: btn.down ? Theme.textSecondary : (btn.hovered ? Theme.textPrimary : Theme.textSecondary)
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
                 font.pixelSize: 14
@@ -131,7 +134,7 @@ Rectangle {
                 visible: sideBar.expanded
                 height: sideBar.barSize
                 text: btn.titleText
-                color: btn.down ? "#aaaaaa" : (btn.hovered ? "#ffffff" : "#dddddd")
+                color: btn.down ? Theme.textSecondary : (btn.hovered ? Theme.textPrimary : Theme.textSecondary)
                 verticalAlignment: Text.AlignVCenter
                 elide: Text.ElideRight
                 font.pixelSize: 13
@@ -266,7 +269,7 @@ Rectangle {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.right: parent.right
-        color: sideBar.isDragging ? "#555555" : (dragArea.containsMouse ? "#3c3c3c" : "#242424")
+        color: sideBar.isDragging ? Theme.accentColor : (dragArea.containsMouse ? Theme.borderHover : Theme.borderColor)
         z: 90
 
         Behavior on color {

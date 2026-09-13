@@ -146,10 +146,10 @@ function moveLineDown(editor) {
 function handleTabIndent(editor, isShift) {
     let start = editor.selectionStart
     let end = editor.selectionEnd
+    let fullText = editor.text
     if (isShift) {
+        let blockStart = fullText.lastIndexOf("\n", Math.max(0, start - 1)) + 1
         if (start !== end) {
-            let fullText = editor.text
-            let blockStart = fullText.lastIndexOf("\n", Math.max(0, start - 1)) + 1
             let before = fullText.substring(0, blockStart)
             let middle = fullText.substring(blockStart, end)
             let after = fullText.substring(end)
@@ -157,10 +157,21 @@ function handleTabIndent(editor, isShift) {
             let unindented = lines.map(l => l.startsWith("    ") ? l.substring(4) : (l.startsWith("\t") ? l.substring(1) : l)).join("\n")
             editor.text = before + unindented + after
             editor.select(start, blockStart + unindented.length)
+        } else {
+            // Без выделения: снимаем отступ на текущей строке
+            let lineEnd = fullText.indexOf("\n", blockStart)
+            if (lineEnd === -1) lineEnd = fullText.length
+            let currentLine = fullText.substring(blockStart, lineEnd)
+            if (currentLine.startsWith("    ")) {
+                editor.text = fullText.substring(0, blockStart) + currentLine.substring(4) + fullText.substring(lineEnd)
+                editor.cursorPosition = Math.max(blockStart, start - 4)
+            } else if (currentLine.startsWith("\t")) {
+                editor.text = fullText.substring(0, blockStart) + currentLine.substring(1) + fullText.substring(lineEnd)
+                editor.cursorPosition = Math.max(blockStart, start - 1)
+            }
         }
     } else {
         if (start !== end) {
-            let fullText = editor.text
             let blockStart = fullText.lastIndexOf("\n", Math.max(0, start - 1)) + 1
             let before = fullText.substring(0, blockStart)
             let middle = fullText.substring(blockStart, end)
@@ -173,6 +184,10 @@ function handleTabIndent(editor, isShift) {
             editor.insert(editor.cursorPosition, "    ")
         }
     }
+}
+
+function handleTab(editor, isShift) {
+    return handleTabIndent(editor, isShift)
 }
 
 function handleAutoWrap(editor, char) {

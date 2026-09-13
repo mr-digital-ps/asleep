@@ -54,76 +54,60 @@ function isCenteredModeKey(event) {
     return false
 }
 
+function isDetachKey(event) {
+    var isD = event.key === Qt.Key_D || event.nativeScanCode === 32 || event.text === 'd' || event.text === 'D' || event.text === 'в' || event.text === 'В'
+    return isD && ((event.modifiers & Qt.ControlModifier) || (event.modifiers & Qt.AltModifier))
+}
+
+function isBoldKey(event) {
+    if (!(event.modifiers & Qt.ControlModifier)) return false
+    return (event.key === Qt.Key_B || event.nativeScanCode === 48 || event.text === 'b' || event.text === 'B' || event.text === 'и' || event.text === 'И')
+}
+
+function isItalicKey(event) {
+    if (!(event.modifiers & Qt.ControlModifier)) return false
+    return (event.key === Qt.Key_I || event.nativeScanCode === 23 || event.text === 'i' || event.text === 'I' || event.text === 'ш' || event.text === 'Ш')
+}
+
+function isOpenKey(event) {
+    if (!(event.modifiers & Qt.ControlModifier)) return false
+    return (event.key === Qt.Key_O || event.nativeScanCode === 24 || event.text === 'o' || event.text === 'O' || event.text === 'щ' || event.text === 'Щ' || event.key === 1097 || event.key === 1065)
+}
+
+function isToggleGraphKey(event) {
+    if (!(event.modifiers & Qt.ControlModifier)) return false
+    return (event.key === Qt.Key_G || event.nativeScanCode === 34 || event.text === 'g' || event.text === 'G' || event.text === 'п' || event.text === 'П' || event.key === 1087 || event.key === 1055)
+}
+
+// Перехват шорткатов на уровне ShortcutOverride сообщает Qt, что активный редактор забирает комбинацию себе,
+// предотвращая срабатывание внешних обработчиков или передачу фокуса (например, для Tab).
 function handleShortcutOverride(event, canvasRoot, editorArea, Markdown) {
-    if (isCloseKey(event)) {
+    if (isCloseKey(event) ||
+        isToggleHeaderFooterKey(event) ||
+        isToggleFooterKey(event) ||
+        isToggleHeaderKey(event) ||
+        isCenteredModeKey(event) ||
+        isSaveKey(event) ||
+        isNewKey(event) ||
+        isOpenKey(event) ||
+        isToggleSidebarKey(event) ||
+        isDetachKey(event) ||
+        isToggleGraphKey(event) ||
+        isBoldKey(event) ||
+        isItalicKey(event)) {
         event.accepted = true
-        canvasRoot.closeRequested()
-        return true
-    }
-    if (isToggleHeaderFooterKey(event)) {
-        event.accepted = true
-        canvasRoot.toggleHeaderFooterRequested()
-        return true
-    }
-    if (isToggleFooterKey(event)) {
-        event.accepted = true
-        canvasRoot.toggleFooterRequested()
-        return true
-    }
-    if (isToggleHeaderKey(event)) {
-        event.accepted = true
-        canvasRoot.toggleHeaderRequested()
-        return true
-    }
-    if (isCenteredModeKey(event)) {
-        event.accepted = true
-        canvasRoot.toggleCenteredModeRequested()
-        return true
-    }
-    if (isSaveKey(event)) {
-        event.accepted = true
-        canvasRoot.saveRequested()
-        return true
-    }
-    if (isNewKey(event)) {
-        event.accepted = true
-        canvasRoot.newRequested()
-        return true
-    }
-    if (isToggleSidebarKey(event)) {
-        event.accepted = true
-        canvasRoot.toggleSidebarRequested()
         return true
     }
 
-    if (event.modifiers & Qt.ControlModifier) {
-        var isD = event.key === Qt.Key_D || event.nativeScanCode === 32 || event.text === 'd' || event.text === 'D' || event.text === 'в' || event.text === 'В'
-        if (isD) {
-            event.accepted = true
-            canvasRoot.detachRequested()
-            return true
-        }
-        var isB = event.key === Qt.Key_B || event.nativeScanCode === 48 || event.text === 'b' || event.text === 'B' || event.text === 'и' || event.text === 'И'
-        if (isB) {
-            event.accepted = true
-            Markdown.toggleBold(editorArea)
-            return true
-        }
-        var isI = event.key === Qt.Key_I || event.nativeScanCode === 23 || event.text === 'i' || event.text === 'I' || event.text === 'ш' || event.text === 'Ш'
-        if (isI) {
-            event.accepted = true
-            Markdown.toggleItalic(editorArea)
-            return true
-        }
-        if (event.key === Qt.Key_Backtab || event.key === Qt.Key_Tab) {
-            event.accepted = true
-            Markdown.handleTab(editorArea, true)
-            return true
-        }
+    if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
+        event.accepted = true
+        return true
     }
+
     return false
 }
 
+// Непосредственное выполнение действий при нажатии клавиши (Keys.onPressed) — ровно один раз!
 function handleKeyPressed(event, canvasRoot, editorArea, Markdown) {
     if (isCloseKey(event)) {
         event.accepted = true
@@ -160,13 +144,28 @@ function handleKeyPressed(event, canvasRoot, editorArea, Markdown) {
         canvasRoot.newRequested()
         return true
     }
+    if (isOpenKey(event)) {
+        event.accepted = true
+        canvasRoot.openRequested()
+        return true
+    }
     if (isToggleSidebarKey(event)) {
         event.accepted = true
         canvasRoot.toggleSidebarRequested()
         return true
     }
+    if (isDetachKey(event)) {
+        event.accepted = true
+        canvasRoot.detachRequested()
+        return true
+    }
+    if (isToggleGraphKey(event)) {
+        event.accepted = true
+        canvasRoot.toggleGraphRequested()
+        return true
+    }
 
-    // Автозакрытие скобок и кавычек
+    // Автозакрытие парных скобок и кавычек
     if (event.key === Qt.Key_ParenRight && Markdown.handleAutoPair(editorArea, ")")) {
         event.accepted = true
         return true
@@ -200,17 +199,16 @@ function handleKeyPressed(event, canvasRoot, editorArea, Markdown) {
         return true
     }
 
-    if (event.modifiers & Qt.ControlModifier) {
-        if (event.key === Qt.Key_B) {
-            event.accepted = true
-            Markdown.toggleBold(editorArea)
-            return true
-        }
-        if (event.key === Qt.Key_I) {
-            event.accepted = true
-            Markdown.toggleItalic(editorArea)
-            return true
-        }
+    // Форматирование Markdown
+    if (isBoldKey(event)) {
+        event.accepted = true
+        Markdown.toggleBold(editorArea)
+        return true
+    }
+    if (isItalicKey(event)) {
+        event.accepted = true
+        Markdown.toggleItalic(editorArea)
+        return true
     }
 
     return false

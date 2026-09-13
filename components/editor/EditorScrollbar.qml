@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import "../theme"
 
 Item {
     id: scrollbarOverlay
@@ -23,9 +24,7 @@ Item {
     anchors.bottomMargin: bottomMargin
     x: paperSheet ? Math.round(paperSheet.x + paperSheet.width - barSize) : 0
     z: 10
-    readonly property real totalHeight: (editorScroll && editorScroll.contentItem && editorScroll.contentItem.contentHeight > 0)
-        ? editorScroll.contentItem.contentHeight
-        : ((editorScroll && editorScroll.contentHeight > 0) ? editorScroll.contentHeight : 0)
+    readonly property real totalHeight: (editorScroll && editorScroll.contentItem) ? editorScroll.contentItem.contentHeight : 0
     readonly property real viewHeight: editorScroll ? editorScroll.availableHeight : 1
     readonly property real scrollY: (editorScroll && editorScroll.contentItem) ? editorScroll.contentItem.contentY : 0
 
@@ -85,7 +84,7 @@ Item {
             implicitWidth: customVBar.hovered || customVBar.pressed ? 8 : 6
             implicitHeight: 32
             radius: 4
-            color: customVBar.pressed ? "#ffffff" : (customVBar.hovered ? "#cccccc" : "#666666")
+            color: customVBar.pressed ? Theme.textSelected : (customVBar.hovered ? Theme.scrollbarHover : Theme.scrollbarThumb)
             anchors.horizontalCenter: parent.horizontalCenter
 
             Behavior on implicitWidth { NumberAnimation { duration: 100 } }
@@ -100,7 +99,7 @@ Item {
             anchors.bottomMargin: 4
             width: 4
             radius: 2
-            color: "#18ffffff"
+            color: "transparent"
         }
     }
 }

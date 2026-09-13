@@ -29,15 +29,15 @@ DEFAULT_GRAPH_CONFIG = {
         "nodeRadiusMax": 8.5,
         "nodeRadiusBase": 3.2,
         "nodeRadiusWeight": 1.3,
-        "backgroundColor": "#141414",
-        "nodeColorFile": "#4da6ff",
-        "nodeColorBlock": "#bb9af7",
-        "nodeColorTag": "#e0af68",
+        "backgroundColor": "#181818",
+        "nodeColorFile": "#383838",
+        "nodeColorBlock": "#2a2a2a",
+        "nodeColorTag": "#323232",
         "nodeHoverBrightness": 1.25,
-        "linkColor": "#333333",
-        "linkHoverColor": "#666666",
-        "labelColor": "#888888",
-        "labelHoverColor": "#e0e0e0",
+        "linkColor": "#242424",
+        "linkHoverColor": "#444444",
+        "labelColor": "#737373",
+        "labelHoverColor": "#ffffff",
         "labelFontSize": 10
     }
 }
@@ -149,7 +149,7 @@ class GraphService:
                 "label": clean_name,
                 "fileUrl": file_url,
                 "type": "file",
-                "color": "#4da6ff",
+                "color": "#383838",
                 "val": 1
             }
 
@@ -213,9 +213,9 @@ class GraphService:
                 nodes_map[block_id] = {
                     "id": block_id,
                     "label": f"#{display_title}",
-                    "fileUrl": occurrences[0][0],
+                    "fileUrl": "",
                     "type": "block",
-                    "color": "#bb9af7",
+                    "color": "#2a2a2a",
                     "val": len(occurrences) + 1
                 }
                 for f_url, _ in occurrences:
@@ -230,9 +230,9 @@ class GraphService:
                 nodes_map[tag_id] = {
                     "id": tag_id,
                     "label": f"#{display_tag}",
-                    "fileUrl": occurrences[0][0],
+                    "fileUrl": "",
                     "type": "tag",
-                    "color": "#e0af68",
+                    "color": "#323232",
                     "val": len(occurrences)
                 }
                 for f_url, _ in occurrences:
@@ -253,3 +253,92 @@ class GraphService:
             "nodes": nodes_list,
             "links": links_list
         }
+
+    def generate_graph_markdown(self, folder_path: Path, graph_data: dict = None) -> str:
+        """
+        Генерирует человекочитаемый Markdown-документ со структурой всех связей папки.
+        Каждая заметка представлена разделом H2 с вики-ссылкой [[Имя заметки]],
+        а её ребра (соседние заметки, общие блоки, теги) — элементами маркированного списка.
+        """
+        if not folder_path or not folder_path.exists() or not folder_path.is_dir():
+            return "# Граф связей\n\n> Папка не найдена.\n"
+
+        if graph_data is None:
+            graph_data = self.build_graph(folder_path)
+
+        nodes = graph_data.get("nodes", [])
+        links = graph_data.get("links", [])
+
+        # Индексируем узлы по типам
+        file_nodes = {n["id"]: n for n in nodes if n.get("type") == "file"}
+        block_nodes = {n["id"]: n for n in nodes if n.get("type") == "block"}
+        tag_nodes = {n["id"]: n for n in nodes if n.get("type") == "tag"}
+
+        # connections: file_id -> set of (label_md, sort_order, sort_name)
+        connections = {f_id: set() for f_id in file_nodes}
+
+        for l in links:
+            src = l["source"]
+            tgt = l["target"]
+
+            if src in file_nodes and tgt in file_nodes:
+                connections[src].add((f"[[{file_nodes[tgt]['label']}]]", 0, file_nodes[tgt]['label']))
+                connections[tgt].add((f"[[{file_nodes[src]['label']}]]", 0, file_nodes[src]['label']))
+            elif src in file_nodes and tgt in block_nodes:
+                connections[src].add((f"{block_nodes[tgt]['label']}", 1, block_nodes[tgt]['label']))
+            elif tgt in file_nodes and src in block_nodes:
+                connections[tgt].add((f"{block_nodes[src]['label']}", 1, block_nodes[src]['label']))
+            elif src in file_nodes and tgt in tag_nodes:
+                connections[src].add((f"{tag_nodes[tgt]['label']}", 2, tag_nodes[tgt]['label']))
+            elif tgt in file_nodes and src in tag_nodes:
+                connections[tgt].add((f"{tag_nodes[src]['label']}", 2, tag_nodes[src]['label']))
+
+        lines = []
+
+        if not file_nodes:
+            return "# Граф связей\n_(В этой папке пока нет заметок)_\n"
+
+        # Сортируем заметки по алфавиту
+        sorted_files = sorted(file_nodes.values(), key=lambda x: x["label"].lower())
+
+        for f_node in sorted_files:
+            f_id = f_node["id"]
+            f_label = f_node["label"]
+            lines.append(f"# {f_label}")
+
+            targets = connections.get(f_id, set())
+            if targets:
+                sorted_targets = sorted(targets, key=lambda x: (x[1], x[2].lower()))
+                for label_md, _, _ in sorted_targets:
+                    lines.append(label_md)
+
+            lines.append("")
+
+        return "\n".join(lines).strip() + "\n"
+
+    def sync_graph_markdown_file(self, folder_path: Path, graph_data: dict = None) -> Path:
+        """
+        Синхронизирует Markdown-проекцию графа в файл _Граф связей.md.
+        Записывает изменения на диск только если содержимое файла действительно изменилось.
+        """
+        if not folder_path or not folder_path.exists() or not folder_path.is_dir():
+            return None
+
+        content = self.generate_graph_markdown(folder_path, graph_data=graph_data)
+        file_path = folder_path / "_Граф связей.md"
+
+        if file_path.exists():
+            try:
+                existing = file_path.read_text(encoding="utf-8")
+                if existing == content:
+                    return file_path
+            except Exception:
+                pass
+
+        try:
+            file_path.write_text(content, encoding="utf-8")
+        except Exception as e:
+            print(f"[GraphService] Ошибка сохранения _Граф связей.md: {e}")
+
+        return file_path
+

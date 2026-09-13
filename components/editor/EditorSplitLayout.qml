@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "../graph"
+import "../theme"
 
 Item {
     id: splitLayout
@@ -16,6 +17,7 @@ Item {
     // Свойства графа связей
     property bool isGraphVisible: false
     property string currentFolderUrl: ""
+    property string currentFolderName: ""
 
     // Свойства документов
     property string primaryFileName: "Новый документ"
@@ -45,10 +47,13 @@ Item {
     signal fileDragMoved(real gx, real gy)
     signal fileDragEnded(int paneIndex, string url, string name, real gx, real gy)
     signal saveRequested()
+    signal openRequested()
     signal newRequested()
     signal toggleSidebarRequested()
+    signal toggleGraphRequested()
     signal nodeSelected(string fileUrl, string label)
     signal closeGraphRequested()
+    signal toggleGraphModeRequested(bool toGraph)
 
 
     // Контейнер с панелями редактора
@@ -59,7 +64,7 @@ Item {
         // Левая / Основная панель
         MainBar {
             id: primaryBar
-            visible: !(splitLayout.isGraphVisible && splitLayout.activePane === 0)
+            visible: true
             barSize: splitLayout.barSize
             fileName: splitLayout.primaryFileName
             fileUrl: splitLayout.primaryFileUrl
@@ -67,6 +72,11 @@ Item {
             isActivePane: splitLayout.activePane === 0
             isEmpty: splitLayout.isPrimaryEmpty
             showCloseButton: false
+
+            // Режим графа на листе
+            isGraphMode: splitLayout.isGraphVisible && splitLayout.activePane === 0
+            folderUrl: splitLayout.currentFolderUrl
+            currentFolderName: splitLayout.currentFolderName
 
             anchors.left: parent.left
             anchors.top: parent.top
@@ -81,22 +91,13 @@ Item {
             onFileDragMoved: (gx, gy) => splitLayout.fileDragMoved(gx, gy)
             onFileDragEnded: (url, name, gx, gy) => splitLayout.fileDragEnded(0, url, name, gx, gy)
             onSaveRequested: splitLayout.saveRequested()
+            onOpenRequested: splitLayout.openRequested()
             onNewRequested: splitLayout.newRequested()
             onToggleSidebarRequested: splitLayout.toggleSidebarRequested()
-        }
-
-        // Граф связей в основной панели (заменяет primaryBar при активации)
-        GraphView {
-            id: primaryGraph
-            visible: splitLayout.isGraphVisible && splitLayout.activePane === 0
-            folderUrl: splitLayout.currentFolderUrl
-            anchors.left: parent.left
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            width: splitLayout.isSplit ? Math.round((parent.width - splitterDivider.width) * splitLayout.splitRatio) : parent.width
-
-            onCloseRequested: splitLayout.closeGraphRequested()
-            onNodeClicked: (fUrl, lbl, type) => splitLayout.nodeSelected(fUrl, lbl)
+            onToggleGraphRequested: splitLayout.toggleGraphRequested()
+            onCloseGraphRequested: splitLayout.closeGraphRequested()
+            onToggleGraphModeRequested: (toGraph) => splitLayout.toggleGraphModeRequested(toGraph)
+            onNodeSelected: (fUrl, lbl) => splitLayout.nodeSelected(fUrl, lbl)
         }
 
         // Вертикальный разделитель (виден только при включенном сплите)
@@ -104,7 +105,7 @@ Item {
             id: splitterDivider
             visible: splitLayout.isSplit
             width: 7
-            anchors.left: (primaryBar.visible ? primaryBar.right : primaryGraph.right)
+            anchors.left: primaryBar.right
             anchors.top: parent.top
             anchors.bottom: parent.bottom
 
@@ -112,7 +113,7 @@ Item {
                 anchors.centerIn: parent
                 width: 1
                 height: parent.height
-                color: splitterMouseArea.pressed ? "#888888" : (splitterMouseArea.containsMouse ? "#555555" : "#262626")
+                color: splitterMouseArea.pressed ? Theme.accentColor : (splitterMouseArea.containsMouse ? Theme.borderHover : Theme.borderColor)
             }
 
             MouseArea {
@@ -138,13 +139,18 @@ Item {
         // Правая / Вторичная панель
         MainBar {
             id: secondaryBar
-            visible: splitLayout.isSplit && !(splitLayout.isGraphVisible && splitLayout.activePane === 1)
+            visible: splitLayout.isSplit
             barSize: splitLayout.barSize
             fileName: splitLayout.secondaryFileName
             fileUrl: splitLayout.secondaryFileUrl
             isSplitMode: splitLayout.isSplit
             isActivePane: splitLayout.activePane === 1
             showCloseButton: true
+
+            // Режим графа на листе
+            isGraphMode: splitLayout.isSplit && splitLayout.isGraphVisible && splitLayout.activePane === 1
+            folderUrl: splitLayout.currentFolderUrl
+            currentFolderName: splitLayout.currentFolderName
 
             anchors.left: splitterDivider.right
             anchors.right: parent.right
@@ -159,22 +165,13 @@ Item {
             onFileDragMoved: (gx, gy) => splitLayout.fileDragMoved(gx, gy)
             onFileDragEnded: (url, name, gx, gy) => splitLayout.fileDragEnded(1, url, name, gx, gy)
             onSaveRequested: splitLayout.saveRequested()
+            onOpenRequested: splitLayout.openRequested()
             onNewRequested: splitLayout.newRequested()
             onToggleSidebarRequested: splitLayout.toggleSidebarRequested()
-        }
-
-        // Граф связей во вторичной панели (заменяет secondaryBar при активации)
-        GraphView {
-            id: secondaryGraph
-            visible: splitLayout.isSplit && splitLayout.isGraphVisible && splitLayout.activePane === 1
-            folderUrl: splitLayout.currentFolderUrl
-            anchors.left: splitterDivider.right
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-
-            onCloseRequested: splitLayout.closeGraphRequested()
-            onNodeClicked: (fUrl, lbl, type) => splitLayout.nodeSelected(fUrl, lbl)
+            onToggleGraphRequested: splitLayout.toggleGraphRequested()
+            onCloseGraphRequested: splitLayout.closeGraphRequested()
+            onToggleGraphModeRequested: (toGraph) => splitLayout.toggleGraphModeRequested(toGraph)
+            onNodeSelected: (fUrl, lbl) => splitLayout.nodeSelected(fUrl, lbl)
         }
 
 
@@ -239,15 +236,15 @@ Item {
             }
             height: Math.max(40, parent.height - 16)
 
-            color: "#1affffff"
-            border.color: "#666666"
+            color: Qt.rgba(Theme.accentColor.r, Theme.accentColor.g, Theme.accentColor.b, 0.1)
+            border.color: Theme.accentColor
             border.width: 1.5
             radius: 8
 
             Rectangle {
                 anchors.centerIn: parent
-                color: "#242424"
-                border.color: "#555555"
+                color: Theme.bgDialog
+                border.color: Theme.borderHover
                 border.width: 1
                 radius: 6
                 implicitWidth: hintLabel.implicitWidth + 28
@@ -262,7 +259,7 @@ Item {
                         }
                         return previewBox.isLeft ? "◧ Разместить слева" : (previewBox.isRight ? "◨ Разместить справа" : "🗖 Открыть в редакторе")
                     }
-                    color: "#e0e0e0"
+                    color: Theme.textPrimary
                     font.pixelSize: 13
                     font.bold: true
                 }

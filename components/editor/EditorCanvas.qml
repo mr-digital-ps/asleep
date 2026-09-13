@@ -1,8 +1,10 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "../../js/markdown_shortcuts.js" as Markdown
-import "../../js/editor_keys.js" as EditorKeys
+import "../../js/editor/markdown_shortcuts.js" as Markdown
+import "../../js/editor/editor_keys.js" as EditorKeys
+import "../theme"
+
 
 RowLayout {
     id: canvasRoot
@@ -31,8 +33,10 @@ RowLayout {
     signal toggleHeaderRequested()
     signal toggleCenteredModeRequested()
     signal saveRequested()
+    signal openRequested()
     signal newRequested()
     signal toggleSidebarRequested()
+    signal toggleGraphRequested()
 
     function updateBracketHighlights() {
         if (bracketHighlightOverlay) {
@@ -67,11 +71,11 @@ RowLayout {
         font.pixelSize: 15
         wrapMode: TextArea.Wrap
         selectByMouse: true
-        color: "#d4d4d4"
-        selectionColor: "#282828"
-        selectedTextColor: "#ffffff"
+        color: Theme.textPrimary
+        selectionColor: Theme.selectionColor
+        selectedTextColor: Theme.textSelected
         placeholderText: "Начните вводить текст..."
-        placeholderTextColor: "#666666"
+        placeholderTextColor: Theme.textMuted
 
         cursorDelegate: Item {
             id: cursorWrapper
@@ -81,7 +85,7 @@ RowLayout {
                 width: 2
                 height: parent.height
                 anchors.centerIn: parent
-                color: "#e0e0e0"
+                color: Theme.cursorColor
             }
         }
 
@@ -93,7 +97,7 @@ RowLayout {
                 width: parent.width
                 y: editorArea.cursorRectangle.y
                 height: editorArea.cursorRectangle.height
-                color: "#0effffff"
+                color: Theme.lineHighlight
                 radius: 3
             }
 

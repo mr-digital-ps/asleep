@@ -58,6 +58,14 @@ Item {
             event.accepted = true
             return true
         }
+        if (event.modifiers & Qt.ControlModifier) {
+            // G key: Key_G, scan code 34, or Cyrillic 'п' / 'П'
+            if (event.key === Qt.Key_G || event.nativeScanCode === 34 || event.text === 'g' || event.text === 'G' || event.text === 'п' || event.text === 'П' || event.key === 1087 || event.key === 1055) {
+                hotkeyRoot.actionTriggered("toggle_graph")
+                event.accepted = true
+                return true
+            }
+        }
         if (event.key === Qt.Key_F9) {
             hotkeyRoot.actionTriggered("toggle_header_footer")
             event.accepted = true

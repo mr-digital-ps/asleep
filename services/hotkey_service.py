@@ -55,7 +55,7 @@ DEFAULT_HOTKEYS = {
         "description": "Сделать выделенный текст курсивом (*текст*)"
     },
     "detach_window": {
-        "keys": ["Ctrl+D"],
+        "keys": ["Ctrl+D", "Alt+D"],
         "description": "Открепить документ в отдельное окно"
     },
     "toggle_graph": {
@@ -189,19 +189,40 @@ class HotkeyService(QObject):
         """
         Возвращает плоский список шорткатов для удобного биндинга в QML:
         [{"action": "toggle_header_footer", "key": "F9", "description": "..."}, ...]
+        Автоматически генерирует дублирующие шорткаты для русской раскладки клавиатуры.
         """
+        EN_TO_RU = {
+            'A': 'Ф', 'B': 'И', 'C': 'С', 'D': 'В', 'E': 'У', 'F': 'А', 'G': 'П', 'H': 'Р',
+            'I': 'Ш', 'J': 'О', 'K': 'Л', 'L': 'Д', 'M': 'Ь', 'N': 'Т', 'O': 'Щ', 'P': 'З',
+            'Q': 'Й', 'R': 'К', 'S': 'Ы', 'T': 'Е', 'U': 'Г', 'V': 'М', 'W': 'Ц', 'X': 'Ч',
+            'Y': 'Н', 'Z': 'Я'
+        }
         result = []
+        seen = set()
         for action, data in self._hotkeys.items():
             keys = data.get("keys", [])
             desc = data.get("description", "")
             for k in keys:
                 k_clean = str(k).strip()
-                if k_clean:
+                if k_clean and (action, k_clean) not in seen:
+                    seen.add((action, k_clean))
                     result.append({
                         "action": action,
                         "key": k_clean,
                         "description": desc
                     })
+                    # Генерируем аналог для русской раскладки
+                    parts = k_clean.split("+")
+                    last = parts[-1].upper()
+                    if last in EN_TO_RU:
+                        ru_key = "+".join(parts[:-1] + [EN_TO_RU[last]])
+                        if (action, ru_key) not in seen:
+                            seen.add((action, ru_key))
+                            result.append({
+                                "action": action,
+                                "key": ru_key,
+                                "description": desc
+                            })
         return result
 
     def get_action_keys(self, action: str) -> list[str]:

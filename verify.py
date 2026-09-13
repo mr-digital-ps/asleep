@@ -144,6 +144,21 @@ tags:
         assert vault_cfg["physics"]["linkStrength"] == 0.099, "Локальный _graph_settings.json должен переопределять linkStrength"
         assert vault_cfg["physics"]["repulsion"] == cfg["physics"]["repulsion"], "Неуказанные параметры должны сохраняться"
 
+        # Проверка генерации и синхронизации _Граф связей.md
+        md_content = gs.generate_graph_markdown(tmp_p)
+        assert "# doc1" in md_content and "# doc2" in md_content, "Сгенерированный Markdown должен содержать H1-заголовки заметок"
+        assert "##" not in md_content, "В файле связей не должно быть заголовков второго уровня (H2)"
+        assert "[[doc1]]" in md_content or "[[doc2]]" in md_content, "Markdown должен содержать ссылки на заметки"
+
+        synced_file = gs.sync_graph_markdown_file(tmp_p)
+        assert synced_file.exists() and synced_file.name == "_Граф связей.md", "Файл _Граф связей.md должен быть создан на диске"
+
+        # Проверка отсутствия циклической ссылки: _Граф связей.md не должен появляться среди узлов
+        gdata_after = gs.build_graph(tmp_p)
+        node_labels = [n.get("label", "") for n in gdata_after["nodes"]]
+        assert "_Граф связей" not in node_labels and "_Граф связей.md" not in node_labels, "_Граф связей.md не должен индексироваться как узел графа"
+
+
     # 8. Тест Backend Facade
     backend = Backend()
     assert backend is not None
@@ -160,6 +175,8 @@ tags:
     assert "sheet_width" in editor_cfg and "font_size" in editor_cfg, "backend.get_editor_config должен содержать sheet_width и font_size"
     app_cfg = backend.get_app_config()
     assert "auto_save_delay_ms" in app_cfg and "supported_extensions" in app_cfg, "backend.get_app_config должен содержать auto_save_delay_ms"
+    sync_res = backend.sync_graph_file()
+    assert isinstance(sync_res, dict), "backend.sync_graph_file должен возвращать словарь"
     print("  -> Сервисы Python: OK")
 
 
@@ -262,6 +279,22 @@ def test_structure():
         "js/editor_keys.js",
         "js/mainbar_lifecycle.js",
         "js/web_lifecycle.js",
+        "js/editor/editor_keys.js",
+        "js/editor/markdown_shortcuts.js",
+        "js/editor/block_sync.js",
+        "js/editor/mainbar_controller.js",
+        "js/graph/graph_physics.js",
+        "js/graph/graph_renderer.js",
+        "js/graph/graph_interaction.js",
+        "js/tabs/tab_model.js",
+        "js/tabs/tab_split.js",
+        "js/tabs/tab_sync.js",
+        "js/tabs/drag_manager.js",
+        "js/tabs/tabs.js",
+        "js/app/action_dispatcher.js",
+        "js/app/web_lifecycle.js",
+        "js/app/logic.js",
+
         "components/editor/EditorCanvas.qml",
         "components/editor/MainBar.qml",
         "components/editor/DocumentHeader.qml",
@@ -275,6 +308,8 @@ def test_structure():
         "components/window/qmldir",
         "components/graph/GraphView.qml",
         "components/graph/qmldir",
+        "components/theme/Theme.qml",
+        "components/theme/qmldir",
         "views/web.qml",
         "views/window.qml",
         "web.py"

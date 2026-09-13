@@ -1,4 +1,5 @@
 import QtQuick
+import "../theme"
 
 Item {
     id: focusOverlay
@@ -24,7 +25,7 @@ Item {
             return Math.max(0, p.y - 8)
         }
         height: targetH
-        color: "#cc181818"
+        color: Qt.rgba(Theme.bgPaper.r, Theme.bgPaper.g, Theme.bgPaper.b, 0.8)
         Behavior on height { NumberAnimation { duration: 70; easing.type: Easing.OutQuad } }
     }
 
@@ -40,7 +41,7 @@ Item {
         }
         y: targetY
         height: Math.max(0, parent.height - targetY)
-        color: "#cc181818"
+        color: Qt.rgba(Theme.bgPaper.r, Theme.bgPaper.g, Theme.bgPaper.b, 0.8)
         Behavior on y { NumberAnimation { duration: 70; easing.type: Easing.OutQuad } }
         Behavior on height { NumberAnimation { duration: 70; easing.type: Easing.OutQuad } }
     }

@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "../theme"
 
 RowLayout {
     id: headerRoot
@@ -28,6 +29,7 @@ RowLayout {
 
     signal titleCommitted(string newTitle)
     signal paneActivated()
+    signal toggleGraphModeRequested(bool toGraph)
     signal fileDragStarted(string url, string name, real gx, real gy)
     signal fileDragMoved(real gx, real gy)
     signal fileDragEnded(string url, string name, real gx, real gy)
@@ -51,12 +53,12 @@ RowLayout {
         text: headerRoot.stripExt(headerRoot.fileName)
         font.pixelSize: 18
         font.bold: true
-        color: (headerRoot.isSplitMode && !headerRoot.isActivePane) ? "#888888" : "#ffffff"
+        color: (headerRoot.isSplitMode && !headerRoot.isActivePane) ? Theme.textSecondary : Theme.textPrimary
         placeholderText: "Без названия"
-        placeholderTextColor: "#444444"
+        placeholderTextColor: Theme.textMuted
         selectByMouse: true
-        selectionColor: "#282828"
-        selectedTextColor: "#ffffff"
+        selectionColor: Theme.selectionColor
+        selectedTextColor: Theme.textSelected
         activeFocusOnTab: false
         background: null
 

@@ -52,8 +52,9 @@ function handleBlockUpdated(root, splitLayout, Tabs, headingNorm, content, sourc
 }
 
 function applyInitialState(root, Tabs) {
-    var appWin = root.Window.window
+    var appWin = (root && root.appWindow) ? root.appWindow : (root && root.Window ? root.Window.window : null)
     var initUrl = (appWin && appWin.initialFileUrl) ? appWin.initialFileUrl : root.initialFileUrl
+
     var initTitle = (appWin && appWin.initialTitle) ? appWin.initialTitle : root.initialTitle
     var initContent = (appWin && appWin.initialContent) ? appWin.initialContent : root.initialContent
     var hideSidebar = (appWin && appWin.startWithSidebarHidden) || root.startWithSidebarHidden
@@ -135,8 +136,9 @@ function spawnClonedAppWindow(root, fileUrl, title, content, wx, wy, ww, wh) {
     if (comp.status === Component.Ready) {
         var winW = Math.max(750, ww || 850)
         var winH = Math.max(550, wh || 600)
-        var appWin = root.Window.window
+        var appWin = (root && root.appWindow) ? root.appWindow : (root && root.Window ? root.Window.window : null)
         var newWin = comp.createObject(null, {
+
             x: wx || (appWin ? (appWin.x + 50) : 100),
             y: wy || (appWin ? (appWin.y + 50) : 100),
             width: winW,
