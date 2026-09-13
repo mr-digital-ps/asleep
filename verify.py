@@ -113,13 +113,28 @@ tags:
     highlighter = MarkdownHighlighter(test_doc)
     assert highlighter is not None, "Highlighter должен инициализироваться"
 
-    # 6. Тест HotkeyService
-    from services.hotkey_service import HotkeyService
+    # 6. Тест HotkeyService & GlobalHotkeyFilter
+    from services.hotkey_service import HotkeyService, GlobalHotkeyFilter, HotkeyMatcher
     hk_service = HotkeyService()
     hks = hk_service.get_hotkeys()
     assert "toggle_header_footer" in hks, "toggle_header_footer должен присутствовать в hotkeys"
     flat_hks = hk_service.get_flat_shortcuts()
     assert len(flat_hks) > 0, "Flat shortcuts не должен быть пустым"
+
+    matcher = HotkeyMatcher(hks)
+    from PyQt6.QtCore import Qt, QEvent
+    from PyQt6.QtGui import QKeyEvent
+    # Проверка Ctrl+G (EN) и Ctrl+П (RU: VK 0x47)
+    ev_en = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_G, Qt.KeyboardModifier.ControlModifier, 0, 0x47, 0)
+    ev_ru_p = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 0, 0x47, 0)
+    ev_ru_g = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 0, 0x55, 0)
+    assert matcher.match_event(ev_en) == "toggle_graph", "Ctrl+G должен распознаваться"
+    assert matcher.match_event(ev_ru_p) == "toggle_graph", "Ctrl+П (VK 0x47) должен распознаваться"
+    assert matcher.match_event(ev_ru_g) == "toggle_graph", "Ctrl+Г (VK 0x55) должен распознаваться"
+    # Проверка close_tab: Ctrl+W (EN/RU: VK 0x57)
+    ev_w = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 0, 0x57, 0)
+    assert matcher.match_event(ev_w) == "close_tab", "Ctrl+W/Ctrl+Ц должен распознаваться"
+
 
     # 7. Тест GraphService
     from services.graph_service import GraphService

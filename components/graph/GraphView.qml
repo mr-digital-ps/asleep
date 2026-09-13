@@ -44,26 +44,6 @@ Rectangle {
         enabled: graphRoot.visible
         onActivated: graphRoot.closeRequested()
     }
-    Shortcut {
-        sequence: "Ctrl+П"
-        enabled: graphRoot.visible
-        onActivated: graphRoot.closeRequested()
-    }
-    Shortcut {
-        sequence: "Ctrl+п"
-        enabled: graphRoot.visible
-        onActivated: graphRoot.closeRequested()
-    }
-    Shortcut {
-        sequence: "Ctrl+Г"
-        enabled: graphRoot.visible
-        onActivated: graphRoot.closeRequested()
-    }
-    Shortcut {
-        sequence: "Ctrl+г"
-        enabled: graphRoot.visible
-        onActivated: graphRoot.closeRequested()
-    }
 
     function reloadGraph() {
         Interaction.reloadGraph(graphRoot, canvas, (typeof backend !== "undefined" ? backend : null), Physics, animTimer)
@@ -112,7 +92,6 @@ Rectangle {
             sim.width = width
             sim.cx = width / 2
         }
-        if (activeNodeId) Interaction.keepActiveNodeCentered(graphRoot)
         canvas.requestPaint()
     }
     onHeightChanged: {
@@ -120,7 +99,6 @@ Rectangle {
             sim.height = height
             sim.cy = height / 2
         }
-        if (activeNodeId) Interaction.keepActiveNodeCentered(graphRoot)
         canvas.requestPaint()
     }
 

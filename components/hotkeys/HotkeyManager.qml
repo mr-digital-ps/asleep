@@ -43,28 +43,6 @@ Item {
         }
     }
 
-    // Резервные глобальные шорткаты для надежного срабатывания в русской раскладке
-    Shortcut {
-        sequence: "Ctrl+П"
-        context: Qt.ApplicationShortcut
-        onActivated: hotkeyRoot.actionTriggered("toggle_graph")
-    }
-    Shortcut {
-        sequence: "Ctrl+п"
-        context: Qt.ApplicationShortcut
-        onActivated: hotkeyRoot.actionTriggered("toggle_graph")
-    }
-    Shortcut {
-        sequence: "Ctrl+Г"
-        context: Qt.ApplicationShortcut
-        onActivated: hotkeyRoot.actionTriggered("toggle_graph")
-    }
-    Shortcut {
-        sequence: "Ctrl+г"
-        context: Qt.ApplicationShortcut
-        onActivated: hotkeyRoot.actionTriggered("toggle_graph")
-    }
-
     function isCloseKey(event) {
         if (!(event.modifiers & Qt.ControlModifier)) return false
         // W key: Key_W, scan code 17, or Cyrillic 'ц'

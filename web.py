@@ -12,7 +12,7 @@ os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
 
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtQml import QQmlApplicationEngine
-from PyQt6.QtCore import QObject, pyqtSlot, pyqtSignal, QFileSystemWatcher, QTimer, QUrl, Qt
+from PyQt6.QtCore import QObject, pyqtSlot, pyqtSignal, QFileSystemWatcher, QTimer, QUrl, Qt, QCoreApplication
 from PyQt6.QtGui import QTextCursor, QTextOption, QFontDatabase
 from PyQt6.QtQuick import QQuickTextDocument
 
@@ -23,7 +23,7 @@ from services.window_manager import WindowManager
 from services.file_service import FileService, save_session_config, load_session_config
 from services.config_service import ConfigService
 from services.syntax_highlighter import MarkdownHighlighter
-from services.hotkey_service import HotkeyService
+from services.hotkey_service import HotkeyService, GlobalHotkeyFilter
 from services.graph_service import GraphService
 from services.reloader import setup_live_reload
 
@@ -50,6 +50,7 @@ class Backend(QObject):
     blockUpdated = pyqtSignal(str, str, str)  # (heading_norm, content, source_file_url)
     configUpdated = pyqtSignal(str)  # JSON-строка актуальной конфигурации
     hotkeysChanged = pyqtSignal()
+    actionRequested = pyqtSignal(str)  # Глобальное действие от хоткеев (toggle_graph, close_tab и др.)
     graphDataChanged = pyqtSignal()
     themeConfigChanged = pyqtSignal()
     appConfigChanged = pyqtSignal()
@@ -63,6 +64,11 @@ class Backend(QObject):
         self.hotkey_service = HotkeyService()
         self.graph_service = GraphService(self.block_engine, self.file_service)
         self.hotkey_service.hotkeys_changed.connect(lambda _: self.hotkeysChanged.emit())
+        self.hotkey_filter = GlobalHotkeyFilter(self.hotkey_service, self)
+        _core_app = QCoreApplication.instance()
+        if _core_app:
+            _core_app.installEventFilter(self.hotkey_filter)
+
 
         self.folder_watcher = QFileSystemWatcher(self)
         self.folder_watcher.directoryChanged.connect(self._on_directory_changed)
@@ -563,6 +569,7 @@ def main():
     engine.addImportPath(str(PROJECT_DIR))
     engine.addImportPath(str(PROJECT_DIR / "components"))
     backend = Backend()
+    app.installEventFilter(backend.hotkey_filter)
     engine.rootContext().setContextProperty("backend", backend)
 
     qml_file = Path(__file__).parent.resolve() / "views" / "window.qml"

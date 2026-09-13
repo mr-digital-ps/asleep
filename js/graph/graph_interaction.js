@@ -125,24 +125,51 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer) {
     var targetCX = canW / 2
     var targetCY = canH / 2
 
-    // Если координаты были загружены из кэша, центрируем центр масс графа в (targetCX, targetCY),
-    // чтобы исключить любой скачок или дрейф («улетание») при переключении
-    if (pureNodes.length > 0) {
-        var sumX = 0, sumY = 0, countWithPos = 0
-        for (var c = 0; c < pureNodes.length; c++) {
-            if (typeof pureNodes[c].x === "number" && !isNaN(pureNodes[c].x)) {
-                sumX += pureNodes[c].x
-                sumY += pureNodes[c].y
-                countWithPos++
+    var normActive = normalizeUrl(graphRoot.activeFileUrl)
+    var activeNode = null
+    if (normActive) {
+        for (var a = 0; a < pureNodes.length; a++) {
+            if (pureNodes[a].type === "file" && pureNodes[a].fileUrl && 
+                (pureNodes[a].fileUrl === graphRoot.activeFileUrl || normalizeUrl(pureNodes[a].fileUrl) === normActive)) {
+                activeNode = pureNodes[a]
+                graphRoot.activeNodeId = activeNode.id
+                break
             }
         }
-        if (countWithPos === pureNodes.length && countWithPos > 0) {
-            var shiftX = targetCX - (sumX / countWithPos)
-            var shiftY = targetCY - (sumY / countWithPos)
-            for (var m = 0; m < pureNodes.length; m++) {
+    }
+
+    // Центрируем граф строго в (targetCX, targetCY):
+    // Если есть активный файл, совмещаем активный узел с (targetCX, targetCY) и сбрасываем panX=0, panY=0.
+    // Это исключает конфликт между panY камеры и центральной гравитацией cy, из-за которого граф улетал наверх!
+    if (pureNodes.length > 0) {
+        var shiftX = 0, shiftY = 0
+        if (activeNode && typeof activeNode.x === "number" && !isNaN(activeNode.x)) {
+            shiftX = targetCX - activeNode.x
+            shiftY = targetCY - activeNode.y
+        } else {
+            var sumX = 0, sumY = 0, countWithPos = 0
+            for (var c = 0; c < pureNodes.length; c++) {
+                if (typeof pureNodes[c].x === "number" && !isNaN(pureNodes[c].x)) {
+                    sumX += pureNodes[c].x
+                    sumY += pureNodes[c].y
+                    countWithPos++
+                }
+            }
+            if (countWithPos > 0) {
+                shiftX = targetCX - (sumX / countWithPos)
+                shiftY = targetCY - (sumY / countWithPos)
+            }
+        }
+        for (var m = 0; m < pureNodes.length; m++) {
+            if (typeof pureNodes[m].x === "number" && !isNaN(pureNodes[m].x)) {
                 pureNodes[m].x += shiftX
                 pureNodes[m].y += shiftY
+            } else {
+                pureNodes[m].x = targetCX
+                pureNodes[m].y = targetCY
             }
+            pureNodes[m].vx = 0
+            pureNodes[m].vy = 0
         }
     }
 
@@ -154,6 +181,13 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer) {
         Physics.stepSimulation(sim)
         if (sim.isSleeping) break
     }
+
+    // После прогрева гасим остаточные линейные импульсы, чтобы граф не улетал при открытии
+    for (var z = 0; z < sim.nodes.length; z++) {
+        sim.nodes[z].vx = 0
+        sim.nodes[z].vy = 0
+    }
+
     sim.isSleeping = false
     sim.totalEnergy = 10
     if (animTimer) {
@@ -164,24 +198,18 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer) {
         graphRoot.nodePositionsCache[pureNodes[s].id] = { x: pureNodes[s].x, y: pureNodes[s].y }
     }
 
-    if (graphRoot.activeFileUrl) {
-        centerOnNode(graphRoot, canvas, graphRoot.activeFileUrl)
-    }
+    // Камера центрирована строго без смещений
+    graphRoot.panX = 0
+    graphRoot.panY = 0
+
     if (canvas) canvas.requestPaint()
 }
 
 function wakeSimulation(graphRoot, canvas, animTimer) {
     if (graphRoot.sim && graphRoot.sim.nodes) {
-        // Мягкий органичный микро-импульс для естественного колыхания на месте (без улетания)
-        for (var i = 0; i < graphRoot.sim.nodes.length; i++) {
-            var n = graphRoot.sim.nodes[i]
-            if (!n.isFixed) {
-                n.vx += (Math.random() - 0.5) * 0.4
-                n.vy += (Math.random() - 0.5) * 0.4
-            }
-        }
+        // Мягкое естественное пробуждение без дрейфа в какую-либо сторону
         graphRoot.sim.isSleeping = false
-        graphRoot.sim.totalEnergy = 15
+        graphRoot.sim.totalEnergy = 10
         if (animTimer) animTimer.running = true
         if (canvas) canvas.requestPaint()
     }

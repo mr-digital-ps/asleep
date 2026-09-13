@@ -4,6 +4,166 @@ from pathlib import Path
 from PyQt6.QtCore import QObject, pyqtSignal, QFileSystemWatcher, QTimer
 from services.config_service import parse_json_with_comments
 
+RU_TO_VK = {
+    'Й': 0x51, 'Ц': 0x57, 'У': 0x45, 'К': 0x52, 'Е': 0x54, 'Н': 0x59, 'Г': 0x55,
+    'Ш': 0x49, 'Щ': 0x4F, 'З': 0x50, 'Ф': 0x41, 'Ы': 0x53, 'В': 0x44, 'А': 0x46,
+    'П': 0x47, 'Р': 0x48, 'О': 0x4A, 'Л': 0x4B, 'Д': 0x4C, 'Я': 0x5A, 'Ч': 0x58,
+    'С': 0x43, 'М': 0x56, 'И': 0x42, 'Т': 0x4E, 'Ь': 0x4D, 'Б': 0xBC, 'Ю': 0xBE
+}
+
+VK_SPECIAL = {
+    'ESCAPE': 0x1B, 'ESC': 0x1B,
+    'TAB': 0x09,
+    'RETURN': 0x0D, 'ENTER': 0x0D,
+    'BACKSLASH': 0xDC, '\\': 0xDC,
+    'SLASH': 0xBF, '/': 0xBF,
+}
+for _i in range(1, 13):
+    VK_SPECIAL[f'F{_i}'] = 0x70 + (_i - 1)
+
+from PyQt6.QtCore import Qt, QEvent
+from PyQt6.QtGui import QKeyEvent
+
+QT_KEY_SPECIAL = {
+    'ESCAPE': Qt.Key.Key_Escape, 'ESC': Qt.Key.Key_Escape,
+    'TAB': Qt.Key.Key_Tab,
+    'RETURN': Qt.Key.Key_Return, 'ENTER': Qt.Key.Key_Return,
+    'BACKSLASH': Qt.Key.Key_Backslash, '\\': Qt.Key.Key_Backslash,
+    'SLASH': Qt.Key.Key_Slash, '/': Qt.Key.Key_Slash,
+}
+for _i in range(1, 13):
+    QT_KEY_SPECIAL[f'F{_i}'] = getattr(Qt.Key, f'Key_F{_i}')
+
+
+def parse_shortcut_spec(spec: str) -> tuple[bool, bool, bool, set[int], set[int]]:
+    """
+    Разбирает строку хоткея (например 'Ctrl+Shift+H', 'Ctrl+G', 'Ctrl+П', 'F9', 'Ctrl+\\')
+    в кортеж: (ctrl, shift, alt, vks_set, qt_keys_set).
+    """
+    parts = [p.strip() for p in spec.split("+") if p.strip()]
+    ctrl = False
+    shift = False
+    alt = False
+    vks = set()
+    qt_keys = set()
+
+    key_token = ""
+    for p in parts:
+        pl = p.lower()
+        if pl in ("ctrl", "control"):
+            ctrl = True
+        elif pl == "shift":
+            shift = True
+        elif pl == "alt":
+            alt = True
+        else:
+            key_token = p
+
+    if key_token:
+        up = key_token.upper()
+        if up in VK_SPECIAL:
+            vks.add(VK_SPECIAL[up])
+        if up in QT_KEY_SPECIAL:
+            qt_keys.add(QT_KEY_SPECIAL[up].value)
+
+        # Буквы латиницы (A-Z)
+        if len(up) == 1 and 'A' <= up <= 'Z':
+            vks.add(ord(up))
+            qt_key_enum = getattr(Qt.Key, f"Key_{up}", None)
+            if qt_key_enum is not None:
+                qt_keys.add(qt_key_enum.value)
+
+        # Буквы кириллицы (ЙЦУКЕН)
+        if up in RU_TO_VK:
+            vks.add(RU_TO_VK[up])
+
+        # Цифры (0-9)
+        if len(up) == 1 and '0' <= up <= '9':
+            vks.add(ord(up))
+            qt_key_enum = getattr(Qt.Key, f"Key_{up}", None)
+            if qt_key_enum is not None:
+                qt_keys.add(qt_key_enum.value)
+
+    return ctrl, shift, alt, vks, qt_keys
+
+
+class HotkeyMatcher:
+    """
+    Высокопроизводительный матчер клавиш для кросс-раскладочной обработки хоткеев.
+    Сопоставляет события нажатия клавиш на уровне nativeVirtualKey и Qt.Key.
+    """
+    def __init__(self, hotkeys_dict: dict):
+        self.rules = []
+        self._compile(hotkeys_dict)
+
+    def _compile(self, hotkeys_dict: dict):
+        self.rules = []
+        for action, data in hotkeys_dict.items():
+            keys = data.get("keys", [])
+            for k in keys:
+                ctrl, shift, alt, vks, qt_keys = parse_shortcut_spec(str(k))
+                if not vks and not qt_keys:
+                    continue
+                # Для toggle_graph явно добавляем клавишу U (0x55, русская 'Г')
+                if action == "toggle_graph" and ctrl and not shift and not alt:
+                    vks.add(0x55)
+                # Для close_tab явно гарантируем W (0x57, 'Ц') и Q (0x51, 'Й')
+                if action == "close_tab" and ctrl and not shift and not alt:
+                    vks.add(0x57)
+                    vks.add(0x51)
+                self.rules.append({
+                    "action": action,
+                    "ctrl": ctrl,
+                    "shift": shift,
+                    "alt": alt,
+                    "vks": vks,
+                    "qt_keys": qt_keys,
+                })
+
+    def match_event(self, event: QKeyEvent) -> str | None:
+        mods = event.modifiers()
+        ctrl = bool(mods & Qt.KeyboardModifier.ControlModifier)
+        shift = bool(mods & Qt.KeyboardModifier.ShiftModifier)
+        alt = bool(mods & Qt.KeyboardModifier.AltModifier)
+        vk = event.nativeVirtualKey()
+        qt_key = event.key()
+
+        for rule in self.rules:
+            if rule["ctrl"] == ctrl and rule["shift"] == shift and rule["alt"] == alt:
+                if vk and vk in rule["vks"]:
+                    return rule["action"]
+                if qt_key and qt_key in rule["qt_keys"]:
+                    return rule["action"]
+        return None
+
+
+class GlobalHotkeyFilter(QObject):
+    """
+    Глобальный фильтр событий QApplication.
+    Перехватывает нажатия горячих клавиш в любой точке приложения до того,
+    как они могут быть поглощены элементами ввода или QML Shortcut.
+    """
+    def __init__(self, hotkey_service, backend, parent=None):
+        super().__init__(parent)
+        self.hotkey_service = hotkey_service
+        self.backend = backend
+        self.matcher = HotkeyMatcher(self.hotkey_service.get_hotkeys())
+        self.hotkey_service.hotkeys_changed.connect(self._on_hotkeys_changed)
+
+    def _on_hotkeys_changed(self, hotkeys: dict):
+        self.matcher = HotkeyMatcher(hotkeys)
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        if event.type() == QEvent.Type.KeyPress:
+            action = self.matcher.match_event(event)
+            if action:
+                if hasattr(self.backend, "actionRequested"):
+                    self.backend.actionRequested.emit(action)
+                event.accept()
+                return True
+        return super().eventFilter(watched, event)
+
+
 DEFAULT_HOTKEYS = {
     "toggle_header_footer": {
         "keys": ["F9", "Ctrl+Shift+H", "Alt+H"],

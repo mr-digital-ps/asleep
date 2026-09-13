@@ -201,6 +201,16 @@ Rectangle {
         onCloseActiveTabRequested: root.closeActiveTab()
     }
 
+    Connections {
+        target: (typeof backend !== "undefined") ? backend : null
+        function onActionRequested(action) {
+            if (root.appWindow && typeof root.appWindow.active !== "undefined" && !root.appWindow.active) {
+                return
+            }
+            root.executeAction(action)
+        }
+    }
+
     property alias hotkeyMapping: hotkeyManager.hotkeyMapping
     property alias flatHotkeysList: hotkeyManager.flatHotkeysList
     function reloadHotkeys() { hotkeyManager.reloadHotkeys() }
