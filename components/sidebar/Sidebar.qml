@@ -165,7 +165,6 @@ Rectangle {
 
         // 0. Шапка рабочей папки
         SidebarHeader {
-            appWindow: sideBar.appWindow
             barSize: sideBar.barSize
             expanded: sideBar.expanded
             currentFolderUrl: sideBar.currentFolderUrl
@@ -195,7 +194,6 @@ Rectangle {
             currentFileUrl: sideBar.currentFileUrl
             backgroundFileUrl: sideBar.backgroundFileUrl
             isSplit: sideBar.isSplit
-            tabsModel: sideBar.tabsModel
             externalWindowFiles: sideBar.externalWindowFiles
 
             onFileSelected: (url, name, isShift) => sideBar.fileSelected(url, name, isShift)

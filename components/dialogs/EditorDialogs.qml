@@ -14,10 +14,6 @@ Item {
     property alias openDialog: openDialog
     property alias saveDialog: saveDialog
 
-    function openFolder() { folderDialog.open() }
-    function openFile() { openDialog.open() }
-    function saveFile() { saveDialog.open() }
-
     FolderDialog {
         id: folderDialog
         title: "Выберите рабочую папку"

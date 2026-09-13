@@ -16,7 +16,6 @@ Item {
     property bool isGraphMode: false
     property string folderName: ""
     property real scrollY: 0
-    property real maxTitleWidth: 700
     property real contentLeftPadding: 0
     property real contentRightPadding: 0
 
@@ -25,12 +24,6 @@ Item {
     signal titleCommitted(string newTitle)
     signal paneActivated()
     signal pinToggled()
-    signal toggleGraphModeRequested(bool toGraph)
-    signal centerGraphRequested()
-    signal closeGraphRequested()
-    signal fileDragStarted(string url, string name, real gx, real gy)
-    signal fileDragMoved(real gx, real gy)
-    signal fileDragEnded(string url, string name, real gx, real gy)
 
     y: isPinned ? Math.max(0, scrollY) : 0
 
@@ -52,16 +45,11 @@ Item {
             isSplitMode: headerRoot.isSplitMode
             isActivePane: headerRoot.isActivePane
             isEmpty: headerRoot.isEmpty
-            maxTitleWidth: headerRoot.maxTitleWidth
             contentLeftPadding: headerRoot.contentLeftPadding
             contentRightPadding: headerRoot.contentRightPadding
 
             onTitleCommitted: (newTitle) => headerRoot.titleCommitted(newTitle)
             onPaneActivated: headerRoot.paneActivated()
-            onToggleGraphModeRequested: (toGraph) => headerRoot.toggleGraphModeRequested(toGraph)
-            onFileDragStarted: (url, name, gx, gy) => headerRoot.fileDragStarted(url, name, gx, gy)
-            onFileDragMoved: (gx, gy) => headerRoot.fileDragMoved(gx, gy)
-            onFileDragEnded: (url, name, gx, gy) => headerRoot.fileDragEnded(url, name, gx, gy)
         }
 
         // Строка заголовка в режиме графа на листе

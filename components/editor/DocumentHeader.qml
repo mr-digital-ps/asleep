@@ -20,7 +20,6 @@ RowLayout {
     property bool isSplitMode: false
     property bool isActivePane: false
     property bool isEmpty: false
-    property real maxTitleWidth: 600
 
     property real contentLeftPadding: 0
     property real contentRightPadding: 0
@@ -29,10 +28,6 @@ RowLayout {
 
     signal titleCommitted(string newTitle)
     signal paneActivated()
-    signal toggleGraphModeRequested(bool toGraph)
-    signal fileDragStarted(string url, string name, real gx, real gy)
-    signal fileDragMoved(real gx, real gy)
-    signal fileDragEnded(string url, string name, real gx, real gy)
 
     function stripExt(name) {
         if (!name) return ""

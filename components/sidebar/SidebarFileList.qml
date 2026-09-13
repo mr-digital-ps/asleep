@@ -13,7 +13,6 @@ Item {
     property string currentFileUrl: ""
     property string backgroundFileUrl: ""
     property bool isSplit: false
-    property var tabsModel: null
     property var externalWindowFiles: []
 
     signal fileSelected(string url, string name, bool isShift)

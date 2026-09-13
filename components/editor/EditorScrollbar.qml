@@ -12,7 +12,6 @@ Item {
     signal activated()
 
     width: barSize
-    property bool isFooterPinned: false
     property bool hasHeader: true
     property bool hasFooter: true
     property real topMargin: hasHeader ? 76 : 16
@@ -39,10 +38,13 @@ Item {
             scrollbarOverlay.activated()
         }
         onDoubleClicked: {
-            if (Window.window.visibility === Window.Maximized) {
-                Window.window.showNormal()
-            } else {
-                Window.window.showMaximized()
+            let win = Window.window
+            if (win) {
+                if (win.visibility === Window.Maximized) {
+                    win.showNormal()
+                } else {
+                    win.showMaximized()
+                }
             }
         }
     }

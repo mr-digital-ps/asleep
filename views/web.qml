@@ -149,7 +149,6 @@ Rectangle {
     function closeTab(index) { Tabs.closeTab(root, index) }
     function renameTab(index, newTitle) { Tabs.renameTab(root, index, newTitle) }
     function detachTab(index, spawnX, spawnY) { Tabs.detachTab(root, index, spawnX, spawnY) }
-    function reattachTab(index, content, title) { Tabs.reattachTab(root, index, content, title) }
     function toggleSplit() { Tabs.toggleSplit(root) }
     function closeSplit() { Tabs.closeSplit(root) }
     function setActivePane(paneIndex) { Tabs.setActivePane(root, paneIndex) }
@@ -345,7 +344,6 @@ Rectangle {
             }
             onPrimaryCloseRequested: root.closeTab(root.primaryTabIndex)
             onSecondaryCloseRequested: root.closeTab(root.secondaryTabIndex)
-            onCloseSplitRequested: () => Tabs.closeSplit(root)
             onPaneActivated: (paneIndex) => Tabs.setActivePane(root, paneIndex)
             onSaveRequested: Logic.saveFile(root, saveDialog, backend)
             onOpenRequested: root.executeAction("open_file")

@@ -20,7 +20,6 @@ Item {
     property bool isCustomFontSizeSetByUser: false
     property bool isSplitMode: false
     property bool isActivePane: false
-    property bool showCloseButton: false
     property bool isEmpty: false
     property bool isReceivingExternalSync: false
     property string customFontFamily: "Segoe UI, Inter, -apple-system, sans-serif"
@@ -278,31 +277,16 @@ Item {
                     isGraphMode: mainBar.isGraphMode
                     folderName: mainBar.currentFolderName
                     scrollY: mainBar.scrollY
-                    maxTitleWidth: paperSheet.width - 72
                     contentLeftPadding: editorArea.leftPadding
                     contentRightPadding: editorArea.rightPadding
                     visible: mainBar.showHeader && (!mainBar.isEmpty || mainBar.isGraphMode)
 
                     onTitleCommitted: (newTitle) => mainBar.titleChangedByUser(newTitle)
                     onPaneActivated: mainBar.paneActivated()
-                    onCenterGraphRequested: {
-                        if (sheetGraphView) {
-                            sheetGraphView.centerOnNode(mainBar.fileUrl)
-                        }
-                    }
-                    onCloseGraphRequested: {
-                        mainBar.closeGraphRequested()
-                    }
-                    onToggleGraphModeRequested: (toGraph) => {
-                        mainBar.toggleGraphModeRequested(toGraph)
-                    }
                     onPinToggled: {
                         mainBar.isHeaderPinned = !mainBar.isHeaderPinned
                         mainBar.saveHeaderPinnedState(mainBar.isHeaderPinned)
                     }
-                    onFileDragStarted: (url, name, gx, gy) => mainBar.fileDragStarted(url, name, gx, gy)
-                    onFileDragMoved: (gx, gy) => mainBar.fileDragMoved(gx, gy)
-                    onFileDragEnded: (url, name, gx, gy) => mainBar.fileDragEnded(url, name, gx, gy)
                 }
 
                 // 2. Рабочая область документа (Gutter + TextArea + шорткаты)
@@ -430,7 +414,6 @@ Item {
         editorScroll: editorScroll
         paperSheet: paperSheet
         isEmpty: mainBar.isEmpty
-        isFooterPinned: mainBar.isFooterPinned
         hasHeader: mainBar.showHeader
         hasFooter: mainBar.showFooter
         barSize: 36

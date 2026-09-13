@@ -15,7 +15,6 @@ MouseArea {
     property var containerItem: null
     property real minWidth: 380
     property real maxWidth: 2000
-    property real defaultWidth: 800
     property bool forceVisible: false
     property bool isDragging: false
 

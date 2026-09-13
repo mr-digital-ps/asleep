@@ -41,7 +41,6 @@ Item {
     signal secondaryDetachRequested()
     signal primaryCloseRequested()
     signal secondaryCloseRequested()
-    signal closeSplitRequested()
     signal paneActivated(int paneIndex)
     signal fileDragStarted(int paneIndex, string url, string name, real gx, real gy)
     signal fileDragMoved(real gx, real gy)
@@ -71,7 +70,6 @@ Item {
             isSplitMode: splitLayout.isSplit
             isActivePane: splitLayout.activePane === 0
             isEmpty: splitLayout.isPrimaryEmpty
-            showCloseButton: false
 
             // Режим графа на листе
             isGraphMode: splitLayout.isGraphVisible && splitLayout.activePane === 0
@@ -145,7 +143,6 @@ Item {
             fileUrl: splitLayout.secondaryFileUrl
             isSplitMode: splitLayout.isSplit
             isActivePane: splitLayout.activePane === 1
-            showCloseButton: true
 
             // Режим графа на листе
             isGraphMode: splitLayout.isSplit && splitLayout.isGraphVisible && splitLayout.activePane === 1
@@ -189,18 +186,6 @@ Item {
                     splitLayout.secondaryTextChanged(secondaryBar.editorArea.text)
                 }
             }
-        }
-    }
-
-    function focusPane(paneIndex) {
-        var targetBar = (paneIndex === 1) ? secondaryBar : primaryBar
-        if (targetBar && (targetBar.isTitleFocused || (targetBar.titleField && (targetBar.titleField.activeFocus || targetBar.titleField.focus)))) {
-            return
-        }
-        if (paneIndex === 1 && secondaryBar && secondaryBar.editorArea) {
-            secondaryBar.editorArea.forceActiveFocus()
-        } else if (primaryBar && primaryBar.editorArea) {
-            primaryBar.editorArea.forceActiveFocus()
         }
     }
 
