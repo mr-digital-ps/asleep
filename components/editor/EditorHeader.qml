@@ -25,6 +25,11 @@ Item {
     signal paneActivated()
     signal pinToggled()
 
+    function stripExt(name) {
+        if (!name) return ""
+        return name.replace(/\.md$/i, "")
+    }
+
     y: isPinned ? Math.max(0, scrollY) : 0
 
     Rectangle {
@@ -67,7 +72,7 @@ Item {
             spacing: 8
 
             Text {
-                text: "📁 " + (headerRoot.folderName ? headerRoot.folderName : "Граф связей")
+                text: "🕸 " + (headerRoot.fileName ? headerRoot.stripExt(headerRoot.fileName) : "Граф связей")
                 font.pixelSize: 17
                 font.bold: true
                 color: Theme.textPrimary

@@ -184,6 +184,7 @@ Item {
         anchors.fill: parent
         clip: true
         contentWidth: availableWidth
+        contentHeight: scrollContentContainer.height
         Binding {
             target: editorScroll.contentItem
             property: "interactive"
@@ -413,7 +414,7 @@ Item {
         id: editorScrollbar
         editorScroll: editorScroll
         paperSheet: paperSheet
-        isEmpty: mainBar.isEmpty
+        isEmpty: mainBar.isEmpty || mainBar.isGraphMode
         hasHeader: mainBar.showHeader
         hasFooter: mainBar.showFooter
         barSize: 36
