@@ -205,9 +205,6 @@ Rectangle {
         target: (typeof backend !== "undefined") ? backend : null
         ignoreUnknownSignals: true
         function onActionRequested(action) {
-            if (root.appWindow && typeof root.appWindow.active !== "undefined" && !root.appWindow.active) {
-                return
-            }
             root.executeAction(action)
         }
     }

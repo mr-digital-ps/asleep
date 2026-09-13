@@ -4,12 +4,38 @@ from pathlib import Path
 from PyQt6.QtCore import QObject, pyqtSignal, QFileSystemWatcher, QTimer
 from services.config_service import parse_json_with_comments
 
-RU_TO_VK = {
-    'Й': 0x51, 'Ц': 0x57, 'У': 0x45, 'К': 0x52, 'Е': 0x54, 'Н': 0x59, 'Г': 0x55,
-    'Ш': 0x49, 'Щ': 0x4F, 'З': 0x50, 'Ф': 0x41, 'Ы': 0x53, 'В': 0x44, 'А': 0x46,
-    'П': 0x47, 'Р': 0x48, 'О': 0x4A, 'Л': 0x4B, 'Д': 0x4C, 'Я': 0x5A, 'Ч': 0x58,
-    'С': 0x43, 'М': 0x56, 'И': 0x42, 'Т': 0x4E, 'Ь': 0x4D, 'Б': 0xBC, 'Ю': 0xBE
+# Полная таблица аппаратных скан-кодов (PS/2 Set 1 для Windows), виртуальных клавиш (VK) и Qt/Unicode символов
+KEY_MAPPINGS = {
+    'Q': {'scan': 16, 'vk': 0x51, 'ru': 'Й', 'qt_ru': [1049, 1081]},
+    'W': {'scan': 17, 'vk': 0x57, 'ru': 'Ц', 'qt_ru': [1062, 1094]},
+    'E': {'scan': 18, 'vk': 0x45, 'ru': 'У', 'qt_ru': [1059, 1091]},
+    'R': {'scan': 19, 'vk': 0x52, 'ru': 'К', 'qt_ru': [1050, 1082]},
+    'T': {'scan': 20, 'vk': 0x54, 'ru': 'Е', 'qt_ru': [1045, 1077]},
+    'Y': {'scan': 21, 'vk': 0x59, 'ru': 'Н', 'qt_ru': [1053, 1085]},
+    'U': {'scan': 22, 'vk': 0x55, 'ru': 'Г', 'qt_ru': [1043, 1075]},
+    'I': {'scan': 23, 'vk': 0x49, 'ru': 'Ш', 'qt_ru': [1064, 1096]},
+    'O': {'scan': 24, 'vk': 0x4F, 'ru': 'Щ', 'qt_ru': [1065, 1097]},
+    'P': {'scan': 25, 'vk': 0x50, 'ru': 'З', 'qt_ru': [1047, 1079]},
+    'A': {'scan': 30, 'vk': 0x41, 'ru': 'Ф', 'qt_ru': [1060, 1092]},
+    'S': {'scan': 31, 'vk': 0x53, 'ru': 'Ы', 'qt_ru': [1067, 1099]},
+    'D': {'scan': 32, 'vk': 0x44, 'ru': 'В', 'qt_ru': [1042, 1074]},
+    'F': {'scan': 33, 'vk': 0x46, 'ru': 'А', 'qt_ru': [1040, 1072]},
+    'G': {'scan': 34, 'vk': 0x47, 'ru': 'П', 'qt_ru': [1055, 1087]},
+    'H': {'scan': 35, 'vk': 0x48, 'ru': 'Р', 'qt_ru': [1056, 1088]},
+    'J': {'scan': 36, 'vk': 0x4A, 'ru': 'О', 'qt_ru': [1054, 1086]},
+    'K': {'scan': 37, 'vk': 0x4B, 'ru': 'Л', 'qt_ru': [1051, 1083]},
+    'L': {'scan': 38, 'vk': 0x4C, 'ru': 'Д', 'qt_ru': [1044, 1076]},
+    'Z': {'scan': 44, 'vk': 0x5A, 'ru': 'Я', 'qt_ru': [1071, 1103]},
+    'X': {'scan': 45, 'vk': 0x58, 'ru': 'Ч', 'qt_ru': [1063, 1095]},
+    'C': {'scan': 46, 'vk': 0x43, 'ru': 'С', 'qt_ru': [1057, 1089]},
+    'V': {'scan': 47, 'vk': 0x56, 'ru': 'М', 'qt_ru': [1052, 1084]},
+    'B': {'scan': 48, 'vk': 0x42, 'ru': 'И', 'qt_ru': [1048, 1080]},
+    'N': {'scan': 49, 'vk': 0x4E, 'ru': 'Т', 'qt_ru': [1058, 1090]},
+    'M': {'scan': 50, 'vk': 0x4D, 'ru': 'Ь', 'qt_ru': [1068, 1100]},
 }
+
+# Обратный поиск: русская буква -> запись KEY_MAPPINGS
+RU_CHAR_TO_MAPPING = {data['ru']: (letter, data) for letter, data in KEY_MAPPINGS.items()}
 
 VK_SPECIAL = {
     'ESCAPE': 0x1B, 'ESC': 0x1B,
@@ -35,10 +61,10 @@ for _i in range(1, 13):
     QT_KEY_SPECIAL[f'F{_i}'] = getattr(Qt.Key, f'Key_F{_i}')
 
 
-def parse_shortcut_spec(spec: str) -> tuple[bool, bool, bool, set[int], set[int]]:
+def parse_shortcut_spec(spec: str) -> tuple[bool, bool, bool, set[int], set[int], set[int], set[str]]:
     """
     Разбирает строку хоткея (например 'Ctrl+Shift+H', 'Ctrl+G', 'Ctrl+П', 'F9', 'Ctrl+\\')
-    в кортеж: (ctrl, shift, alt, vks_set, qt_keys_set).
+    в кортеж: (ctrl, shift, alt, vks_set, qt_keys_set, scan_codes_set, chars_set).
     """
     parts = [p.strip() for p in spec.split("+") if p.strip()]
     ctrl = False
@@ -46,6 +72,8 @@ def parse_shortcut_spec(spec: str) -> tuple[bool, bool, bool, set[int], set[int]
     alt = False
     vks = set()
     qt_keys = set()
+    scan_codes = set()
+    chars = set()
 
     key_token = ""
     for p in parts:
@@ -61,6 +89,7 @@ def parse_shortcut_spec(spec: str) -> tuple[bool, bool, bool, set[int], set[int]
 
     if key_token:
         up = key_token.upper()
+        chars.add(up)
         if up in VK_SPECIAL:
             vks.add(VK_SPECIAL[up])
         if up in QT_KEY_SPECIAL:
@@ -72,25 +101,46 @@ def parse_shortcut_spec(spec: str) -> tuple[bool, bool, bool, set[int], set[int]
             qt_key_enum = getattr(Qt.Key, f"Key_{up}", None)
             if qt_key_enum is not None:
                 qt_keys.add(qt_key_enum.value)
+            if up in KEY_MAPPINGS:
+                m = KEY_MAPPINGS[up]
+                scan_codes.add(m['scan'])
+                chars.add(m['ru'])
+                for qtr in m['qt_ru']:
+                    qt_keys.add(qtr)
 
         # Буквы кириллицы (ЙЦУКЕН)
-        if up in RU_TO_VK:
-            vks.add(RU_TO_VK[up])
+        elif up in RU_CHAR_TO_MAPPING:
+            lat_char, m = RU_CHAR_TO_MAPPING[up]
+            chars.add(lat_char)
+            scan_codes.add(m['scan'])
+            vks.add(m['vk'])
+            qt_key_enum = getattr(Qt.Key, f"Key_{lat_char}", None)
+            if qt_key_enum is not None:
+                qt_keys.add(qt_key_enum.value)
+            for qtr in m['qt_ru']:
+                qt_keys.add(qtr)
 
         # Цифры (0-9)
-        if len(up) == 1 and '0' <= up <= '9':
+        elif len(up) == 1 and '0' <= up <= '9':
             vks.add(ord(up))
             qt_key_enum = getattr(Qt.Key, f"Key_{up}", None)
             if qt_key_enum is not None:
                 qt_keys.add(qt_key_enum.value)
+            # Scan code для 0-9
+            digit = int(up)
+            scan_codes.add(11 if digit == 0 else (1 + digit))
 
-    return ctrl, shift, alt, vks, qt_keys
+    return ctrl, shift, alt, vks, qt_keys, scan_codes, chars
 
 
 class HotkeyMatcher:
     """
     Высокопроизводительный матчер клавиш для кросс-раскладочной обработки хоткеев.
-    Сопоставляет события нажатия клавиш на уровне nativeVirtualKey и Qt.Key.
+    Сопоставляет события нажатия клавиш на уровнях:
+    1. nativeScanCode (аппаратный код физической клавиши на клавиатуре — 100% не зависит от раскладки)
+    2. nativeVirtualKey (код виртуальной клавиши Windows)
+    3. Qt.Key (перечисление Qt и Unicode кодовые точки)
+    4. event.text() (символьное представление)
     """
     def __init__(self, hotkeys_dict: dict):
         self.rules = []
@@ -101,16 +151,30 @@ class HotkeyMatcher:
         for action, data in hotkeys_dict.items():
             keys = data.get("keys", [])
             for k in keys:
-                ctrl, shift, alt, vks, qt_keys = parse_shortcut_spec(str(k))
-                if not vks and not qt_keys:
+                ctrl, shift, alt, vks, qt_keys, scan_codes, chars = parse_shortcut_spec(str(k))
+                if not vks and not qt_keys and not scan_codes:
                     continue
-                # Для toggle_graph явно добавляем клавишу U (0x55, русская 'Г')
+
+                # Для toggle_graph гарантируем оба варианта:
+                # 1. Физическая клавиша G (русская буква 'П', scan 34, VK 0x47)
+                # 2. Мнемоническая буква 'Г' для "Граф" (физическая клавиша U, scan 22, VK 0x55)
                 if action == "toggle_graph" and ctrl and not shift and not alt:
+                    vks.add(0x47)
                     vks.add(0x55)
-                # Для close_tab явно гарантируем W (0x57, 'Ц') и Q (0x51, 'Й')
+                    scan_codes.add(34)
+                    scan_codes.add(22)
+                    qt_keys.update([71, 85, 1055, 1087, 1043, 1075])
+                    chars.update(['G', 'U', 'П', 'Г'])
+
+                # Для close_tab гарантируем W (scan 17, 'Ц') и Q (scan 16, 'Й')
                 if action == "close_tab" and ctrl and not shift and not alt:
                     vks.add(0x57)
                     vks.add(0x51)
+                    scan_codes.add(17)
+                    scan_codes.add(16)
+                    qt_keys.update([87, 81, 1062, 1094, 1049, 1081])
+                    chars.update(['W', 'Q', 'Ц', 'Й'])
+
                 self.rules.append({
                     "action": action,
                     "ctrl": ctrl,
@@ -118,6 +182,8 @@ class HotkeyMatcher:
                     "alt": alt,
                     "vks": vks,
                     "qt_keys": qt_keys,
+                    "scan_codes": scan_codes,
+                    "chars": chars,
                 })
 
     def match_event(self, event: QKeyEvent) -> str | None:
@@ -125,14 +191,24 @@ class HotkeyMatcher:
         ctrl = bool(mods & Qt.KeyboardModifier.ControlModifier)
         shift = bool(mods & Qt.KeyboardModifier.ShiftModifier)
         alt = bool(mods & Qt.KeyboardModifier.AltModifier)
+        scan = event.nativeScanCode()
         vk = event.nativeVirtualKey()
         qt_key = event.key()
+        txt = (event.text() or "").upper()
 
         for rule in self.rules:
             if rule["ctrl"] == ctrl and rule["shift"] == shift and rule["alt"] == alt:
+                # 1. Сравнение по аппаратному скан-коду клавиши (неуязвимо к языку ввода)
+                if scan and scan in rule["scan_codes"]:
+                    return rule["action"]
+                # 2. Сравнение по Virtual Key (Windows)
                 if vk and vk in rule["vks"]:
                     return rule["action"]
+                # 3. Сравнение по Qt.Key / Unicode коду
                 if qt_key and qt_key in rule["qt_keys"]:
+                    return rule["action"]
+                # 4. Сравнение по тексту символа
+                if txt and txt in rule["chars"]:
                     return rule["action"]
         return None
 

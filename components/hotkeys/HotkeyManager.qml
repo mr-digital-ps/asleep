@@ -32,16 +32,7 @@ Item {
         }
     }
 
-    // Динамическая регистрация горячих клавиш из hotkeys.json
-    Instantiator {
-        id: dynamicHotkeys
-        model: hotkeyRoot.flatHotkeysList
-        delegate: Shortcut {
-            sequence: modelData.key
-            context: Qt.ApplicationShortcut
-            onActivated: hotkeyRoot.actionTriggered(modelData.action)
-        }
-    }
+
 
     function isCloseKey(event) {
         if (!(event.modifiers & Qt.ControlModifier)) return false

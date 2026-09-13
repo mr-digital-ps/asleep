@@ -218,7 +218,17 @@ function handleGraphModeChanged(mainBar, editorScroll, sheetGraphView, editorAre
         }
         if (sheetGraphView) {
             sheetGraphView.activeFileUrl = mainBar.fileUrl
-            sheetGraphView.reloadGraph()
+            var graphW = (mainBar.isCenteredMode && mainBar.customSheetWidth)
+                ? Math.min(mainBar.width || 800, Math.max(mainBar.minSheetWidth || 380, mainBar.customSheetWidth))
+                : (mainBar.width || 800)
+            var headerH = (mainBar.showHeader ? 70 : 0)
+            var footerH = (mainBar.showFooter ? 70 : 0)
+            var graphH = Math.max(100, (mainBar.height || 600) - headerH - footerH)
+            if (typeof sheetGraphView.reloadGraphWithDimensions === "function") {
+                sheetGraphView.reloadGraphWithDimensions(graphW, graphH)
+            } else {
+                sheetGraphView.reloadGraph()
+            }
             sheetGraphView.forceActiveFocus()
         }
     } else {

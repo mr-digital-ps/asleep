@@ -190,6 +190,12 @@ Item {
             property: "interactive"
             value: !mainBar.isGraphMode
         }
+        Binding {
+            target: editorScroll.contentItem
+            property: "contentY"
+            value: 0
+            when: mainBar.isGraphMode
+        }
 
         WheelHandler {
             target: editorScroll.contentItem
@@ -248,9 +254,9 @@ Item {
 
                 width: mainBar.isCenteredMode ? Math.min(parent.width, Math.max(mainBar.minSheetWidth, mainBar.customSheetWidth)) : parent.width
                 height: parent.height
-                y: mainBar.isGraphMode ? (editorScroll && editorScroll.contentItem ? editorScroll.contentItem.contentY : 0) : 0
+                y: 0
                 anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: mainBar.isGraphMode ? undefined : parent.top
+                anchors.top: parent.top
 
                 color: Theme.bgPaper
 

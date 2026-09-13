@@ -34,19 +34,14 @@ Rectangle {
     focus: true
     Keys.onPressed: (event) => Interaction.handleKey(graphRoot, event)
 
-    Shortcut {
-        sequence: "Ctrl+G"
-        enabled: graphRoot.visible
-        onActivated: graphRoot.closeRequested()
-    }
-    Shortcut {
-        sequence: "Ctrl+Shift+G"
-        enabled: graphRoot.visible
-        onActivated: graphRoot.closeRequested()
-    }
+
 
     function reloadGraph() {
         Interaction.reloadGraph(graphRoot, canvas, (typeof backend !== "undefined" ? backend : null), Physics, animTimer)
+    }
+
+    function reloadGraphWithDimensions(w, h) {
+        Interaction.reloadGraph(graphRoot, canvas, (typeof backend !== "undefined" ? backend : null), Physics, animTimer, w, h)
     }
 
     function wakeSimulation() {
@@ -73,7 +68,7 @@ Rectangle {
 
     onVisibleChanged: {
         if (visible) {
-            wakeSimulation()
+            canvas.requestPaint()
         }
     }
 
@@ -88,18 +83,10 @@ Rectangle {
     }
 
     onWidthChanged: {
-        if (sim) {
-            sim.width = width
-            sim.cx = width / 2
-        }
-        canvas.requestPaint()
+        Interaction.handleResize(graphRoot, canvas, width, height)
     }
     onHeightChanged: {
-        if (sim) {
-            sim.height = height
-            sim.cy = height / 2
-        }
-        canvas.requestPaint()
+        Interaction.handleResize(graphRoot, canvas, width, height)
     }
 
     Timer {
@@ -166,7 +153,10 @@ Rectangle {
 
         onWheel: (wheel) => Interaction.handleWheel(graphRoot, canvas, wheel)
         onPositionChanged: (mouse) => Interaction.handleMouseMove(graphRoot, canvas, animTimer, mouse, graphMouse, Renderer)
-        onPressed: (mouse) => Interaction.handleMouseDown(graphRoot, animTimer, mouse, graphMouse, Renderer)
+        onPressed: (mouse) => {
+            graphRoot.forceActiveFocus()
+            Interaction.handleMouseDown(graphRoot, animTimer, mouse, graphMouse, Renderer)
+        }
         onReleased: (mouse) => Interaction.handleMouseUp(graphRoot, canvas, animTimer, mouse, graphMouse)
     }
 

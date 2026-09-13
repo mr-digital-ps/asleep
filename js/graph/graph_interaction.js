@@ -92,7 +92,7 @@ function getGraphStats(sim) {
     return parts.join(" · ")
 }
 
-function reloadGraph(graphRoot, canvas, backend, Physics, animTimer) {
+function reloadGraph(graphRoot, canvas, backend, Physics, animTimer, forcedW, forcedH) {
     if (!backend || typeof backend.get_graph_data !== "function") return
     var data = backend.get_graph_data(graphRoot.folderUrl)
     if (!data || !data.nodes) return
@@ -120,8 +120,8 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer) {
         }
     }
 
-    var canW = (canvas && canvas.width > 50) ? canvas.width : ((graphRoot && graphRoot.width > 50) ? graphRoot.width : 800)
-    var canH = (canvas && canvas.height > 50) ? canvas.height : ((graphRoot && graphRoot.height > 50) ? graphRoot.height : 600)
+    var canW = (typeof forcedW === "number" && forcedW > 50) ? forcedW : ((canvas && canvas.width > 50) ? canvas.width : ((graphRoot && graphRoot.width > 50) ? graphRoot.width : 800))
+    var canH = (typeof forcedH === "number" && forcedH > 50) ? forcedH : ((canvas && canvas.height > 50) ? canvas.height : ((graphRoot && graphRoot.height > 50) ? graphRoot.height : 600))
     var targetCX = canW / 2
     var targetCY = canH / 2
     var sim = Physics.initSimulation(pureNodes, pureLinks, canW, canH, config)
@@ -182,6 +182,36 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer) {
     if (animTimer) {
         animTimer.running = false
     }
+
+    if (canvas) canvas.requestPaint()
+}
+
+function handleResize(graphRoot, canvas, newWidth, newHeight) {
+    if (!graphRoot.sim || !graphRoot.sim.nodes || graphRoot.sim.nodes.length === 0) return
+    var sim = graphRoot.sim
+    var oldW = (typeof sim.width === "number" && sim.width > 50) ? sim.width : newWidth
+    var oldH = (typeof sim.height === "number" && sim.height > 50) ? sim.height : newHeight
+    var dw = (newWidth - oldW) / 2
+    var dh = (newHeight - oldH) / 2
+
+    if (Math.abs(dw) > 1 || Math.abs(dh) > 1) {
+        for (var i = 0; i < sim.nodes.length; i++) {
+            sim.nodes[i].x += dw
+            sim.nodes[i].y += dh
+            sim.nodes[i].vx = 0
+            sim.nodes[i].vy = 0
+            if (graphRoot.nodePositionsCache) {
+                graphRoot.nodePositionsCache[sim.nodes[i].id] = { x: sim.nodes[i].x, y: sim.nodes[i].y }
+            }
+        }
+    }
+
+    sim.width = newWidth
+    sim.height = newHeight
+    sim.cx = newWidth / 2
+    sim.cy = newHeight / 2
+    sim.isSleeping = true
+    sim.totalEnergy = 0
 
     if (canvas) canvas.requestPaint()
 }
