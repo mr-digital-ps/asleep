@@ -35,7 +35,11 @@ Rectangle {
     Keys.onPressed: (event) => Interaction.handleKey(graphRoot, event)
 
     function reloadGraph() {
-        Interaction.reloadGraph(graphRoot, canvas, (typeof backend !== "undefined" ? backend : null), Physics)
+        Interaction.reloadGraph(graphRoot, canvas, (typeof backend !== "undefined" ? backend : null), Physics, animTimer)
+    }
+
+    function wakeSimulation() {
+        Interaction.wakeSimulation(graphRoot, canvas, animTimer)
     }
 
     function resetView() {
@@ -55,6 +59,12 @@ Rectangle {
     }
 
     Component.onCompleted: reloadGraph()
+
+    onVisibleChanged: {
+        if (visible) {
+            wakeSimulation()
+        }
+    }
 
     onActiveFileUrlChanged: {
         if (activeFileUrl) centerOnNode(activeFileUrl)

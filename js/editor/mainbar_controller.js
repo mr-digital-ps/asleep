@@ -218,6 +218,9 @@ function handleGraphModeChanged(mainBar, editorScroll, sheetGraphView, editorAre
             sheetGraphView.reloadGraph()
             Qt.callLater(function() {
                 sheetGraphView.centerOnNode(mainBar.fileUrl)
+                if (typeof sheetGraphView.wakeSimulation === "function") {
+                    sheetGraphView.wakeSimulation()
+                }
                 sheetGraphView.forceActiveFocus()
             })
         }

@@ -142,12 +142,12 @@ function renderGraph(ctx, width, height, sim, state) {
         var baseFill = (n.type === "block" ? nodeColorBlock : (n.type === "tag" ? nodeColorTag : nodeColorFile))
         var baseStroke = borderColor
 
-        // Механика игровой миникарты: маркер "Вы здесь" (двойное кольцо)
+        // Маркер активного файла ("Вы здесь") — аккуратное кольцо
         if (isActivePlayer) {
             ctx.beginPath()
-            ctx.arc(n.x, n.y, (n.radius || 4.5) + 4.5, 0, 2 * Math.PI)
-            ctx.strokeStyle = textPrimary
-            ctx.lineWidth = 1.8
+            ctx.arc(n.x, n.y, (n.radius || 4.5) + 2.6, 0, 2 * Math.PI)
+            ctx.strokeStyle = textSecondary
+            ctx.lineWidth = 1.2
             ctx.stroke()
         }
 
@@ -155,22 +155,22 @@ function renderGraph(ctx, width, height, sim, state) {
         ctx.arc(n.x, n.y, n.radius || 4.5, 0, 2 * Math.PI)
 
         if (isDragged) {
-            ctx.fillStyle = borderHover
+            ctx.fillStyle = bgActive
             ctx.fill()
-            ctx.strokeStyle = textPrimary
-            ctx.lineWidth = 1.8
+            ctx.strokeStyle = textSecondary
+            ctx.lineWidth = 1.4
             ctx.stroke()
         } else if (isHover) {
             ctx.fillStyle = borderHover
             ctx.fill()
             ctx.strokeStyle = textSecondary
-            ctx.lineWidth = 1.6
+            ctx.lineWidth = 1.4
             ctx.stroke()
         } else if (isActivePlayer) {
-            ctx.fillStyle = textPrimary
+            ctx.fillStyle = textSecondary
             ctx.fill()
-            ctx.strokeStyle = borderHover
-            ctx.lineWidth = 1.2
+            ctx.strokeStyle = borderColor
+            ctx.lineWidth = 1.0
             ctx.stroke()
         } else if (isConnected) {
             ctx.fillStyle = bgActive

@@ -84,7 +84,7 @@ function getGraphStats(sim) {
     return parts.join(" · ")
 }
 
-function reloadGraph(graphRoot, canvas, backend, Physics) {
+function reloadGraph(graphRoot, canvas, backend, Physics, animTimer) {
     if (!backend || typeof backend.get_graph_data !== "function") return
     var data = backend.get_graph_data(graphRoot.folderUrl)
     if (!data || !data.nodes) return
@@ -115,13 +115,16 @@ function reloadGraph(graphRoot, canvas, backend, Physics) {
     var sim = Physics.initSimulation(pureNodes, pureLinks, (canvas && canvas.width) || 800, (canvas && canvas.height) || 600, config)
     graphRoot.sim = sim
 
-    // Прогрев симуляции (pre-warming)
-    for (var tick = 0; tick < 220; tick++) {
+    // Мягкий прогрев симуляции, оставляющий энергию для живого движения
+    for (var tick = 0; tick < 60; tick++) {
         Physics.stepSimulation(sim)
         if (sim.isSleeping) break
     }
-    sim.isSleeping = true
-    sim.totalEnergy = 0
+    sim.isSleeping = false
+    sim.totalEnergy = 25
+    if (animTimer) {
+        animTimer.running = true
+    }
 
     for (var s = 0; s < pureNodes.length; s++) {
         graphRoot.nodePositionsCache[pureNodes[s].id] = { x: pureNodes[s].x, y: pureNodes[s].y }
@@ -136,7 +139,7 @@ function reloadGraph(graphRoot, canvas, backend, Physics) {
 function wakeSimulation(graphRoot, canvas, animTimer) {
     if (graphRoot.sim) {
         graphRoot.sim.isSleeping = false
-        graphRoot.sim.totalEnergy = 15
+        graphRoot.sim.totalEnergy = 25
         if (animTimer) animTimer.running = true
         if (canvas) canvas.requestPaint()
     }
