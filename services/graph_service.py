@@ -9,37 +9,21 @@ MD_LINK_REGEX = re.compile(r'\[([^\]]+)\]\(([^)]+\.(?:md|markdown|txt))\)', re.I
 TAG_REGEX = re.compile(r'(?<!\S)#([a-zA-Zа-яА-ЯёЁ0-9_\-]+)(?!\S)')
 H1_REGEX = re.compile(r'^#\s+([^\n\r]+)', re.MULTILINE)
 
-DEFAULT_GRAPH_CONFIG = {
-    "physics": {
-        "repulsion": 3600,
-        "repulsionDistanceMax": 800,
-        "linkDistance": 85,
-        "linkStrength": 0.014,
-        "plasticDeformation": 0.035,
-        "plasticMaxDistance": 300,
-        "plasticRecoveryRate": 0.0005,
-        "gravity": 0.0005,
-        "damping": 0.82,
-        "maxVelocity": 15.0,
-        "initialSpread": 0.35
-    },
-    "visual": {
-        "nodeRadiusMin": 3.5,
-        "nodeRadiusMax": 8.5,
-        "nodeRadiusBase": 3.2,
-        "nodeRadiusWeight": 1.3,
-        "backgroundColor": "#181818",
-        "nodeColorFile": "#383838",
-        "nodeColorBlock": "#2a2a2a",
-        "nodeColorTag": "#323232",
-        "nodeHoverBrightness": 1.25,
-        "linkColor": "#242424",
-        "linkHoverColor": "#444444",
-        "labelColor": "#737373",
-        "labelHoverColor": "#ffffff",
-        "labelFontSize": 10
-    }
-}
+def load_default_graph_config(project_root: Path | None = None) -> dict:
+    """Динамически загружает эталонные дефолты из config/default/graph.json."""
+    if project_root is None:
+        project_root = Path(__file__).resolve().parent.parent
+    f = project_root / "config" / "default" / "graph.json"
+    if f.exists():
+        try:
+            data = parse_json_with_comments(f.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                return data
+        except Exception as e:
+            print(f"[GraphService] Ошибка чтения {f.name}: {e}")
+    return {"physics": {}, "visual": {}}
+
+DEFAULT_GRAPH_CONFIG = load_default_graph_config()
 
 def _deep_merge(base: dict, override: dict) -> dict:
     result = copy.deepcopy(base)
@@ -61,37 +45,92 @@ class GraphService:
         self.block_engine = block_engine
         self.file_service = file_service
         self.project_root = Path(__file__).resolve().parent.parent
+        self._graph_cache = {}
+        self._config_cache = {}
+        self._node_positions = {}
+
+    def _get_folder_key(self, folder_path: Path | str | None) -> str:
+        if not folder_path:
+            return "global"
+        try:
+            p = Path(folder_path) if isinstance(folder_path, str) else folder_path
+            s = str(p).strip()
+            if not s or s == ".":
+                return "global"
+            return str(p.resolve())
+        except Exception:
+            return "global"
+
+    def save_node_positions(self, folder_path: Path | str | None, positions: dict):
+        """Сохраняет фиксированные физические координаты узлов графа"""
+        if not isinstance(positions, dict):
+            return
+        folder_key = self._get_folder_key(folder_path)
+        if folder_key not in self._node_positions:
+            self._node_positions[folder_key] = {}
+        for nid, pos in positions.items():
+            if isinstance(pos, dict) and "x" in pos and "y" in pos:
+                try:
+                    self._node_positions[folder_key][str(nid)] = {
+                        "x": float(pos["x"]),
+                        "y": float(pos["y"])
+                    }
+                except (ValueError, TypeError):
+                    pass
+
+        # Синхронизируем обновленные координаты в закешированном графе
+        if folder_key in self._graph_cache and isinstance(self._graph_cache[folder_key], dict):
+            for n in self._graph_cache[folder_key].get("nodes", []):
+                nid = n.get("id")
+                if nid in self._node_positions[folder_key]:
+                    n["x"] = self._node_positions[folder_key][nid]["x"]
+                    n["y"] = self._node_positions[folder_key][nid]["y"]
+
+        # Сохраняем на диск в _graph_positions.json для персистентности между перезапусками
+        try:
+            p = Path(folder_path) if isinstance(folder_path, str) else folder_path
+            if p and p.exists() and p.is_dir():
+                f_pos = p / "_graph_positions.json"
+                f_pos.write_text(json.dumps(self._node_positions[folder_key], ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+
+    def get_node_positions(self, folder_path: Path | str | None) -> dict:
+        """Возвращает сохраненные координаты узлов для папки (из памяти или с диска)"""
+        folder_key = self._get_folder_key(folder_path)
+        if folder_key not in self._node_positions or not self._node_positions[folder_key]:
+            try:
+                p = Path(folder_path) if isinstance(folder_path, str) else folder_path
+                if p and p.exists() and p.is_dir():
+                    f_pos = p / "_graph_positions.json"
+                    if f_pos.exists():
+                        data = json.loads(f_pos.read_text(encoding="utf-8"))
+                        if isinstance(data, dict):
+                            self._node_positions[folder_key] = data
+            except Exception:
+                pass
+        return copy.deepcopy(self._node_positions.get(folder_key, {}))
+
+    def invalidate_cache(self, folder_path: Path = None):
+        """Инвалидирует кеш графа для указанной папки или всего сервиса"""
+        if folder_path:
+            k = str(folder_path.resolve())
+            self._graph_cache.pop(k, None)
+            self._config_cache.pop(k, None)
+        else:
+            self._graph_cache.clear()
+            self._config_cache.clear()
 
     def get_config(self, folder_path: Path = None) -> dict:
         """
         Каскадная загрузка конфигурации графа:
-        1. Встроенный дефолт (DEFAULT_GRAPH_CONFIG)
-        2. Стандартный файл проекта (graph_default.json)
-        3. Пользовательский файл проекта (graph_user.json)
-        4. Локальный файл хранилища (_graph_settings.json)
+        1. config/default/graph.json
+        2. config/user/graph.json
+        3. folder_path/_graph_settings.json
         """
-        cfg = copy.deepcopy(DEFAULT_GRAPH_CONFIG)
+        cfg = load_default_graph_config(self.project_root)
 
-        # 1. Стандартный файл проекта (в config/default/ или fallback)
-        default_file = self.project_root / "config" / "default" / "graph.json"
-        if not default_file.exists():
-            default_file = self.project_root / "config" / "graph_default.json"
-        if not default_file.exists():
-            default_file = self.project_root / "graph_default.json"
-        if default_file.exists():
-            try:
-                data = parse_json_with_comments(default_file.read_text(encoding="utf-8"))
-                if isinstance(data, dict):
-                    cfg = _deep_merge(cfg, data)
-            except Exception as e:
-                print(f"[GraphService] Ошибка чтения {default_file.name}: {e}")
-
-        # 2. Пользовательский файл проекта (в config/user/ или fallback)
         user_file = self.project_root / "config" / "user" / "graph.json"
-        if not user_file.exists():
-            user_file = self.project_root / "config" / "graph_user.json"
-        if not user_file.exists():
-            user_file = self.project_root / "graph_user.json"
         if user_file.exists():
             try:
                 data = parse_json_with_comments(user_file.read_text(encoding="utf-8"))
@@ -100,7 +139,7 @@ class GraphService:
             except Exception as e:
                 print(f"[GraphService] Ошибка чтения {user_file.name}: {e}")
 
-        # 3. Локальные настройки текущего каталога заметок (если есть)
+        # Локальные настройки текущего каталога заметок (если есть)
         if folder_path and folder_path.exists() and folder_path.is_dir():
             for v_name in ["_graph_settings.json", "graph_settings.json"]:
                 vault_cfg = folder_path / v_name
@@ -119,6 +158,10 @@ class GraphService:
         if not folder_path or not folder_path.exists() or not folder_path.is_dir():
             return {"nodes": [], "links": []}
 
+        folder_key = str(folder_path.resolve())
+        if folder_key in self._graph_cache:
+            return copy.deepcopy(self._graph_cache[folder_key])
+
         nodes_map = {}
         links_set = set()
 
@@ -127,8 +170,9 @@ class GraphService:
         file_tags = {}  # tag -> list of paths
 
         # 1. Первый проход: собираем файлы и индексируем имена
+        supported_exts = self.file_service.get_supported_extensions(folder_path) if self.file_service else {".md", ".markdown", ".txt"}
         for p in folder_path.iterdir():
-            if not p.is_file() or p.suffix.lower() not in [".md", ".markdown", ".txt"]:
+            if not p.is_file() or p.suffix.lower() not in supported_exts:
                 continue
             if p.name.startswith(".") or p.name.startswith("_"):
                 continue
@@ -240,6 +284,14 @@ class GraphService:
 
         # 5. Преобразуем в финальный список nodes и links
         nodes_list = list(nodes_map.values())
+        saved_positions = self.get_node_positions(folder_path)
+        if saved_positions:
+            for n in nodes_list:
+                nid = n.get("id")
+                if nid in saved_positions:
+                    n["x"] = saved_positions[nid]["x"]
+                    n["y"] = saved_positions[nid]["y"]
+
         links_list = []
         for src, tgt, l_type in links_set:
             links_list.append({
@@ -248,10 +300,12 @@ class GraphService:
                 "type": l_type
             })
 
-        return {
+        result = {
             "nodes": nodes_list,
             "links": links_list
         }
+        self._graph_cache[folder_key] = result
+        return copy.deepcopy(result)
 
     def generate_graph_markdown(self, folder_path: Path, graph_data: dict = None) -> str:
         """

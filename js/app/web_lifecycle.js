@@ -58,15 +58,6 @@ function applyInitialState(root, Tabs) {
 
     var initTitle = (appWin && appWin.initialTitle) ? appWin.initialTitle : root.initialTitle
     var initContent = (appWin && appWin.initialContent) ? appWin.initialContent : root.initialContent
-    var hideSidebar = (appWin && appWin.startWithSidebarHidden) || root.startWithSidebarHidden
-
-    if (hideSidebar) {
-        root.isSidebarVisible = false
-        if (root.sideBar) {
-            root.sideBar.isSidebarVisible = false
-            root.sideBar.currentWidth = 0
-        }
-    }
 
     if (initUrl || initTitle) {
         var cleanInit = root.stripExt(initTitle || "Документ")
@@ -146,8 +137,7 @@ function spawnClonedAppWindow(root, fileUrl, title, content, wx, wy, ww, wh) {
             height: winH,
             initialFileUrl: fileUrl || "",
             initialTitle: title || "Документ",
-            initialContent: content || "",
-            startWithSidebarHidden: true
+            initialContent: content || ""
         })
         if (newWin && fileUrl) {
             registerExternalFile(root, fileUrl, newWin)
@@ -256,30 +246,6 @@ function handleFileSaveAccepted(root, backend, Tabs, selectedFile) {
     }
 }
 
-function handleSidebarFolderClicked(root, backend, openDialog, saveDialog, folderDialog) {
-    if (backend && typeof backend.choose_folder_dialog === "function") {
-        var res = backend.choose_folder_dialog(root.currentFolderUrl)
-        if (res && res.success) {
-            root.currentFolderUrl = res.folderUrl
-            root.currentFolderName = res.folderName
-            if (openDialog) openDialog.currentFolder = res.folderUrl
-            if (saveDialog) saveDialog.currentFolder = res.folderUrl
-            reloadFolderFiles(root, backend)
-        }
-    } else if (folderDialog && typeof folderDialog.open === "function") {
-        folderDialog.open()
-    }
-}
-
-function handleSidebarConfigClicked(root, backend) {
-    if (backend && typeof backend.open_or_create_folder_config === "function") {
-        var res = backend.open_or_create_folder_config(root.currentFolderUrl)
-        if (res && res.success && res.fileUrl) {
-            root.openFileFromFolder(res.fileUrl, res.fileName, false)
-        }
-    }
-}
-
 function handleFileDeleteRequested(root, backend, fUrl) {
     if (!root || !root.tabsModel) return
     for (var i = root.tabsModel.count - 1; i >= 0; i--) {
@@ -317,20 +283,5 @@ function handleTabDragStarted(root, dragTrackerTimer, url, name, gx, gy) {
     root.draggingFileName = name
     root.draggingPaneIndex = -1
     if (dragTrackerTimer) dragTrackerTimer.running = true
-}
-
-function handleToggleGraphMode(root, backend, toGraph) {
-    if (!root) return
-    if (toGraph) {
-        root.isGraphVisible = true
-    } else {
-        if (backend && typeof backend.sync_graph_file === "function") {
-            var res = backend.sync_graph_file(root.currentFolderUrl)
-            if (res && res.fileUrl) {
-                root.openFileFromFolder(res.fileUrl, res.fileName, false)
-            }
-        }
-        root.isGraphVisible = false
-    }
 }
 

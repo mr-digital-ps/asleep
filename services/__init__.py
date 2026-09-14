@@ -3,6 +3,7 @@ from services.block_engine import BlockEngine
 from services.window_manager import WindowManager
 from services.config_service import ConfigService
 from services.hotkey_service import HotkeyService
+from services.graph_service import GraphService
 
-__all__ = ["FileService", "BlockEngine", "WindowManager", "ConfigService", "HotkeyService"]
+__all__ = ["FileService", "BlockEngine", "WindowManager", "ConfigService", "HotkeyService", "GraphService"]
 

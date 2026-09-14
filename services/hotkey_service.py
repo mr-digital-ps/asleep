@@ -32,6 +32,15 @@ KEY_MAPPINGS = {
     'B': {'scan': 48, 'vk': 0x42, 'ru': 'И', 'qt_ru': [1048, 1080]},
     'N': {'scan': 49, 'vk': 0x4E, 'ru': 'Т', 'qt_ru': [1058, 1090]},
     'M': {'scan': 50, 'vk': 0x4D, 'ru': 'Ь', 'qt_ru': [1068, 1100]},
+    '[': {'scan': 26, 'vk': 0xDB, 'ru': 'Х', 'qt_ru': [1061, 1093]},
+    ']': {'scan': 27, 'vk': 0xDD, 'ru': 'Ъ', 'qt_ru': [1066, 1098]},
+    ';': {'scan': 39, 'vk': 0xBA, 'ru': 'Ж', 'qt_ru': [1046, 1078]},
+    "'": {'scan': 40, 'vk': 0xDE, 'ru': 'Э', 'qt_ru': [1069, 1101]},
+    ',': {'scan': 51, 'vk': 0xBC, 'ru': 'Б', 'qt_ru': [1041, 1073]},
+    '.': {'scan': 52, 'vk': 0xBE, 'ru': 'Ю', 'qt_ru': [1070, 1102]},
+    '`': {'scan': 41, 'vk': 0xC0, 'ru': 'Ё', 'qt_ru': [1025, 1105]},
+    '\\': {'scan': 43, 'vk': 0xDC, 'ru': '\\', 'qt_ru': [92]},
+    '/': {'scan': 53, 'vk': 0xBF, 'ru': '/', 'qt_ru': [47]},
 }
 
 # Обратный поиск: русская буква -> запись KEY_MAPPINGS
@@ -46,6 +55,21 @@ VK_SPECIAL = {
 }
 for _i in range(1, 13):
     VK_SPECIAL[f'F{_i}'] = 0x70 + (_i - 1)
+
+SCAN_SPECIAL = {
+    'ESCAPE': {1}, 'ESC': {1},
+    'TAB': {15},
+    'RETURN': {28}, 'ENTER': {28},
+    'BACKSLASH': {43, 86}, '\\': {43, 86},
+    'SLASH': {53}, '/': {53},
+}
+for _i in range(1, 13):
+    if _i <= 10:
+        SCAN_SPECIAL[f'F{_i}'] = {58 + _i}
+    elif _i == 11:
+        SCAN_SPECIAL[f'F{_i}'] = {87}
+    elif _i == 12:
+        SCAN_SPECIAL[f'F{_i}'] = {88}
 
 from PyQt6.QtCore import Qt, QEvent
 from PyQt6.QtGui import QKeyEvent
@@ -92,8 +116,17 @@ def parse_shortcut_spec(spec: str) -> tuple[bool, bool, bool, set[int], set[int]
         chars.add(up)
         if up in VK_SPECIAL:
             vks.add(VK_SPECIAL[up])
+        if up in SCAN_SPECIAL:
+            scan_codes.update(SCAN_SPECIAL[up])
         if up in QT_KEY_SPECIAL:
             qt_keys.add(QT_KEY_SPECIAL[up].value)
+        if up in KEY_MAPPINGS:
+            m = KEY_MAPPINGS[up]
+            scan_codes.add(m['scan'])
+            vks.add(m['vk'])
+            chars.add(m['ru'])
+            for qtr in m['qt_ru']:
+                qt_keys.add(qtr)
 
         # Буквы латиницы (A-Z)
         if len(up) == 1 and 'A' <= up <= 'Z':
@@ -101,12 +134,6 @@ def parse_shortcut_spec(spec: str) -> tuple[bool, bool, bool, set[int], set[int]
             qt_key_enum = getattr(Qt.Key, f"Key_{up}", None)
             if qt_key_enum is not None:
                 qt_keys.add(qt_key_enum.value)
-            if up in KEY_MAPPINGS:
-                m = KEY_MAPPINGS[up]
-                scan_codes.add(m['scan'])
-                chars.add(m['ru'])
-                for qtr in m['qt_ru']:
-                    qt_keys.add(qtr)
 
         # Буквы кириллицы (ЙЦУКЕН)
         elif up in RU_CHAR_TO_MAPPING:
@@ -158,13 +185,20 @@ class HotkeyMatcher:
                 # Для toggle_graph гарантируем оба варианта:
                 # 1. Физическая клавиша G (русская буква 'П', scan 34, VK 0x47)
                 # 2. Мнемоническая буква 'Г' для "Граф" (физическая клавиша U, scan 22, VK 0x55)
-                if action == "toggle_graph" and ctrl and not shift and not alt:
+                if action == "toggle_graph" and ctrl and not alt:
                     vks.add(0x47)
                     vks.add(0x55)
                     scan_codes.add(34)
                     scan_codes.add(22)
                     qt_keys.update([71, 85, 1055, 1087, 1043, 1075])
                     chars.update(['G', 'U', 'П', 'Г'])
+
+                # Для toggle_split гарантируем скан-коды и виртуальные клавиши для слэша
+                if action == "toggle_split" and ctrl and not shift and not alt:
+                    vks.update([0xDC, 0xE2])
+                    scan_codes.update([43, 86])
+                    qt_keys.update([92, 47])
+                    chars.update(['\\', '/'])
 
                 # Для close_tab гарантируем W (scan 17, 'Ц') и Q (scan 16, 'Й')
                 if action == "close_tab" and ctrl and not shift and not alt:
@@ -240,65 +274,22 @@ class GlobalHotkeyFilter(QObject):
         return super().eventFilter(watched, event)
 
 
-DEFAULT_HOTKEYS = {
-    "toggle_header_footer": {
-        "keys": ["F9", "Ctrl+Shift+H", "Alt+H"],
-        "description": "Показать / скрыть заголовок и статус-бар (Header и Footer)"
-    },
-    "toggle_footer": {
-        "keys": ["Ctrl+Shift+F", "Alt+F"],
-        "description": "Показать / скрыть только нижний статус-бар (Footer)"
-    },
-    "toggle_header": {
-        "keys": ["Ctrl+Shift+U", "Alt+U"],
-        "description": "Показать / скрыть только верхний заголовок (Header)"
-    },
-    "toggle_sidebar": {
-        "keys": ["Ctrl+Shift+B", "Alt+S"],
-        "description": "Показать / скрыть боковую панель"
-    },
+def load_default_hotkeys(project_root: Path | None = None) -> dict:
+    """Динамически загружает эталонные дефолты горячих клавиш из config/default/hotkeys.json."""
+    if project_root is None:
+        project_root = Path(__file__).parent.parent.resolve()
+    f = project_root / "config" / "default" / "hotkeys.json"
+    if f.exists():
+        try:
+            data = parse_json_with_comments(f.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                return {k: v for k, v in data.items() if not k.startswith("_")}
+        except Exception as e:
+            print(f"[HotkeyService] Ошибка чтения {f.name}: {e}")
+    return {}
 
-    "toggle_split": {
-        "keys": ["Ctrl+\\"],
-        "description": "Разделить экран (Split View)"
-    },
-    "toggle_centered_mode": {
-        "keys": ["Alt+W", "Ctrl+Shift+W"],
-        "description": "Переключить ширину листа (по центру / на всю ширину)"
-    },
-    "close_tab": {
-        "keys": ["Ctrl+W", "Ctrl+Q", "Ctrl+F4"],
-        "description": "Закрыть текущую вкладку или сплит"
-    },
-    "new_tab": {
-        "keys": ["Ctrl+N"],
-        "description": "Создать новый документ"
-    },
-    "open_file": {
-        "keys": ["Ctrl+O"],
-        "description": "Открыть файл"
-    },
-    "save_file": {
-        "keys": ["Ctrl+S"],
-        "description": "Сохранить файл"
-    },
-    "toggle_bold": {
-        "keys": ["Ctrl+B"],
-        "description": "Сделать выделенный текст жирным (**текст**)"
-    },
-    "toggle_italic": {
-        "keys": ["Ctrl+I"],
-        "description": "Сделать выделенный текст курсивом (*текст*)"
-    },
-    "detach_window": {
-        "keys": ["Ctrl+D", "Alt+D"],
-        "description": "Открепить документ в отдельное окно"
-    },
-    "toggle_graph": {
-        "keys": ["Ctrl+G", "Ctrl+Shift+G"],
-        "description": "Показать / скрыть интерактивный граф связей (Graph View)"
-    }
-}
+
+DEFAULT_HOTKEYS = load_default_hotkeys()
 
 
 class HotkeyService(QObject):
@@ -356,7 +347,7 @@ class HotkeyService(QObject):
         print("[HotkeyService] Горячие клавиши перезагружены")
 
     def _load_from_disk(self):
-        merged = copy.deepcopy(DEFAULT_HOTKEYS)
+        merged = copy.deepcopy(load_default_hotkeys(self.project_root))
 
         def _merge_hk_dict(source_dict: dict):
             for action, val in source_dict.items():
@@ -373,7 +364,7 @@ class HotkeyService(QObject):
                         "description": merged.get(action, {}).get("description", "")
                     }
 
-        # 1. Загрузка из default или legacy
+        # 1. Загрузка из custom_config_path или default/legacy
         if self.custom_config_path and self.custom_config_path.exists():
             try:
                 data = parse_json_with_comments(self.custom_config_path.read_text(encoding="utf-8"))
@@ -409,12 +400,14 @@ class HotkeyService(QObject):
         self._hotkeys = merged
 
     def save_to_disk(self) -> bool:
+        target = self.custom_config_path or self.user_hotkeys_path
         try:
+            target.parent.mkdir(parents=True, exist_ok=True)
             content = json.dumps(self._hotkeys, ensure_ascii=False, indent=2)
-            self.config_path.write_text(content, encoding="utf-8")
+            target.write_text(content, encoding="utf-8")
             return True
         except Exception as e:
-            print(f"[HotkeyService] Ошибка записи в {self.config_path.name}: {e}")
+            print(f"[HotkeyService] Ошибка записи в {target.name}: {e}")
             return False
 
     def get_hotkeys(self) -> dict:

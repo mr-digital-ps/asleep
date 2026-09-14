@@ -21,12 +21,6 @@
 		"description": "Показать / скрыть только верхний заголовок (Header)"
 	},
 
-	// Боковая панель
-	"toggle_sidebar": {
-		"keys": ["Ctrl+Shift+B", "Alt+S"],
-		"description": "Показать / скрыть боковую панель"
-	},
-
 	// Сплит экрана
 	"toggle_split": {
 		"keys": ["Ctrl+\\"],

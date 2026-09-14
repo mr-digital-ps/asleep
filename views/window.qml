@@ -18,7 +18,6 @@ ApplicationWindow {
     property string initialFileUrl: ""
     property string initialTitle: ""
     property string initialContent: ""
-    property bool startWithSidebarHidden: false
 
     Keys.forwardTo: (hotLoader && hotLoader.item) ? [hotLoader.item] : []
 

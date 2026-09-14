@@ -35,8 +35,8 @@ Item {
     // Сигналы
     signal primaryTitleChanged(string newTitle)
     signal secondaryTitleChanged(string newTitle)
-    signal primaryTextChanged(string newText)
-    signal secondaryTextChanged(string newText)
+    signal primaryTextChanged()
+    signal secondaryTextChanged()
     signal primaryDetachRequested()
     signal secondaryDetachRequested()
     signal primaryCloseRequested()
@@ -48,11 +48,10 @@ Item {
     signal saveRequested()
     signal openRequested()
     signal newRequested()
-    signal toggleSidebarRequested()
     signal toggleGraphRequested()
+    signal toggleSplitRequested()
     signal nodeSelected(string fileUrl, string label)
     signal closeGraphRequested()
-    signal toggleGraphModeRequested(bool toGraph)
 
 
     // Контейнер с панелями редактора
@@ -91,10 +90,9 @@ Item {
             onSaveRequested: splitLayout.saveRequested()
             onOpenRequested: splitLayout.openRequested()
             onNewRequested: splitLayout.newRequested()
-            onToggleSidebarRequested: splitLayout.toggleSidebarRequested()
             onToggleGraphRequested: splitLayout.toggleGraphRequested()
+            onToggleSplitRequested: splitLayout.toggleSplitRequested()
             onCloseGraphRequested: splitLayout.closeGraphRequested()
-            onToggleGraphModeRequested: (toGraph) => splitLayout.toggleGraphModeRequested(toGraph)
             onNodeSelected: (fUrl, lbl) => splitLayout.nodeSelected(fUrl, lbl)
         }
 
@@ -164,10 +162,9 @@ Item {
             onSaveRequested: splitLayout.saveRequested()
             onOpenRequested: splitLayout.openRequested()
             onNewRequested: splitLayout.newRequested()
-            onToggleSidebarRequested: splitLayout.toggleSidebarRequested()
             onToggleGraphRequested: splitLayout.toggleGraphRequested()
+            onToggleSplitRequested: splitLayout.toggleSplitRequested()
             onCloseGraphRequested: splitLayout.closeGraphRequested()
-            onToggleGraphModeRequested: (toGraph) => splitLayout.toggleGraphModeRequested(toGraph)
             onNodeSelected: (fUrl, lbl) => splitLayout.nodeSelected(fUrl, lbl)
         }
 
@@ -175,7 +172,7 @@ Item {
         Connections {
             target: primaryBar.editorArea
             function onTextChanged() {
-                splitLayout.primaryTextChanged(primaryBar.editorArea.text)
+                splitLayout.primaryTextChanged()
             }
         }
 
@@ -183,7 +180,7 @@ Item {
             target: secondaryBar.editorArea
             function onTextChanged() {
                 if (splitLayout.isSplit) {
-                    splitLayout.secondaryTextChanged(secondaryBar.editorArea.text)
+                    splitLayout.secondaryTextChanged()
                 }
             }
         }

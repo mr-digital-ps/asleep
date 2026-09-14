@@ -22,7 +22,7 @@ Item {
 
         Text {
             Layout.alignment: Qt.AlignHCenter
-            text: "Выберите файл в меню слева\nили Shift + Клик для разделения экрана"
+            text: "Нажмите Ctrl+O, чтобы открыть файл,\nили Ctrl+N для создания нового документа"
             color: Theme.textMuted
             font.pixelSize: 13
             horizontalAlignment: Text.AlignHCenter

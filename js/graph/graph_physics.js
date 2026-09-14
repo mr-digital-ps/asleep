@@ -26,14 +26,16 @@ function initSimulation(nodes, links, width, height, options) {
     var cy = height / 2
 
     var nodeMap = {}
+    var phi = 2.399963229728653 // Золотой угол для равномерного распределения семян Фибоначчи
+    var distStep = Math.max(50, (linkDistance || 85) * 0.7)
     for (var i = 0; i < nodes.length; i++) {
         var n = nodes[i]
         if (typeof n.x === "undefined" || isNaN(n.x)) {
-            // Разбрасываем вокруг центра с настраиваемым радиусом
-            var angle = (i / Math.max(1, nodes.length)) * 2 * Math.PI
-            var r = 80 + Math.random() * (Math.min(width, height) * initialSpread)
-            n.x = cx + Math.cos(angle) * r
-            n.y = cy + Math.sin(angle) * r
+            // Равномерная спираль: узлы сразу начинают на естественном удалении друг от друга
+            var r = Math.sqrt(i + 1) * distStep
+            var theta = i * phi
+            n.x = cx + Math.cos(theta) * r
+            n.y = cy + Math.sin(theta) * r
         }
         n.vx = n.vx || 0
         n.vy = n.vy || 0
@@ -121,6 +123,14 @@ function stepSimulation(sim) {
                 var fx = (dx / dist) * force
                 var fy = (dy / dist) * force
 
+                // Мягкое предотвращение наложений (Collision avoidance)
+                var minDist = (n1.radius || 5) + (n2.radius || 5) + 10
+                if (dist < minDist && dist > 0.01) {
+                    var colPush = (minDist - dist) * 0.15
+                    fx += (dx / dist) * colPush
+                    fy += (dy / dist) * colPush
+                }
+
                 if (!n1.isFixed) {
                     n1.vx -= fx
                     n1.vy -= fy
@@ -169,15 +179,23 @@ function stepSimulation(sim) {
         }
     }
 
-    // 3. Гравитация к центру и затухание скорости
+    // 3. Сбалансированная гравитация к центру масс графа и затухание скорости
+    var sumX = 0, sumY = 0
+    for (var c = 0; c < nLen; c++) {
+        sumX += nodes[c].x
+        sumY += nodes[c].y
+    }
+    var comX = nLen > 0 ? (sumX / nLen) : cx
+    var comY = nLen > 0 ? (sumY / nLen) : cy
+
     var energy = 0
     for (var m = 0; m < nLen; m++) {
         var n = nodes[m]
 
         if (!n.isFixed) {
-            // Центральная гравитация
-            var gdx = cx - n.x
-            var gdy = cy - n.y
+            // Гравитация относительно центра масс: сумма сил равна строго 0 (нет дрейфа графа)
+            var gdx = comX - n.x
+            var gdy = comY - n.y
             n.vx += gdx * gravity
             n.vy += gdy * gravity
 

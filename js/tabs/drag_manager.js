@@ -1,6 +1,4 @@
-// drag_manager.js — физика перетаскивания файлов/вкладок, отрыв в окна ОС и встраивание в сплит
-
-function pollCursorState(root, sideBar, Tabs) {
+function pollCursorState(root, Tabs) {
     if (typeof backend !== "undefined" && backend && typeof backend.get_cursor_state === "function") {
         let state = backend.get_cursor_state()
         if (!state.leftPressed) {
@@ -17,11 +15,11 @@ function handleFileDragMoved(root, gx, gy) {
     if (!appWin) return
 
 
-    let sideW = (root.sideBar && root.sideBar.isSidebarVisible) ? root.sideBar.currentWidth : 0
+    let sideW = 0
     let isInsideCurrentWin = (gx >= appWin.x && gx <= (appWin.x + appWin.width) &&
                               gy >= appWin.y && gy <= (appWin.y + appWin.height))
 
-    if (isInsideCurrentWin && !root.draggedNewWin) {
+    if (isInsideCurrentWin) {
         // Мышь внутри исходного окна:
         if (typeof backend !== "undefined" && backend && typeof backend.clear_all_drop_zones === "function") {
             backend.clear_all_drop_zones()
@@ -64,13 +62,9 @@ function handleFileDragMoved(root, gx, gy) {
 
     // Проверяем, находится ли курсор над ДРУГИМ окном приложения
     if (typeof backend !== "undefined" && backend && typeof backend.find_target_window_at === "function") {
-        let res = backend.find_target_window_at(gx, gy, appWin, root.draggedNewWin || null)
+        let res = backend.find_target_window_at(gx, gy, appWin, null)
         if (res && res.found && res.targetWin) {
             backend.set_window_drop_zone(res.targetWin, res.zone)
-            if (root.draggedNewWin) {
-                root.draggedNewWin.x = Math.round(gx - 400)
-                root.draggedNewWin.y = Math.round(gy - 30)
-            }
             return
         }
     }
@@ -132,14 +126,13 @@ function handleFileDragEnded(root, fileUrl, fileName, gx, gy, Tabs) {
         fileName = root.draggingFileName
     }
     let draggedPaneIdx = (typeof root.draggingPaneIndex === "number") ? root.draggingPaneIndex : -1
-    root.draggedNewWin = null
     root.draggingFileUrl = ""
     root.draggingFileName = ""
     root.draggingPaneIndex = -1
     root.dropZone = ""
 
     let appWin = root.appWindow || (root.Window ? root.Window.window : null)
-    let sideW = (root.sideBar && root.sideBar.isSidebarVisible) ? root.sideBar.currentWidth : 0
+    let sideW = 0
     let isInsideCurrentWin = appWin && (gx >= appWin.x && gx <= (appWin.x + appWin.width) &&
                                          gy >= appWin.y && gy <= (appWin.y + appWin.height))
 

@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Layouts
 import "../../js/graph/graph_physics.js" as Physics
 import "../../js/graph/graph_renderer.js" as Renderer
 import "../../js/graph/graph_interaction.js" as Interaction
@@ -9,7 +8,7 @@ import "../theme"
 Rectangle {
     id: graphRoot
     anchors.fill: parent
-    color: embeddedInSheet ? "transparent" : ((graphConfig && graphConfig.visual && graphConfig.visual.backgroundColor && graphConfig.visual.backgroundColor !== "#141414") ? graphConfig.visual.backgroundColor : Theme.bgPaper)
+    color: embeddedInSheet ? "transparent" : ((graphConfig && graphConfig.visual && graphConfig.visual.backgroundColor && graphConfig.visual.backgroundColor !== Theme.bgApp) ? graphConfig.visual.backgroundColor : Theme.bgPaper)
     clip: true
 
     property string folderUrl: ""
@@ -27,6 +26,7 @@ Rectangle {
     property var draggedNode: null
     property var highlightedNodeIds: ({})
     property var nodePositionsCache: ({})
+    property alias canvas: canvas
 
     signal nodeClicked(string fileUrl, string label, string nodeType)
     signal closeRequested()
@@ -68,7 +68,12 @@ Rectangle {
 
     onVisibleChanged: {
         if (visible) {
-            canvas.requestPaint()
+            if (!sim || !sim.nodes || sim.nodes.length === 0) {
+                reloadGraph()
+            } else {
+                if (activeFileUrl) centerOnNode(activeFileUrl)
+                wakeSimulation()
+            }
         }
     }
 
@@ -76,10 +81,20 @@ Rectangle {
         if (activeFileUrl) centerOnNode(activeFileUrl)
     }
 
+    onFolderUrlChanged: {
+        if (folderUrl) {
+            reloadGraph()
+        }
+    }
+
     Connections {
         target: (typeof backend !== "undefined") ? backend : null
         function onGraphDataChanged() { graphRoot.reloadGraph() }
-        function onFolderFilesChanged() { graphRoot.reloadGraph() }
+        function onFolderFilesChanged() {
+            if (graphRoot.visible || !graphRoot.sim) {
+                graphRoot.reloadGraph()
+            }
+        }
     }
 
     onWidthChanged: {
@@ -94,7 +109,7 @@ Rectangle {
         interval: 16
         repeat: true
         running: false
-        onTriggered: Interaction.stepAnimation(graphRoot, canvas, animTimer, Physics)
+        onTriggered: Interaction.stepAnimation(graphRoot, canvas, animTimer, Physics, (typeof backend !== "undefined" ? backend : null))
     }
 
     Canvas {
@@ -157,92 +172,7 @@ Rectangle {
             graphRoot.forceActiveFocus()
             Interaction.handleMouseDown(graphRoot, animTimer, mouse, graphMouse, Renderer)
         }
-        onReleased: (mouse) => Interaction.handleMouseUp(graphRoot, canvas, animTimer, mouse, graphMouse)
-    }
-
-    Rectangle {
-        id: miniControls
-        anchors.top: parent.top
-        anchors.right: parent.right
-        anchors.margins: 12
-        height: 28
-        radius: 6
-        color: Theme.bgDialog
-        border.color: Theme.borderColor
-        border.width: 1
-        z: 100
-        visible: !graphRoot.embeddedInSheet
-
-        RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: 8
-            anchors.rightMargin: 8
-            spacing: 6
-
-            Text {
-                text: "🔍"
-                font.pixelSize: 10
-                color: Theme.textMuted
-            }
-
-            TextInput {
-                id: searchInput
-                width: 100
-                color: Theme.textPrimary
-                selectionColor: Theme.selectionColor
-                selectedTextColor: Theme.textSelected
-                font.pixelSize: 11
-                selectByMouse: true
-                clip: true
-                onTextChanged: Interaction.handleSearch(graphRoot, canvas, text)
-
-                Text {
-                    anchors.fill: parent
-                    text: "Поиск..."
-                    color: Theme.textMuted
-                    font.pixelSize: 11
-                    visible: !searchInput.text && !searchInput.activeFocus
-                }
-            }
-
-            Rectangle {
-                width: 1
-                height: 14
-                color: Theme.borderColor
-            }
-
-            Rectangle {
-                width: 20
-                height: 20
-                radius: 4
-                color: centerHover.hovered ? Theme.bgHover : "transparent"
-
-                Text {
-                    anchors.centerIn: parent
-                    text: "⊙"
-                    color: centerHover.hovered ? Theme.textPrimary : Theme.textMuted
-                    font.pixelSize: 12
-                }
-                HoverHandler { id: centerHover }
-                TapHandler { onTapped: graphRoot.resetView() }
-            }
-
-            Rectangle {
-                width: 20
-                height: 20
-                radius: 4
-                color: closeHover.hovered ? Theme.bgHover : "transparent"
-
-                Text {
-                    anchors.centerIn: parent
-                    text: "✕"
-                    color: closeHover.hovered ? Theme.dangerColor : Theme.textMuted
-                    font.pixelSize: 11
-                }
-                HoverHandler { id: closeHover }
-                TapHandler { onTapped: graphRoot.closeRequested() }
-            }
-        }
+        onReleased: (mouse) => Interaction.handleMouseUp(graphRoot, canvas, animTimer, mouse, graphMouse, (typeof backend !== "undefined" ? backend : null))
     }
 
     WheelHandler {

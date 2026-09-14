@@ -69,13 +69,6 @@ function swapPanes(root) {
     return Split.swapPanes(root, Sync.syncEditorsFromModel)
 }
 
-function handlePrimaryTextChanged(root, text) {
-    return Sync.handlePrimaryTextChanged(root, text)
-}
-
-function handleSecondaryTextChanged(root, text) {
-    return Sync.handleSecondaryTextChanged(root, text)
-}
 
 function detachTab(root, tabIndex) {
     return Model.detachTab(root, tabIndex, function(r, i) {

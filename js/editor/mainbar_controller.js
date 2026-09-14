@@ -53,6 +53,12 @@ function applyEditorConfig(mainBar, editorArea, cfg, backend) {
     if (typeof cfg.editor.focus_mode === "boolean") {
         mainBar.focusMode = cfg.editor.focus_mode
     }
+    if (typeof cfg.editor.show_line_dots === "boolean") {
+        mainBar.showLineDots = cfg.editor.show_line_dots
+    }
+    if (typeof cfg.editor.tab_size === "number" && cfg.editor.tab_size > 0) {
+        mainBar.tabSize = cfg.editor.tab_size
+    }
     var percent = (typeof cfg.editor.line_height === "number" && cfg.editor.line_height > 0) ? (cfg.editor.line_height * 100) : 135.0
     mainBar.editorLineHeightPercent = percent
     if (backend && typeof backend.set_editor_line_height === "function") {
@@ -130,7 +136,6 @@ function smoothScrollBy(editorScroll, smoothScrollAnim, deltaY) {
 
 function toggleFullWidth(mainBar, editorScroll, backend) {
     if (!editorScroll) return
-    mainBar.isCustomWidthSetByUser = true
     if (mainBar.customSheetWidth >= editorScroll.availableWidth - 20) {
         mainBar.customSheetWidth = 800
     } else {
@@ -182,13 +187,11 @@ function savePinnedState(backend, isHeader, pinned) {
 
 function handleSheetWidthRequested(mainBar, w) {
     mainBar.isCenteredMode = true
-    mainBar.isCustomWidthSetByUser = true
     mainBar.customSheetWidth = w
     mainBar.updateConfigParameterInText("sheet_width", w)
 }
 
 function handleSheetWidthCommitted(mainBar, backend, w) {
-    mainBar.isCustomWidthSetByUser = true
     mainBar.updateConfigParameterInText("sheet_width", w)
     if (backend && typeof backend.update_sheet_width === "function") {
         backend.update_sheet_width(w)
@@ -196,7 +199,6 @@ function handleSheetWidthCommitted(mainBar, backend, w) {
 }
 
 function handleWheelZoomFont(event, editorArea, mainBar, backend) {
-    mainBar.isCustomFontSizeSetByUser = true
     if (event.angleDelta.y > 0) {
         editorArea.font.pixelSize = Math.min(36, editorArea.font.pixelSize + 1)
     } else if (event.angleDelta.y < 0) {
@@ -218,16 +220,25 @@ function handleGraphModeChanged(mainBar, editorScroll, sheetGraphView, editorAre
         }
         if (sheetGraphView) {
             sheetGraphView.activeFileUrl = mainBar.fileUrl
-            var graphW = (mainBar.isCenteredMode && mainBar.customSheetWidth)
-                ? Math.min(mainBar.width || 800, Math.max(mainBar.minSheetWidth || 380, mainBar.customSheetWidth))
-                : (mainBar.width || 800)
-            var headerH = (mainBar.showHeader ? 70 : 0)
-            var footerH = (mainBar.showFooter ? 70 : 0)
-            var graphH = Math.max(100, (mainBar.height || 600) - headerH - footerH)
-            if (typeof sheetGraphView.reloadGraphWithDimensions === "function") {
-                sheetGraphView.reloadGraphWithDimensions(graphW, graphH)
+            if (sheetGraphView.sim && sheetGraphView.sim.nodes && sheetGraphView.sim.nodes.length > 0) {
+                sheetGraphView.centerOnNode(mainBar.fileUrl)
+                if (typeof sheetGraphView.wakeSimulation === "function") {
+                    sheetGraphView.wakeSimulation()
+                } else if (sheetGraphView.canvas) {
+                    sheetGraphView.canvas.requestPaint()
+                }
             } else {
-                sheetGraphView.reloadGraph()
+                var graphW = (mainBar.isCenteredMode && mainBar.customSheetWidth)
+                    ? Math.min(mainBar.width || 800, Math.max(mainBar.minSheetWidth || 380, mainBar.customSheetWidth))
+                    : (mainBar.width || 800)
+                var headerH = (mainBar.showHeader ? 70 : 0)
+                var footerH = (mainBar.showFooter ? 70 : 0)
+                var graphH = Math.max(100, (mainBar.height || 600) - headerH - footerH)
+                if (typeof sheetGraphView.reloadGraphWithDimensions === "function") {
+                    sheetGraphView.reloadGraphWithDimensions(graphW, graphH)
+                } else {
+                    sheetGraphView.reloadGraph()
+                }
             }
             sheetGraphView.forceActiveFocus()
         }
@@ -287,6 +298,11 @@ function handleBackgroundDragPressed(mouse, mainBar, state) {
             state.pressY = mouse.y
             state.isPressed = true
             state.isDragging = false
+        } else {
+            var win = mainBar.Window ? mainBar.Window.window : null
+            if (win && typeof win.startSystemMove === "function") {
+                win.startSystemMove()
+            }
         }
     }
 }
@@ -380,7 +396,6 @@ function handleTextChangedByUser(mainBar, blockSyncTimer, activeFocus) {
 }
 
 function handleFontSizeChanged(mainBar, backend, sz) {
-    mainBar.isCustomFontSizeSetByUser = true
     mainBar.updateConfigParameterInText("font_size", sz)
     if (backend && typeof backend.update_font_size === "function") {
         backend.update_font_size(sz)
@@ -409,11 +424,19 @@ function drawGutterDots(canvas, editorArea, width, height, activeColor, textColo
         var r = editorArea.positionToRectangle(pos)
         var dotY = r.y + (r.height / 2)
 
-        ctx.beginPath()
-        var radius = (isCurrentLine ? 3.2 : 2.2) * scale
-        ctx.arc(centerX, dotY, radius, 0, 2 * Math.PI)
-        ctx.fillStyle = isCurrentLine ? activeColor : textColor
-        ctx.fill()
+        // Прекращаем обход, если вышли за нижнюю границу видимости
+        if (r.y > height + 40) {
+            break
+        }
+
+        // Пропускаем строки выше верхней границы видимости
+        if (r.y + r.height >= -40) {
+            ctx.beginPath()
+            var radius = (isCurrentLine ? 3.2 : 2.2) * scale
+            ctx.arc(centerX, dotY, radius, 0, 2 * Math.PI)
+            ctx.fillStyle = isCurrentLine ? activeColor : textColor
+            ctx.fill()
+        }
 
         pos += lineLen + 1
     }

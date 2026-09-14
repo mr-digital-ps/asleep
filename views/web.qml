@@ -2,8 +2,6 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
-import QtQml
-import "../components/sidebar"
 import "../components/editor"
 import "../components/dialogs"
 import "../components/hotkeys"
@@ -40,15 +38,6 @@ Rectangle {
     property string currentFileName: "Новый документ"
     property int barSize: 36
 
-    // Видимость боковой панели (сайдбара)
-    property bool isSidebarVisible: true
-
-    // Параметры для клонирования окна
-    property string initialFileUrl: ""
-    property string initialTitle: ""
-    property string initialContent: ""
-    property bool startWithSidebarHidden: false
-
     // Текущая рабочая папка
     property string currentFolderUrl: (typeof backend !== "undefined" && backend) ? backend.get_default_folder() : ""
     property string currentFolderName: (typeof backend !== "undefined" && backend && currentFolderUrl) ? backend.get_folder_name(currentFolderUrl) : "my-text-editor"
@@ -80,7 +69,6 @@ Rectangle {
     property string draggingFileUrl: ""
     property string draggingFileName: ""
     property int draggingPaneIndex: -1
-    property var draggedNewWin: null
 
     // Таймер аппаратного отслеживания курсора во время перетаскивания (60 FPS)
     Timer {
@@ -88,7 +76,7 @@ Rectangle {
         interval: 16
         repeat: true
         running: false
-        onTriggered: DragMgr.pollCursorState(root, sideBar, Tabs)
+        onTriggered: DragMgr.pollCursorState(root, Tabs)
     }
 
     // Авто-сохранение изменений в файле с задержкой 1 сек после ввода
@@ -103,7 +91,6 @@ Rectangle {
     property alias tabsModel: tabsModel
     property alias folderFilesModel: folderFilesModel
     property alias dragTrackerTimer: dragTrackerTimer
-    property alias sideBar: sideBar
 
     ListModel {
         id: tabsModel
@@ -122,6 +109,16 @@ Rectangle {
 
     function reloadFolderFiles() { WebLifecycle.reloadFolderFiles(root, backend) }
     function applyFolderConfig(configJson) { WebLifecycle.applyFolderConfig(root, splitLayout, configJson) }
+    function reloadAppConfig() {
+        if (typeof backend !== "undefined" && backend && typeof backend.get_app_config === "function") {
+            try {
+                let appCfg = backend.get_app_config()
+                if (appCfg && typeof appCfg.auto_save_delay_ms === "number" && appCfg.auto_save_delay_ms > 0) {
+                    autoSaveTimer.interval = appCfg.auto_save_delay_ms
+                }
+            } catch(e) {}
+        }
+    }
 
     Connections {
         target: (typeof backend !== "undefined") ? backend : null
@@ -130,6 +127,7 @@ Rectangle {
             WebLifecycle.handleBlockUpdated(root, splitLayout, Tabs, headingNorm, content, sourceFileUrl)
         }
         function onConfigUpdated(configJson) { root.applyFolderConfig(configJson) }
+        function onAppConfigChanged() { root.reloadAppConfig() }
     }
 
     function openFileFromFolder(fileUrl, fileName, isShift) {
@@ -157,12 +155,6 @@ Rectangle {
     function handleFileDragEnded(fileUrl, fileName, gx, gy) { DragMgr.handleFileDragEnded(root, fileUrl, fileName, gx, gy, Tabs) }
     function dockExternalTab(fileUrl, fileName, content, zone) { DragMgr.dockFileInCurrentWindow(root, fileUrl, fileName, content, zone, Tabs) }
 
-    // Переключение видимости боковой панели (сайдбара)
-    function toggleSidebar() {
-        sideBar.toggleSidebar()
-        root.isSidebarVisible = sideBar.isSidebarVisible
-    }
-
     // Делегирование управления окнами и клонированием в модуль WebLifecycle
     function spawnClonedAppWindow(fileUrl, title, content, wx, wy, ww, wh) {
         return WebLifecycle.spawnClonedAppWindow(root, fileUrl, title, content, wx, wy, ww, wh)
@@ -189,6 +181,7 @@ Rectangle {
     property alias saveDialog: editorDialogs.saveDialog
 
     Component.onCompleted: {
+        root.reloadAppConfig()
         WebLifecycle.initializeWorkspace(root, backend, Tabs, openDialog, saveDialog)
     }
 
@@ -212,7 +205,6 @@ Rectangle {
     property alias hotkeyMapping: hotkeyManager.hotkeyMapping
     property alias flatHotkeysList: hotkeyManager.flatHotkeysList
     function reloadHotkeys() { hotkeyManager.reloadHotkeys() }
-    function isCloseKey(event) { return hotkeyManager.isCloseKey(event) }
 
     function executeAction(action) {
         WebLifecycle.dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Markdown, Tabs, Logic, action)
@@ -241,123 +233,59 @@ Rectangle {
     }
 
     // =========================================================================
-    // РАСКЛАДКА ОКНА
+    // ГЛАВНАЯ ОБЛАСТЬ РЕДАКТОРА
     // =========================================================================
-    RowLayout {
+    EditorSplitLayout {
+        id: splitLayout
         anchors.fill: parent
-        spacing: 0
+        barSize: root.barSize
+        isSplit: root.isSplit
+        activePane: root.activePane
+        dropZone: root.dropZone
+        primaryFileName: root.primaryFileName
+        primaryFileUrl: (root.tabsModel.count > root.primaryTabIndex && root.primaryTabIndex >= 0) ? root.tabsModel.get(root.primaryTabIndex).fileUrl : ""
+        secondaryFileName: root.secondaryFileName
+        secondaryFileUrl: (root.tabsModel.count > root.secondaryTabIndex && root.secondaryTabIndex >= 0) ? root.tabsModel.get(root.secondaryTabIndex).fileUrl : ""
 
-        // 1. Сайдбар со списком файлов папки и кнопкой настроек внизу
-        Sidebar {
-            id: sideBar
-            appWindow: root.appWindow
-            barSize: root.barSize
-            isSidebarVisible: root.isSidebarVisible
-            tabsModel: tabsModel
-            filesModel: folderFilesModel
-            currentTabIndex: (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
-            currentFolderUrl: root.currentFolderUrl
-            currentFolderName: root.currentFolderName
-            currentFileUrl: {
-                let idx = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
-                if (idx >= 0 && idx < tabsModel.count) {
-                    let tab = tabsModel.get(idx)
-                    if (tab && tab.fileUrl) return tab.fileUrl
-                }
-                return root.currentFileUrl || ""
-            }
-            isSplit: root.isSplit
-            backgroundTabIndex: root.isSplit ? (root.activePane === 0 ? root.secondaryTabIndex : root.primaryTabIndex) : -1
-            backgroundFileUrl: {
-                if (!root.isSplit) return ""
-                let bgIdx = (root.activePane === 0 ? root.secondaryTabIndex : root.primaryTabIndex)
-                if (bgIdx >= 0 && bgIdx < root.tabsModel.count) {
-                    let tab = root.tabsModel.get(bgIdx)
-                    return (tab && tab.fileUrl) ? tab.fileUrl : ""
-                }
-                return ""
-            }
-            externalWindowFiles: root.externalWindowFiles
+        isPrimaryEmpty: root.tabsModel.count === 0 || root.primaryTabIndex < 0
 
-            onFolderClicked: WebLifecycle.handleSidebarFolderClicked(root, (typeof backend !== "undefined" ? backend : null), openDialog, saveDialog, folderDialog)
-            onConfigClicked: WebLifecycle.handleSidebarConfigClicked(root, (typeof backend !== "undefined" ? backend : null))
-            onNewClicked: root.createNewTab()
-            onFileSelected: (fUrl, fName, isShift) => root.openFileFromFolder(fUrl, fName, isShift)
-            onOpenInNewWindowRequested: (fUrl, fName) => root.openInNewWindow(fUrl, fName)
-            onFileDeleteRequested: (fUrl) => WebLifecycle.handleFileDeleteRequested(root, (typeof backend !== "undefined" ? backend : null), fUrl)
-            onFileRenameRequested: (fUrl, newName) => WebLifecycle.handleFileRenameRequested(root, (typeof backend !== "undefined" ? backend : null), fUrl, newName)
-            onTabDragStarted: (url, name, gx, gy) => WebLifecycle.handleTabDragStarted(root, dragTrackerTimer, url, name, gx, gy)
-            onTabDragMoved: (gx, gy) => root.handleFileDragMoved(gx, gy)
-            onTabDragEnded: (fUrl, fName, gx, gy) => root.handleFileDragEnded(fUrl, fName, gx, gy)
+        // Передача состояния и событий графа
+        isGraphVisible: root.isGraphVisible
+        currentFolderUrl: root.currentFolderUrl
+        currentFolderName: root.currentFolderName
+        onCloseGraphRequested: root.isGraphVisible = false
 
-            onGraphClicked: root.isGraphVisible = !root.isGraphVisible
-            onOpenClicked: openDialog.open()
-            onSaveClicked: Logic.saveFile(root, saveDialog, (typeof backend !== "undefined" ? backend : null))
-            onCloseClicked: (root.appWindow || Window.window).close()
-            onToggleMaximizeClicked: Logic.toggleMaximize(root.appWindow || Window.window)
+        onNodeSelected: (fUrl, lbl) => {
+            root.openFileFromFolder(fUrl, lbl, false)
+            root.isGraphVisible = false
         }
 
-        // 2. Главная область: Холст с поддержкой разделения экрана (Split View) и встроенным графом
-        EditorSplitLayout {
-            id: splitLayout
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            barSize: root.barSize
-            isSplit: root.isSplit
-            activePane: root.activePane
-            dropZone: root.dropZone
-            primaryFileName: root.primaryFileName
-            primaryFileUrl: (root.tabsModel.count > root.primaryTabIndex && root.primaryTabIndex >= 0) ? root.tabsModel.get(root.primaryTabIndex).fileUrl : ""
-            secondaryFileName: root.secondaryFileName
-            secondaryFileUrl: (root.tabsModel.count > root.secondaryTabIndex && root.secondaryTabIndex >= 0) ? root.tabsModel.get(root.secondaryTabIndex).fileUrl : ""
-
-            isPrimaryEmpty: root.tabsModel.count === 0 || root.primaryTabIndex < 0
-
-            // Передача состояния и событий графа
-            isGraphVisible: root.isGraphVisible
-            currentFolderUrl: root.currentFolderUrl
-            currentFolderName: root.currentFolderName
-            onCloseGraphRequested: root.isGraphVisible = false
-            onToggleGraphModeRequested: (toGraph) => WebLifecycle.handleToggleGraphMode(root, (typeof backend !== "undefined" ? backend : null), toGraph)
-
-            onNodeSelected: (fUrl, lbl) => {
-                root.openFileFromFolder(fUrl, lbl, false)
-                root.isGraphVisible = false
-            }
-
-            onFileDragStarted: (paneIdx, url, name, gx, gy) => {
-                root.isFileDragging = true
-                root.draggingFileUrl = url
-                root.draggingFileName = name
-                root.draggingPaneIndex = paneIdx
-                dragTrackerTimer.running = true
-            }
-            onFileDragMoved: (gx, gy) => root.handleFileDragMoved(gx, gy)
-            onFileDragEnded: (paneIdx, fUrl, fName, gx, gy) => {
-                root.draggingPaneIndex = paneIdx
-                root.handleFileDragEnded(fUrl, fName, gx, gy)
-            }
-
-            onPrimaryTitleChanged: (newTitle) => Tabs.renameTab(root, root.primaryTabIndex, newTitle)
-            onSecondaryTitleChanged: (newTitle) => Tabs.renameTab(root, root.secondaryTabIndex, newTitle)
-            onPrimaryDetachRequested: Tabs.detachTab(root, root.primaryTabIndex)
-            onSecondaryDetachRequested: Tabs.detachTab(root, root.secondaryTabIndex)
-            onPrimaryTextChanged: (text) => {
-                Tabs.handlePrimaryTextChanged(root, text)
-                autoSaveTimer.restart()
-            }
-            onSecondaryTextChanged: (text) => {
-                Tabs.handleSecondaryTextChanged(root, text)
-                autoSaveTimer.restart()
-            }
-            onPrimaryCloseRequested: root.closeTab(root.primaryTabIndex)
-            onSecondaryCloseRequested: root.closeTab(root.secondaryTabIndex)
-            onPaneActivated: (paneIndex) => Tabs.setActivePane(root, paneIndex)
-            onSaveRequested: Logic.saveFile(root, saveDialog, backend)
-            onOpenRequested: root.executeAction("open_file")
-            onNewRequested: root.createNewTab()
-            onToggleSidebarRequested: root.toggleSidebar()
-            onToggleGraphRequested: root.executeAction("toggle_graph")
+        onFileDragStarted: (paneIdx, url, name, gx, gy) => {
+            root.isFileDragging = true
+            root.draggingFileUrl = url
+            root.draggingFileName = name
+            root.draggingPaneIndex = paneIdx
+            dragTrackerTimer.running = true
         }
+        onFileDragMoved: (gx, gy) => root.handleFileDragMoved(gx, gy)
+        onFileDragEnded: (paneIdx, fUrl, fName, gx, gy) => {
+            root.draggingPaneIndex = paneIdx
+            root.handleFileDragEnded(fUrl, fName, gx, gy)
+        }
+
+        onPrimaryTitleChanged: (newTitle) => Tabs.renameTab(root, root.primaryTabIndex, newTitle)
+        onSecondaryTitleChanged: (newTitle) => Tabs.renameTab(root, root.secondaryTabIndex, newTitle)
+        onPrimaryDetachRequested: Tabs.detachTab(root, root.primaryTabIndex)
+        onSecondaryDetachRequested: Tabs.detachTab(root, root.secondaryTabIndex)
+        onPrimaryTextChanged: autoSaveTimer.restart()
+        onSecondaryTextChanged: autoSaveTimer.restart()
+        onPrimaryCloseRequested: root.closeTab(root.primaryTabIndex)
+        onSecondaryCloseRequested: root.closeTab(root.secondaryTabIndex)
+        onPaneActivated: (paneIndex) => Tabs.setActivePane(root, paneIndex)
+        onSaveRequested: Logic.saveFile(root, saveDialog, backend)
+        onOpenRequested: root.executeAction("open_file")
+        onNewRequested: root.createNewTab()
+        onToggleGraphRequested: root.executeAction("toggle_graph")
+        onToggleSplitRequested: root.toggleSplit()
     }
 }

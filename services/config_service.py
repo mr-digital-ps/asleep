@@ -36,65 +36,41 @@ def parse_json_with_comments(text: str) -> dict:
 
 FRONTMATTER_REGEX = re.compile(r"^---\r?\n(.*?)\r?\n---", re.DOTALL)
 
-DEFAULT_CONFIG = {
-    "editor": {
-        "sheet_width": 800,
-        "font_family": "Segoe UI, Inter, -apple-system, sans-serif",
-        "font_size": 15,
-        "line_height": 1.0,
-        "show_line_dots": True,
-        "padding_left": 0,
-        "padding_right": 0,
-        "padding_top": 6,
-        "padding_bottom": 0,
-        "typewriter_mode": False,
-        "focus_mode": False,
-    },
-    "hotkeys": {
-        # Основные операции
-        "Ctrl+S": "save_file",                 # Сохранить файл
-        "Ctrl+N": "new_document",              # Создать новый документ
-        "Ctrl+W": "close_tab",                 # Закрыть текущую вкладку
-        "Ctrl+Wheel": "zoom_font",             # Масштаб шрифта (Ctrl + колесико мыши)
+def load_default_base_config() -> dict:
+    """Динамически загружает базовые настройки из config/default/*.json (Single Source of Truth)."""
+    cfg = {
+        "editor": {},
+        "hotkeys": {},
+        "tags": [],
+        "pinned": [],
+    }
+    config_dir = Path(__file__).resolve().parent.parent / "config" / "default"
+    ed_f = config_dir / "editor.json"
+    if ed_f.exists():
+        try:
+            data = parse_json_with_comments(ed_f.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                cfg["editor"] = data
+        except Exception as e:
+            _safe_print(f"[ConfigService] Ошибка чтения {ed_f.name}: {e}")
 
-        # Работа со строками
-        "Ctrl+D": "duplicate_line",            # Дублировать строку
-        "Alt+Up": "move_line_up",              # Переместить строку вверх
-        "Alt+Down": "move_line_down",          # Переместить строку вниз
+    hk_f = config_dir / "hotkeys.json"
+    if hk_f.exists():
+        try:
+            data = parse_json_with_comments(hk_f.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                for action, val in data.items():
+                    if isinstance(val, dict) and "keys" in val and isinstance(val["keys"], list):
+                        for k in val["keys"]:
+                            cfg["hotkeys"][k] = action
+                    elif isinstance(val, str):
+                        cfg["hotkeys"][action] = val
+        except Exception as e:
+            _safe_print(f"[ConfigService] Ошибка чтения {hk_f.name}: {e}")
 
-        # Форматирование текста
-        "Ctrl+B": "bold_text",                 # Жирный текст (**текст**)
-        "Ctrl+I": "italic_text",               # Курсив (*текст*)
-        "Ctrl+E": "code_inline",               # Встроенный код (`код`)
-        "Ctrl+K": "link_insert",               # Ссылка ([текст](url))
-        "Ctrl+Enter": "toggle_task_checkbox",  # Переключить задачу (- [ ] / - [x])
+    return cfg
 
-        # Уровни заголовков
-        "Ctrl+1": "heading_1",                 # # Заголовок 1
-        "Ctrl+2": "heading_2",                 # ## Заголовок 2
-        "Ctrl+3": "heading_3",                 # ### Заголовок 3
-        "Ctrl+4": "heading_4",                 # #### Заголовок 4
-        "Ctrl+5": "heading_5",                 # ##### Заголовок 5
-        "Ctrl+6": "heading_6",                 # ###### Заголовок 6
-        "Ctrl+0": "heading_clear",             # Обычный текст (снять заголовок)
-
-        # Режимы фокуса и набора
-        "Alt+Shift+T": "toggle_typewriter_mode", # Режим печатной машинки (курсор по центру)
-        "Alt+Shift+F": "toggle_focus_mode",      # Режим фокусировки (подсветка активной строки)
-
-        # Вид, интерфейс и размеры
-        "Alt+W": "toggle_centered_mode",       # Переключить ширину листа (по центру / на всю ширину)
-        "Alt+Z": "toggle_centered_mode",       # Альтернатива: переключить ширину листа
-        "Alt+F": "toggle_footer",              # Показать / скрыть статус-бар (Footer)
-        "Alt+U": "toggle_header",              # Показать / скрыть заголовок (Header)
-        "Alt+H": "toggle_header_footer",        # Показать / скрыть заголовок и статус-бар
-        "F9": "toggle_header_footer",           # Альтернатива: скрыть заголовок и статус-бар
-        "Alt+S": "toggle_sidebar",             # Показать / скрыть боковую панель
-        "Alt+D": "detach_window",              # Открепить документ в отдельное окно
-    },
-    "tags": [],
-    "pinned": [],
-}
+DEFAULT_CONFIG = load_default_base_config()
 
 def deep_merge(base: dict, override: dict) -> dict:
     """Глубокое рекурсивное слияние словарей: override дополняет и заменяет ключи base."""
@@ -140,6 +116,7 @@ editor:
   font_size: 15           # Размер шрифта (в пикселях)
   line_height: 1.35       # Межстрочный интервал (от 1.2 до 1.8)
   show_line_dots: true    # Показывать ли точки строк слева
+  tab_size: 4             # Количество пробелов при нажатии Tab
 
 # === Полный список горячих клавиш редактора ===
 hotkeys:
@@ -172,7 +149,6 @@ hotkeys:
   Alt+F: toggle_footer              # Показать / скрыть нижний статус-бар (Footer)
   Alt+U: toggle_header              # Показать / скрыть верхний заголовок (Header)
   Alt+H: toggle_header_footer       # Показать / скрыть заголовок и статус-бар (F9)
-  Alt+S: toggle_sidebar             # Показать / скрыть боковую панель
   Alt+D: detach_window              # Открепить вкладку в отдельное окно (Ctrl+D)
 
 # === Теги папки (для фильтрации и поиска) ===

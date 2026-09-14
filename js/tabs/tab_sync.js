@@ -54,17 +54,6 @@ function syncEditorsFromModel(root) {
     }
 }
 
-function handlePrimaryTextChanged(root, text) {
-    if (root.primaryTabIndex >= 0 && root.primaryTabIndex < root.tabsModel.count) {
-        root.tabsModel.setProperty(root.primaryTabIndex, "content", text)
-    }
-}
-
-function handleSecondaryTextChanged(root, text) {
-    if (root.isSplit && root.secondaryTabIndex >= 0 && root.secondaryTabIndex < root.tabsModel.count) {
-        root.tabsModel.setProperty(root.secondaryTabIndex, "content", text)
-    }
-}
 
 function replaceBlockInString(text, headingNorm, newContent) {
     if (!text) return text

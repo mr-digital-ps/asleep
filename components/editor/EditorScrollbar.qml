@@ -101,7 +101,7 @@ Item {
             anchors.bottomMargin: 4
             width: 4
             radius: 2
-            color: "transparent"
+            color: Theme.scrollbarTrack
         }
     }
 }

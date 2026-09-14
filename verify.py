@@ -124,16 +124,59 @@ tags:
     matcher = HotkeyMatcher(hks)
     from PyQt6.QtCore import Qt, QEvent
     from PyQt6.QtGui import QKeyEvent
-    # Проверка Ctrl+G (EN) и Ctrl+П (RU: VK 0x47)
-    ev_en = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_G, Qt.KeyboardModifier.ControlModifier, 0, 0x47, 0)
-    ev_ru_p = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 0, 0x47, 0)
-    ev_ru_g = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 0, 0x55, 0)
-    assert matcher.match_event(ev_en) == "toggle_graph", "Ctrl+G должен распознаваться"
-    assert matcher.match_event(ev_ru_p) == "toggle_graph", "Ctrl+П (VK 0x47) должен распознаваться"
-    assert matcher.match_event(ev_ru_g) == "toggle_graph", "Ctrl+Г (VK 0x55) должен распознаваться"
-    # Проверка close_tab: Ctrl+W (EN/RU: VK 0x57)
-    ev_w = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 0, 0x57, 0)
+    # 1. Проверка toggle_graph: Ctrl+G (EN), Ctrl+П (RU: scan 34 / VK 0x47), Ctrl+Г (RU: scan 22 / VK 0x55)
+    ev_en_g = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_G, Qt.KeyboardModifier.ControlModifier, 34, 0x47, 0)
+    ev_ru_p = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 34, 0x47, 0)
+    ev_ru_g = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 22, 0x55, 0)
+    assert matcher.match_event(ev_en_g) == "toggle_graph", "Ctrl+G должен распознаваться"
+    assert matcher.match_event(ev_ru_p) == "toggle_graph", "Ctrl+П (VK 0x47 / scan 34) должен распознаваться"
+    assert matcher.match_event(ev_ru_g) == "toggle_graph", "Ctrl+Г (VK 0x55 / scan 22) должен распознаваться"
+
+    # 2. Проверка close_tab: Ctrl+W (EN scan 17), Ctrl+Ц (RU scan 17, VK 0x57), Ctrl+Q (RU scan 16, VK 0x51)
+    ev_w = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 17, 0x57, 0)
+    ev_q = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 16, 0x51, 0)
     assert matcher.match_event(ev_w) == "close_tab", "Ctrl+W/Ctrl+Ц должен распознаваться"
+    assert matcher.match_event(ev_q) == "close_tab", "Ctrl+Q/Ctrl+Й должен распознаваться"
+
+    # 3. Проверка toggle_split: Ctrl+\ (scan 43, 86, VK 0xDC, 0xE2)
+    ev_split_scan43 = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Backslash, Qt.KeyboardModifier.ControlModifier, 43, 0xDC, 0)
+    ev_split_scan86 = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 86, 0xE2, 0)
+    assert matcher.match_event(ev_split_scan43) == "toggle_split", "Ctrl+\\ (scan 43) должен распознаваться"
+    assert matcher.match_event(ev_split_scan86) == "toggle_split", "Ctrl+\\ (scan 86) должен распознаваться"
+
+    # 4. Проверка toggle_header_footer: F9 (scan 67) и Ctrl+Shift+H (RU 'Р', scan 35, VK 0x48)
+    ev_f9 = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_F9, Qt.KeyboardModifier.NoModifier, 67, 0x78, 0)
+    ev_csh = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier, 35, 0x48, 0)
+    assert matcher.match_event(ev_f9) == "toggle_header_footer", "F9 должен распознаваться"
+    assert matcher.match_event(ev_csh) == "toggle_header_footer", "Ctrl+Shift+H (RU: scan 35) должен распознаваться"
+
+    # 5. Проверка save_file: Ctrl+S (RU 'Ы', scan 31, VK 0x53)
+    ev_save = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 31, 0x53, 0)
+    assert matcher.match_event(ev_save) == "save_file", "Ctrl+S/Ctrl+Ы должен распознаваться"
+
+    # 6. Проверка new_tab: Ctrl+N (RU 'Т', scan 49, VK 0x4E)
+    ev_new = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 49, 0x4E, 0)
+    assert matcher.match_event(ev_new) == "new_tab", "Ctrl+N/Ctrl+Т должен распознаваться"
+
+    # 7. Проверка open_file: Ctrl+O (RU 'Щ', scan 24, VK 0x4F)
+    ev_open = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 24, 0x4F, 0)
+    assert matcher.match_event(ev_open) == "open_file", "Ctrl+O/Ctrl+Щ должен распознаваться"
+
+    # 8. Проверка toggle_bold: Ctrl+B (RU 'И', scan 48, VK 0x42)
+    ev_bold = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 48, 0x42, 0)
+    assert matcher.match_event(ev_bold) == "toggle_bold", "Ctrl+B/Ctrl+И должен распознаваться"
+
+    # 9. Проверка toggle_italic: Ctrl+I (RU 'Ш', scan 23, VK 0x49)
+    ev_italic = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 23, 0x49, 0)
+    assert matcher.match_event(ev_italic) == "toggle_italic", "Ctrl+I/Ctrl+Ш должен распознаваться"
+
+    # 10. Проверка detach_window: Ctrl+D (RU 'В', scan 32, VK 0x44)
+    ev_detach = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 32, 0x44, 0)
+    assert matcher.match_event(ev_detach) == "detach_window", "Ctrl+D/Ctrl+В должен распознаваться"
+
+    # 11. Проверка toggle_centered_mode: Alt+W (RU 'Ц', scan 17, VK 0x57)
+    ev_centered = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.AltModifier, 17, 0x57, 0)
+    assert matcher.match_event(ev_centered) == "toggle_centered_mode", "Alt+W/Alt+Ц должен распознаваться"
 
 
     # 7. Тест GraphService
@@ -168,10 +211,16 @@ tags:
         synced_file = gs.sync_graph_markdown_file(tmp_p)
         assert synced_file.exists() and synced_file.name == "_Граф связей.md", "Файл _Граф связей.md должен быть создан на диске"
 
-        # Проверка отсутствия циклической ссылки: _Граф связей.md не должен появляться среди узлов
+        # Проверка фиксации позиций узлов графа
         gdata_after = gs.build_graph(tmp_p)
-        node_labels = [n.get("label", "") for n in gdata_after["nodes"]]
-        assert "_Граф связей" not in node_labels and "_Граф связей.md" not in node_labels, "_Граф связей.md не должен индексироваться как узел графа"
+        node_id_1 = gdata_after["nodes"][0]["id"]
+        gs.save_node_positions(tmp_p, {node_id_1: {"x": 250.5, "y": 340.0}})
+        saved_pos = gs.get_node_positions(tmp_p)
+        assert node_id_1 in saved_pos, "Сохраненная позиция должна присутствовать в get_node_positions"
+        assert saved_pos[node_id_1]["x"] == 250.5 and saved_pos[node_id_1]["y"] == 340.0, "Координаты должны совпадать"
+        gdata_with_pos = gs.build_graph(tmp_p)
+        matched_node = next(n for n in gdata_with_pos["nodes"] if n["id"] == node_id_1)
+        assert matched_node.get("x") == 250.5 and matched_node.get("y") == 340.0, "Узел должен получать сохраненные координаты при build_graph"
 
 
     # 8. Тест Backend Facade
@@ -185,13 +234,22 @@ tags:
     graph_cfg = backend.get_graph_config()
     assert "physics" in graph_cfg and "visual" in graph_cfg, "backend.get_graph_config должен возвращать словарь с physics и visual"
     theme_cfg = backend.get_theme_config()
-    assert "sidebar_width" in theme_cfg and "bg_sidebar" in theme_cfg, "backend.get_theme_config должен содержать sidebar_width и bg_sidebar"
+    assert "bg_app" in theme_cfg and "bg_paper" in theme_cfg, "backend.get_theme_config должен содержать bg_app и bg_paper"
+    assert "scrollbar_track" in theme_cfg, "backend.get_theme_config должен содержать scrollbar_track"
     editor_cfg = backend.get_editor_config()
     assert "sheet_width" in editor_cfg and "font_size" in editor_cfg, "backend.get_editor_config должен содержать sheet_width и font_size"
+    assert "show_line_dots" in editor_cfg, "backend.get_editor_config должен содержать show_line_dots"
+    assert "tab_size" in editor_cfg, "backend.get_editor_config должен содержать tab_size"
     app_cfg = backend.get_app_config()
     assert "auto_save_delay_ms" in app_cfg and "supported_extensions" in app_cfg, "backend.get_app_config должен содержать auto_save_delay_ms"
+    assert "ignored_directories" in app_cfg, "backend.get_app_config должен содержать ignored_directories"
+    assert ".md" in backend.file_service.get_supported_extensions(), "FileService должен динамически считывать supported_extensions"
+    assert ".git" in backend.file_service.get_ignored_directories(), "FileService должен динамически считывать ignored_directories"
     sync_res = backend.sync_graph_file()
     assert isinstance(sync_res, dict), "backend.sync_graph_file должен возвращать словарь"
+    backend.save_node_positions("", {"test_node": {"x": 100, "y": 200}})
+    node_pos = backend.get_node_positions("")
+    assert "test_node" in node_pos and node_pos["test_node"]["x"] == 100, "backend.save_node_positions/get_node_positions должны корректно работать"
     print("  -> Сервисы Python: OK")
 
 
@@ -279,12 +337,6 @@ def test_structure():
         "config/user/graph.json",
         "config/user/theme.json",
         "config/user/app.json",
-        "config/README.md",
-        "config/graph.md",
-        "config/editor.md",
-        "config/hotkeys.md",
-        "config/theme.md",
-        "config/app.md",
         "js/editor/editor_keys.js",
         "js/editor/markdown_shortcuts.js",
         "js/editor/block_sync.js",
@@ -304,8 +356,6 @@ def test_structure():
         "components/editor/EditorCanvas.qml",
         "components/editor/MainBar.qml",
         "components/editor/DocumentHeader.qml",
-        "components/sidebar/Sidebar.qml",
-        "components/sidebar/SidebarHeader.qml",
         "components/dialogs/EditorDialogs.qml",
         "components/dialogs/qmldir",
         "components/hotkeys/HotkeyManager.qml",

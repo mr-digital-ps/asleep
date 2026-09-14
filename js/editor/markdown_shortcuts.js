@@ -143,7 +143,9 @@ function moveLineDown(editor) {
     }
 }
 
-function handleTabIndent(editor, isShift) {
+function handleTabIndent(editor, isShift, tabSize) {
+    let size = (typeof tabSize === "number" && tabSize > 0) ? Math.floor(tabSize) : 4
+    let tabSpaces = " ".repeat(size)
     let start = editor.selectionStart
     let end = editor.selectionEnd
     let fullText = editor.text
@@ -154,7 +156,7 @@ function handleTabIndent(editor, isShift) {
             let middle = fullText.substring(blockStart, end)
             let after = fullText.substring(end)
             let lines = middle.split("\n")
-            let unindented = lines.map(l => l.startsWith("    ") ? l.substring(4) : (l.startsWith("\t") ? l.substring(1) : l)).join("\n")
+            let unindented = lines.map(l => l.startsWith(tabSpaces) ? l.substring(size) : (l.startsWith("\t") ? l.substring(1) : l)).join("\n")
             editor.text = before + unindented + after
             editor.select(start, blockStart + unindented.length)
         } else {
@@ -162,9 +164,9 @@ function handleTabIndent(editor, isShift) {
             let lineEnd = fullText.indexOf("\n", blockStart)
             if (lineEnd === -1) lineEnd = fullText.length
             let currentLine = fullText.substring(blockStart, lineEnd)
-            if (currentLine.startsWith("    ")) {
-                editor.text = fullText.substring(0, blockStart) + currentLine.substring(4) + fullText.substring(lineEnd)
-                editor.cursorPosition = Math.max(blockStart, start - 4)
+            if (currentLine.startsWith(tabSpaces)) {
+                editor.text = fullText.substring(0, blockStart) + currentLine.substring(size) + fullText.substring(lineEnd)
+                editor.cursorPosition = Math.max(blockStart, start - size)
             } else if (currentLine.startsWith("\t")) {
                 editor.text = fullText.substring(0, blockStart) + currentLine.substring(1) + fullText.substring(lineEnd)
                 editor.cursorPosition = Math.max(blockStart, start - 1)
@@ -177,17 +179,17 @@ function handleTabIndent(editor, isShift) {
             let middle = fullText.substring(blockStart, end)
             let after = fullText.substring(end)
             let lines = middle.split("\n")
-            let indented = lines.map(l => "    " + l).join("\n")
+            let indented = lines.map(l => tabSpaces + l).join("\n")
             editor.text = before + indented + after
-            editor.select(start + 4, blockStart + indented.length)
+            editor.select(start + size, blockStart + indented.length)
         } else {
-            editor.insert(editor.cursorPosition, "    ")
+            editor.insert(editor.cursorPosition, tabSpaces)
         }
     }
 }
 
-function handleTab(editor, isShift) {
-    return handleTabIndent(editor, isShift)
+function handleTab(editor, isShift, tabSize) {
+    return handleTabIndent(editor, isShift, tabSize)
 }
 
 function handleAutoWrap(editor, char) {

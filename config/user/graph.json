@@ -52,25 +52,25 @@
 		"backgroundColor": "#181818",
 
 		// Цвет узлов-файлов Markdown
-		"nodeColorFile": "#383838",
+		"nodeColorFile": "#585858",
 
 		// Цвет узлов-блоков трансклюзии
-		"nodeColorBlock": "#2a2a2a",
+		"nodeColorBlock": "#424242",
 
 		// Цвет узлов-тегов (#тег)
-		"nodeColorTag": "#323232",
+		"nodeColorTag": "#4c4c4c",
 
 		// Яркость подсветки узла при наведении мыши
 		"nodeHoverBrightness": 1.25,
 
 		// Цвет линий связей
-		"linkColor": "#242424",
+		"linkColor": "#363636",
 
 		// Цвет линий связей при наведении на узел
-		"linkHoverColor": "#444444",
+		"linkHoverColor": "#666666",
 
 		// Цвет текста названий заметок
-		"labelColor": "#737373",
+		"labelColor": "#8a8a8a",
 
 		// Цвет текста названий заметок при наведении курсора
 		"labelHoverColor": "#ffffff",

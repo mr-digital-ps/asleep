@@ -1,6 +1,10 @@
 // action_dispatcher.js — Диспетчеризация действий интерфейса и хоткеев
 
 function closeActiveTab(root) {
+    if (root && root.isGraphVisible) {
+        root.isGraphVisible = false
+        return
+    }
     if (!root || !root.tabsModel || root.tabsModel.count === 0) return
     var targetIdx = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
     if (targetIdx >= 0 && targetIdx < root.tabsModel.count) {
@@ -36,11 +40,6 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Mark
             }
             if (splitLayout && splitLayout.isSplit && splitLayout.secondaryBar && typeof splitLayout.secondaryBar.toggleHeaderOnly === "function") {
                 splitLayout.secondaryBar.toggleHeaderOnly()
-            }
-            break
-        case "toggle_sidebar":
-            if (root && typeof root.toggleSidebar === "function") {
-                root.toggleSidebar()
             }
             break
         case "toggle_split":

@@ -58,9 +58,9 @@ class Backend(QObject):
     def __init__(self):
         super().__init__()
         self.block_engine = BlockEngine()
-        self.file_service = FileService()
-        self.window_manager = WindowManager()
         self.config_service = ConfigService()
+        self.file_service = FileService(self.config_service)
+        self.window_manager = WindowManager()
         self.hotkey_service = HotkeyService()
         self.graph_service = GraphService(self.block_engine, self.file_service)
         self.hotkey_service.hotkeys_changed.connect(lambda _: self.hotkeysChanged.emit())
@@ -120,7 +120,9 @@ class Backend(QObject):
 
     def _on_directory_changed(self, path: str):
         if not self._is_syncing_files and self._current_folder:
-            self.block_engine.reindex_folder(self._current_folder)
+            self.graph_service.invalidate_cache(self._current_folder)
+            exts = self.file_service.get_supported_extensions(self._current_folder)
+            self.block_engine.reindex_folder(self._current_folder, exts)
             cfg_path = self.config_service.get_config_file_path(self._current_folder)
             if cfg_path and cfg_path.exists():
                 cur_mtime = cfg_path.stat().st_mtime_ns
@@ -313,8 +315,9 @@ class Backend(QObject):
 
         self._is_syncing_files = True
         try:
+            exts = self.file_service.get_supported_extensions(self._current_folder)
             for p in self._current_folder.iterdir():
-                if not p.is_file() or p.suffix.lower() not in [".md", ".markdown", ".txt"]:
+                if not p.is_file() or p.suffix.lower() not in exts:
                     continue
                 if source_path and p.resolve() == source_path:
                     continue
@@ -438,11 +441,6 @@ class Backend(QObject):
             "win_height": int(h)
         })
 
-    @pyqtSlot(float)
-    def save_sidebar_width(self, width: float):
-        """Сохраняет ширину сайдбара в сессию"""
-        save_session_config({"sidebar_width": int(width)})
-
     @pyqtSlot(bool)
     def save_header_pinned(self, pinned: bool):
         """Сохраняет состояние закрепления верхнего заголовка в сессию"""
@@ -519,6 +517,19 @@ class Backend(QObject):
         folder = self.file_service.to_path(folder_url) if folder_url else self._current_folder
         return self.graph_service.get_config(folder)
 
+    @pyqtSlot(str, "QVariantMap")
+    def save_node_positions(self, folder_url: str, positions: dict):
+        """Сохраняет пользовательские или равновесные координаты узлов графа"""
+        folder = self.file_service.to_path(folder_url) if folder_url else self._current_folder
+        self.graph_service.save_node_positions(folder, positions)
+
+    @pyqtSlot(result="QVariantMap")
+    @pyqtSlot(str, result="QVariantMap")
+    def get_node_positions(self, folder_url: str = "") -> dict:
+        """Возвращает сохраненные координаты узлов графа"""
+        folder = self.file_service.to_path(folder_url) if folder_url else self._current_folder
+        return self.graph_service.get_node_positions(folder)
+
     @pyqtSlot(result="QVariantMap")
     @pyqtSlot(str, result="QVariantMap")
     def get_theme_config(self, folder_url: str = "") -> dict:
@@ -569,7 +580,6 @@ def main():
     engine.addImportPath(str(PROJECT_DIR))
     engine.addImportPath(str(PROJECT_DIR / "components"))
     backend = Backend()
-    app.installEventFilter(backend.hotkey_filter)
     engine.rootContext().setContextProperty("backend", backend)
 
     qml_file = Path(__file__).parent.resolve() / "views" / "window.qml"

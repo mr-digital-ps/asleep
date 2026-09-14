@@ -1,5 +1,0 @@
-module components.sidebar
-Sidebar 1.0 Sidebar.qml
-SidebarHeader 1.0 SidebarHeader.qml
-SidebarFileList 1.0 SidebarFileList.qml
-SidebarFileItem 1.0 SidebarFileItem.qml

@@ -77,12 +77,13 @@ class BlockEngine:
     def __init__(self):
         self._block_cache = {}  # norm_title -> {"title": raw, "content": text, "source": url, "time": float}
 
-    def reindex_folder(self, folder: Path):
-        """Сканирует папку и индексирует блоки из всех .md/.txt файлов"""
+    def reindex_folder(self, folder: Path, extensions: list[str] | set[str] | None = None):
+        """Сканирует папку и индексирует блоки из всех поддерживаемых файлов"""
         if not folder or not folder.exists() or not folder.is_dir():
             return
         try:
-            files = [p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in [".md", ".markdown", ".txt"]]
+            exts = {e.lower().strip() for e in extensions} if extensions else {".md", ".markdown", ".txt"}
+            files = [p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in exts]
             files.sort(key=lambda x: x.stat().st_mtime if x.exists() else 0)
             for p in files:
                 try:

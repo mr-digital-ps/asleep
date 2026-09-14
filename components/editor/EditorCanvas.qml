@@ -11,6 +11,8 @@ RowLayout {
     spacing: 0
 
     property int barSize: 36
+    property bool showLineDots: true
+    property int tabSize: 4
     property string customFontFamily: "Segoe UI, Inter, -apple-system, sans-serif"
     property real availableHeight: 600
     property bool hasHeader: true
@@ -35,8 +37,8 @@ RowLayout {
     signal saveRequested()
     signal openRequested()
     signal newRequested()
-    signal toggleSidebarRequested()
     signal toggleGraphRequested()
+    signal toggleSplitRequested()
 
     function updateBracketHighlights() {
         if (bracketHighlightOverlay) {
@@ -50,9 +52,10 @@ RowLayout {
     // Левая полоса 36px для нумерации строк и фокуса
     EditorGutter {
         id: editorGutter
+        visible: canvasRoot.showLineDots
         barSize: canvasRoot.barSize
         editorArea: editorArea
-        Layout.preferredWidth: barSize
+        Layout.preferredWidth: visible ? barSize : 0
         Layout.fillHeight: true
         onActivated: canvasRoot.paneActivated()
     }
@@ -150,11 +153,11 @@ RowLayout {
         }
 
         Keys.onTabPressed: (event) => {
-            Markdown.handleTab(editorArea, false)
+            Markdown.handleTab(editorArea, false, canvasRoot.tabSize)
             event.accepted = true
         }
         Keys.onBacktabPressed: (event) => {
-            Markdown.handleTab(editorArea, true)
+            Markdown.handleTab(editorArea, true, canvasRoot.tabSize)
             event.accepted = true
         }
 

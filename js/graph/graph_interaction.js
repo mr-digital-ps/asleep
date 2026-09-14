@@ -1,5 +1,7 @@
 // js/graph/graph_interaction.js — Интерактивное управление графом связей (Zoom, Pan, Drag, Hit Test, Hover, Pre-warming)
 
+var globalNodePositionsCache = {}
+
 function normalizeUrl(url) {
     if (!url) return ""
     return decodeURIComponent(url.toString().replace(/^file:\/\/\/?/i, "").toLowerCase().replace(/\\/g, "/"))
@@ -110,13 +112,23 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer, forcedW, fo
     var pureNodes = JSON.parse(JSON.stringify(data.nodes))
     var pureLinks = JSON.parse(JSON.stringify(data.links || []))
 
-    if (graphRoot.nodePositionsCache) {
-        for (var p = 0; p < pureNodes.length; p++) {
-            var pn = pureNodes[p]
-            if (graphRoot.nodePositionsCache[pn.id]) {
-                pn.x = graphRoot.nodePositionsCache[pn.id].x
-                pn.y = graphRoot.nodePositionsCache[pn.id].y
-            }
+    var backendPositions = (backend && typeof backend.get_node_positions === "function")
+        ? (backend.get_node_positions(graphRoot.folderUrl) || {})
+        : {}
+
+    var anyMissing = false
+    for (var p = 0; p < pureNodes.length; p++) {
+        var pn = pureNodes[p]
+        var cached = (graphRoot.nodePositionsCache && graphRoot.nodePositionsCache[pn.id]) ||
+                     globalNodePositionsCache[pn.id] ||
+                     backendPositions[pn.id]
+        if (cached && typeof cached.x === "number" && typeof cached.y === "number") {
+            pn.x = cached.x
+            pn.y = cached.y
+        } else if (typeof pn.x === "number" && typeof pn.y === "number") {
+            // Узел уже имеет позицию от backend build_graph
+        } else {
+            anyMissing = true
         }
     }
 
@@ -127,13 +139,17 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer, forcedW, fo
     var sim = Physics.initSimulation(pureNodes, pureLinks, canW, canH, config)
     graphRoot.sim = sim
 
-    // 1. Прогрев симуляции до стабильного геометрического равновесия
-    for (var tick = 0; tick < 250; tick++) {
+    // 1. Полный расчет равновесия в памяти JS:
+    // Если все позиции известны и зафиксированы — 0 тактов (мгновенно).
+    // Если граф строится с нуля или добавлены новые узлы — симулируем до 400 тактов,
+    // чтобы граф сразу предстал ПОЛНОСТЬЮ РАСКРЫТЫМ на всю площадь.
+    var warmupTicks = anyMissing ? 400 : 0
+    for (var tick = 0; tick < warmupTicks; tick++) {
         Physics.stepSimulation(sim)
         if (sim.isSleeping) break
     }
 
-    // 2. Находим активный узел в стабилизированном графе
+    // 2. Находим активный узел (последний открытый документ) в стабилизированном графе
     var normActive = normalizeUrl(graphRoot.activeFileUrl)
     var activeNode = null
     if (normActive) {
@@ -148,79 +164,71 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer, forcedW, fo
         }
     }
 
-    // 3. Точно совмещаем активный узел (или центр масс графа) со строго центральной точкой окна (targetCX, targetCY).
-    // Это исключает появление узлов внизу экрана и последующее смещение в середину: граф сразу открывается в идеальном центре.
-    var shiftX = 0, shiftY = 0
+    // 3. Сохраняем физические координаты узлов в кэш без искусственного смещения мира.
+    for (var m = 0; m < sim.nodes.length; m++) {
+        sim.nodes[m].vx = 0
+        sim.nodes[m].vy = 0
+        var posObj = { x: sim.nodes[m].x, y: sim.nodes[m].y }
+        globalNodePositionsCache[sim.nodes[m].id] = posObj
+        if (graphRoot.nodePositionsCache) {
+            graphRoot.nodePositionsCache[sim.nodes[m].id] = posObj
+        }
+    }
+    if (backend && typeof backend.save_node_positions === "function") {
+        backend.save_node_positions(graphRoot.folderUrl, globalNodePositionsCache)
+    }
+
+    // 4. Центрируем КАМЕРУ (panX, panY) на активном узле (или центре масс всего графа).
     if (activeNode && typeof activeNode.x === "number" && !isNaN(activeNode.x)) {
-        shiftX = targetCX - activeNode.x
-        shiftY = targetCY - activeNode.y
+        graphRoot.panX = -(activeNode.x - targetCX) * graphRoot.zoomScale
+        graphRoot.panY = -(activeNode.y - targetCY) * graphRoot.zoomScale
     } else if (sim.nodes.length > 0) {
         var sumX = 0, sumY = 0
         for (var c = 0; c < sim.nodes.length; c++) {
             sumX += sim.nodes[c].x
             sumY += sim.nodes[c].y
         }
-        shiftX = targetCX - (sumX / sim.nodes.length)
-        shiftY = targetCY - (sumY / sim.nodes.length)
+        var avgX = sumX / sim.nodes.length
+        var avgY = sumY / sim.nodes.length
+        graphRoot.panX = -(avgX - targetCX) * graphRoot.zoomScale
+        graphRoot.panY = -(avgY - targetCY) * graphRoot.zoomScale
+    } else {
+        graphRoot.panX = 0
+        graphRoot.panY = 0
     }
 
-    for (var m = 0; m < sim.nodes.length; m++) {
-        sim.nodes[m].x += shiftX
-        sim.nodes[m].y += shiftY
-        sim.nodes[m].vx = 0
-        sim.nodes[m].vy = 0
-        graphRoot.nodePositionsCache[sim.nodes[m].id] = { x: sim.nodes[m].x, y: sim.nodes[m].y }
-    }
-
-    // Камера центрирована строго без смещений
-    graphRoot.panX = 0
-    graphRoot.panY = 0
-
-    // Граф открывается полностью спокойным и центрированным (без уплываний и прыжков)
-    sim.isSleeping = true
-    sim.totalEnergy = 0
-    if (animTimer) {
-        animTimer.running = false
-    }
-
-    if (canvas) canvas.requestPaint()
+    // 5. Граф автоматически оживает при открытии: деликатное органическое дыхание связей
+    wakeSimulation(graphRoot, canvas, animTimer)
 }
 
 function handleResize(graphRoot, canvas, newWidth, newHeight) {
     if (!graphRoot.sim || !graphRoot.sim.nodes || graphRoot.sim.nodes.length === 0) return
     var sim = graphRoot.sim
-    var oldW = (typeof sim.width === "number" && sim.width > 50) ? sim.width : newWidth
-    var oldH = (typeof sim.height === "number" && sim.height > 50) ? sim.height : newHeight
-    var dw = (newWidth - oldW) / 2
-    var dh = (newHeight - oldH) / 2
-
-    if (Math.abs(dw) > 1 || Math.abs(dh) > 1) {
-        for (var i = 0; i < sim.nodes.length; i++) {
-            sim.nodes[i].x += dw
-            sim.nodes[i].y += dh
-            sim.nodes[i].vx = 0
-            sim.nodes[i].vy = 0
-            if (graphRoot.nodePositionsCache) {
-                graphRoot.nodePositionsCache[sim.nodes[i].id] = { x: sim.nodes[i].x, y: sim.nodes[i].y }
-            }
-        }
-    }
-
     sim.width = newWidth
     sim.height = newHeight
     sim.cx = newWidth / 2
     sim.cy = newHeight / 2
-    sim.isSleeping = true
-    sim.totalEnergy = 0
+
+    // Удерживаем камеру на активном узле без смещения физических координат
+    if (graphRoot.activeNodeId) {
+        keepActiveNodeCentered(graphRoot)
+    }
 
     if (canvas) canvas.requestPaint()
 }
 
-function wakeSimulation(graphRoot, canvas, animTimer) {
-    if (graphRoot.sim && graphRoot.sim.nodes) {
-        // Мягкое естественное пробуждение без дрейфа в какую-либо сторону
+function wakeSimulation(graphRoot, canvas, animTimer, energyBoost) {
+    if (graphRoot.sim && graphRoot.sim.nodes && graphRoot.sim.nodes.length > 0) {
+        var boost = (typeof energyBoost === "number") ? energyBoost : 8
         graphRoot.sim.isSleeping = false
-        graphRoot.sim.totalEnergy = 10
+        graphRoot.sim.totalEnergy = boost
+        for (var v = 0; v < graphRoot.sim.nodes.length; v++) {
+            var n = graphRoot.sim.nodes[v]
+            if (!n.isFixed) {
+                n.vx = (n.vx || 0) * 0.3 + (Math.random() - 0.5) * 0.6
+                n.vy = (n.vy || 0) * 0.3 + (Math.random() - 0.5) * 0.6
+            }
+        }
         if (animTimer) animTimer.running = true
         if (canvas) canvas.requestPaint()
     }
@@ -241,15 +249,29 @@ function resetView(graphRoot, canvas, animTimer) {
     wakeSimulation(graphRoot, canvas, animTimer)
 }
 
-function stepAnimation(graphRoot, canvas, animTimer, Physics) {
+function stepAnimation(graphRoot, canvas, animTimer, Physics, backend) {
     if (!graphRoot.sim) {
         animTimer.running = false
         return
     }
+
     Physics.stepSimulation(graphRoot.sim)
     canvas.requestPaint()
     if (graphRoot.sim.isSleeping) {
         animTimer.running = false
+        if (graphRoot.sim.nodes) {
+            for (var i = 0; i < graphRoot.sim.nodes.length; i++) {
+                var node = graphRoot.sim.nodes[i]
+                var posObj = { x: node.x, y: node.y }
+                globalNodePositionsCache[node.id] = posObj
+                if (graphRoot.nodePositionsCache) {
+                    graphRoot.nodePositionsCache[node.id] = posObj
+                }
+            }
+            if (backend && typeof backend.save_node_positions === "function") {
+                backend.save_node_positions(graphRoot.folderUrl, globalNodePositionsCache)
+            }
+        }
     }
 }
 
@@ -320,7 +342,6 @@ function handleMouseDown(graphRoot, animTimer, mouse, graphMouse, Renderer) {
         graphMouse.dragOffsetX = node.x - wx
         graphMouse.dragOffsetY = node.y - wy
         graphMouse.cursorShape = Qt.ClosedHandCursor
-        wakeSimulation(graphRoot, null, animTimer)
     } else {
         graphRoot.draggedNode = null
         graphMouse.isPanning = true
@@ -328,7 +349,7 @@ function handleMouseDown(graphRoot, animTimer, mouse, graphMouse, Renderer) {
     }
 }
 
-function handleMouseUp(graphRoot, canvas, animTimer, mouse, graphMouse) {
+function handleMouseUp(graphRoot, canvas, animTimer, mouse, graphMouse, backend) {
     var movedDist = Math.hypot(mouse.x - graphMouse.dragStartX, mouse.y - graphMouse.dragStartY)
     var wasDraggingNode = (graphRoot.draggedNode !== null)
     var nodeRef = graphRoot.draggedNode
@@ -336,15 +357,24 @@ function handleMouseUp(graphRoot, canvas, animTimer, mouse, graphMouse) {
     if (wasDraggingNode) {
         nodeRef.isFixed = false
         nodeRef.isDragging = false
+        var posObj = { x: nodeRef.x, y: nodeRef.y }
+        globalNodePositionsCache[nodeRef.id] = posObj
         if (graphRoot.nodePositionsCache) {
-            graphRoot.nodePositionsCache[nodeRef.id] = { x: nodeRef.x, y: nodeRef.y }
+            graphRoot.nodePositionsCache[nodeRef.id] = posObj
+        }
+        if (backend && typeof backend.save_node_positions === "function") {
+            backend.save_node_positions(graphRoot.folderUrl, globalNodePositionsCache)
         }
         graphRoot.draggedNode = null
-        if (graphRoot.sim) {
+        if (movedDist >= 6 && graphRoot.sim) {
             graphRoot.sim.isSleeping = false
-            graphRoot.sim.totalEnergy = 35
+            graphRoot.sim.totalEnergy = 15
+            animTimer.running = true
+        } else if (graphRoot.sim) {
+            graphRoot.sim.isSleeping = true
+            graphRoot.sim.totalEnergy = 0
+            animTimer.running = false
         }
-        animTimer.running = true
         canvas.requestPaint()
     }
 
@@ -392,7 +422,14 @@ function handleKey(graphRoot, event) {
         var isRuGe = (event.key === Qt.Key_U || event.nativeScanCode === 22 || 
                       event.text === 'г' || event.text === 'Г' || 
                       event.key === 1075 || event.key === 1043)
-        if (isG || isRuGe) {
+        // Поддержка Ctrl+W (EN: W / RU: Ц, scan 17) и Ctrl+Q (EN: Q / RU: Й, scan 16) для закрытия графа
+        var isW = (event.key === Qt.Key_W || event.nativeScanCode === 17 ||
+                   event.key === 1062 || event.key === 1094 ||
+                   event.text === 'w' || event.text === 'W' || event.text === 'ц' || event.text === 'Ц')
+        var isQ = (event.key === Qt.Key_Q || event.nativeScanCode === 16 ||
+                   event.key === 1049 || event.key === 1081 ||
+                   event.text === 'q' || event.text === 'Q' || event.text === 'й' || event.text === 'Й')
+        if (isG || isRuGe || isW || isQ) {
             graphRoot.closeRequested()
             event.accepted = true
             return true

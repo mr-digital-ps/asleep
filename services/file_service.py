@@ -38,6 +38,9 @@ class FileService:
     Сервис файловой системы.
     Отвечает за чтение, запись, создание, переименование, удаление и выбор рабочих папок.
     """
+    def __init__(self, config_service=None):
+        self.config_service = config_service
+
     @staticmethod
     def to_path(file_url: str) -> Path:
         """Переводит QML URL 'file:///C:/doc.txt' в путь Windows Path('C:/doc.txt')"""
@@ -47,18 +50,45 @@ class FileService:
             return Path(QUrl(file_url).toLocalFile())
         return Path(file_url)
 
+    def get_ignored_directories(self, folder: Path | None = None) -> set[str]:
+        if self.config_service:
+            try:
+                app_cfg = self.config_service.get_app_config(folder)
+                if "ignored_directories" in app_cfg and isinstance(app_cfg["ignored_directories"], list):
+                    return {d.lower().strip() for d in app_cfg["ignored_directories"] if d}
+            except Exception:
+                pass
+        return {".git", ".venv", "__pycache__", "node_modules", "venv"}
+
+    def get_supported_extensions(self, folder: Path | None = None) -> set[str]:
+        if self.config_service:
+            try:
+                app_cfg = self.config_service.get_app_config(folder)
+                if "supported_extensions" in app_cfg and isinstance(app_cfg["supported_extensions"], list):
+                    return {ext.lower().strip() for ext in app_cfg["supported_extensions"] if ext}
+            except Exception:
+                pass
+        return {".md", ".markdown", ".txt"}
+
     def get_folder_files(self, folder_url: str) -> list:
-        """Возвращает список файлов в рабочей папке"""
+        """Возвращает список файлов в рабочей папке с учетом настроек ignored_directories и supported_extensions"""
         try:
             folder = self.to_path(folder_url)
             if not folder.exists() or not folder.is_dir():
                 return []
 
+            ignored_dirs = self.get_ignored_directories(folder)
+            supported_exts = self.get_supported_extensions(folder)
+
             items = []
             for p in sorted(folder.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())):
-                if p.name.startswith(".") or p.name in ["__pycache__", "venv", ".venv"]:
+                if p.is_dir() and p.name.lower() in ignored_dirs:
+                    continue
+                if p.name.startswith("."):
                     continue
                 if p.is_file():
+                    if supported_exts and p.suffix.lower() not in supported_exts:
+                        continue
                     items.append({
                         "name": p.name,
                         "fileUrl": QUrl.fromLocalFile(str(p.resolve())).toString(),

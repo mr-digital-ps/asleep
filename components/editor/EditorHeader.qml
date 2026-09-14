@@ -14,7 +14,7 @@ Item {
     property bool isEmpty: false
     property bool isPinned: false
     property bool isGraphMode: false
-    property string folderName: ""
+    property int barSize: 36
     property real scrollY: 0
     property real contentLeftPadding: 0
     property real contentRightPadding: 0
@@ -45,6 +45,7 @@ Item {
         DocumentHeader {
             id: docHeader
             visible: !headerRoot.isGraphMode
+            barSize: headerRoot.barSize
             fileName: headerRoot.fileName
             fileUrl: headerRoot.fileUrl
             isSplitMode: headerRoot.isSplitMode
@@ -64,8 +65,8 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: false
             Layout.topMargin: 12
-            Layout.leftMargin: 36
-            Layout.rightMargin: 36
+            Layout.leftMargin: headerRoot.barSize
+            Layout.rightMargin: headerRoot.barSize
             Layout.preferredHeight: 44
             Layout.maximumHeight: 44
             Layout.minimumHeight: 44

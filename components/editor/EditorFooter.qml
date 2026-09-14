@@ -10,6 +10,7 @@ Item {
     property bool isGraphMode: false
     property string statsText: ""
     property bool showBackground: true
+    property int barSize: 36
 
     signal pinToggled()
     signal activated()
@@ -36,8 +37,8 @@ Item {
             Layout.fillWidth: true
             Layout.preferredHeight: 14
             Layout.maximumHeight: 14
-            Layout.leftMargin: 36
-            Layout.rightMargin: 36
+            Layout.leftMargin: footerRoot.barSize
+            Layout.rightMargin: footerRoot.barSize
 
             Rectangle {
                 id: footerDividerLine
@@ -70,8 +71,8 @@ Item {
             id: statsRow
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.leftMargin: 36
-            Layout.rightMargin: 36
+            Layout.leftMargin: footerRoot.barSize
+            Layout.rightMargin: footerRoot.barSize
             Layout.bottomMargin: 12
             spacing: 12
 

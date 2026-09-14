@@ -52,14 +52,22 @@ Item {
     Canvas {
         id: gutterCanvas
         anchors.fill: parent
+        property real lastCursorY: -1
 
         Component.onCompleted: requestPaint()
 
         Connections {
             target: gutterItem.editorArea
-            function onTextChanged() { gutterCanvas.requestPaint() }
+            function onLineCountChanged() { gutterCanvas.requestPaint() }
+            function onCursorRectangleChanged() {
+                if (!gutterItem.editorArea) return
+                let curY = gutterItem.editorArea.cursorRectangle.y
+                if (Math.abs(curY - gutterCanvas.lastCursorY) > 2) {
+                    gutterCanvas.lastCursorY = curY
+                    gutterCanvas.requestPaint()
+                }
+            }
             function onWidthChanged() { gutterCanvas.requestPaint() }
-            function onCursorPositionChanged() { gutterCanvas.requestPaint() }
             function onFontChanged() { gutterCanvas.requestPaint() }
         }
 
