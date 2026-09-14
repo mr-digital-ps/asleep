@@ -6,7 +6,6 @@ import "../components/editor"
 import "../components/dialogs"
 import "../components/hotkeys"
 import "../components/theme"
-import "../js/app/logic.js" as Logic
 import "../js/tabs/tabs.js" as Tabs
 import "../js/tabs/drag_manager.js" as DragMgr
 import "../js/editor/markdown_shortcuts.js" as Markdown

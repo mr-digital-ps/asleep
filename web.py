@@ -10,15 +10,14 @@ if str(PROJECT_DIR) not in sys.path:
 # Предотвращаем сбой загрузки отсутствующего плагина qtquickcontrols2windowsstyleimplplugin.dll
 os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
 
+import json
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtQml import QQmlApplicationEngine
-from PyQt6.QtCore import QObject, pyqtSlot, pyqtSignal, QFileSystemWatcher, QTimer, QUrl, Qt, QCoreApplication
-from PyQt6.QtGui import QTextCursor, QTextOption, QFontDatabase
+from PyQt6.QtCore import QObject, pyqtSlot, pyqtSignal, QFileSystemWatcher, QCoreApplication, QUrl
+from PyQt6.QtGui import QFontDatabase, QTextCursor, QTextOption
 from PyQt6.QtQuick import QQuickTextDocument
 
-
-import json
-from services.block_engine import BlockEngine, replace_block_in_markdown
+from services.block_engine import BlockEngine
 from services.window_manager import WindowManager
 from services.file_service import FileService, save_session_config, load_session_config
 from services.config_service import ConfigService

@@ -346,6 +346,8 @@ def test_structure():
         "js/editor/markdown_shortcuts.js",
         "js/editor/block_sync.js",
         "js/editor/mainbar_controller.js",
+        "js/editor/frontmatter_service.js",
+        "js/editor/gutter_renderer.js",
         "js/graph/graph_physics.js",
         "js/graph/graph_renderer.js",
         "js/graph/graph_interaction.js",
@@ -356,7 +358,6 @@ def test_structure():
         "js/tabs/tabs.js",
         "js/app/action_dispatcher.js",
         "js/app/web_lifecycle.js",
-        "js/app/logic.js",
 
         "components/editor/EditorCanvas.qml",
         "components/editor/MainBar.qml",

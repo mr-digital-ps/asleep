@@ -1,4 +1,5 @@
 // js/editor/mainbar_controller.js — Контроллер рабочей области редактора (скролл, лист, конфиг, статистика)
+.import "frontmatter_service.js" as Frontmatter
 
 function calculateStats(text) {
     var txt = text || ""
@@ -16,67 +17,15 @@ function stripExt(name) {
 }
 
 function updateConfigParameterInText(fileName, text, key, value) {
-    if (!fileName || (!fileName.startsWith("_Настройка каталога") && !fileName.startsWith("Настройка каталога"))) return null
-    var regex = new RegExp("^(\\s*" + key + "\\s*:\\s*)[^\\s#]+", "m")
-    if (regex.test(text)) {
-        return text.replace(regex, "$1" + value)
-    }
-    return null
+    return Frontmatter.updateConfigParameterInText(fileName, text, key, value)
 }
 
 function applyEditorConfig(mainBar, editorArea, cfg, backend) {
-    if (!cfg || !cfg.editor) return
-    if (typeof cfg.editor.sheet_width === "number" && cfg.editor.sheet_width > 0) {
-        mainBar.customSheetWidth = cfg.editor.sheet_width
-    }
-    if (typeof cfg.editor.font_family === "string" && cfg.editor.font_family.length > 0) {
-        mainBar.customFontFamily = cfg.editor.font_family
-    }
-    if (typeof cfg.editor.font_size === "number" && cfg.editor.font_size > 0) {
-        editorArea.font.pixelSize = cfg.editor.font_size
-    }
-    if (typeof cfg.editor.padding_left === "number") {
-        editorArea.leftPadding = cfg.editor.padding_left
-    }
-    if (typeof cfg.editor.padding_right === "number") {
-        editorArea.rightPadding = cfg.editor.padding_right
-    }
-    if (typeof cfg.editor.padding_top === "number") {
-        editorArea.topPadding = cfg.editor.padding_top
-    }
-    if (typeof cfg.editor.padding_bottom === "number") {
-        editorArea.bottomPadding = cfg.editor.padding_bottom
-    }
-    if (typeof cfg.editor.typewriter_mode === "boolean") {
-        mainBar.typewriterMode = cfg.editor.typewriter_mode
-    }
-    if (typeof cfg.editor.focus_mode === "boolean") {
-        mainBar.focusMode = cfg.editor.focus_mode
-    }
-    if (typeof cfg.editor.show_line_dots === "boolean") {
-        mainBar.showLineDots = cfg.editor.show_line_dots
-    }
-    if (typeof cfg.editor.tab_size === "number" && cfg.editor.tab_size > 0) {
-        mainBar.tabSize = cfg.editor.tab_size
-    }
-    var percent = (typeof cfg.editor.line_height === "number" && cfg.editor.line_height > 0) ? (cfg.editor.line_height * 100) : 135.0
-    mainBar.editorLineHeightPercent = percent
-    if (backend && typeof backend.set_editor_line_height === "function") {
-        backend.set_editor_line_height(editorArea, percent)
-    }
+    return Frontmatter.applyEditorConfig(mainBar, editorArea, cfg, backend)
 }
 
 function initSessionConfig(mainBar, backend) {
-    if (!backend || typeof backend.get_session_config !== "function") return
-    try {
-        let sess = backend.get_session_config()
-        if (sess) {
-            if (typeof sess.header_pinned === "boolean") mainBar.isHeaderPinned = sess.header_pinned
-            if (typeof sess.footer_pinned === "boolean") mainBar.isFooterPinned = sess.footer_pinned
-            if (typeof sess.header_visible === "boolean") mainBar.showHeader = sess.header_visible
-            if (typeof sess.footer_visible === "boolean") mainBar.showFooter = sess.footer_visible
-        }
-    } catch(e) {}
+    return Frontmatter.initSessionConfig(mainBar, backend)
 }
 
 function ensureCursorVisible(mainBar, editorArea, editorScroll) {
@@ -177,12 +126,7 @@ function toggleHeaderOnly(mainBar, backend) {
 }
 
 function savePinnedState(backend, isHeader, pinned) {
-    if (!backend) return
-    if (isHeader && typeof backend.save_header_pinned === "function") {
-        backend.save_header_pinned(pinned)
-    } else if (!isHeader && typeof backend.save_footer_pinned === "function") {
-        backend.save_footer_pinned(pinned)
-    }
+    return Frontmatter.savePinnedState(backend, isHeader, pinned)
 }
 
 function handleSheetWidthRequested(mainBar, w) {
@@ -405,44 +349,5 @@ function handleFontSizeChanged(mainBar, backend, sz) {
     }
 }
 
-function drawGutterDots(canvas, editorArea, width, height, activeColor, textColor) {
-    if (!canvas || typeof canvas.getContext !== "function") return
-    var ctx = canvas.getContext("2d")
-    ctx.clearRect(0, 0, width, height)
-    if (!editorArea) return
-    var txt = editorArea.text
-    if (txt === undefined || txt === null) return
-
-    var lines = txt.split("\n")
-    var pos = 0
-    var curPos = editorArea.cursorPosition
-    var centerX = width / 2
-
-    var fontSize = (editorArea.font && editorArea.font.pixelSize) ? editorArea.font.pixelSize : 15
-    var scale = Math.max(0.6, Math.min(2.5, fontSize / 15.0))
-
-    for (var i = 0; i < lines.length; i++) {
-        var lineLen = lines[i].length
-        var isCurrentLine = (curPos >= pos && curPos <= pos + lineLen)
-        var r = editorArea.positionToRectangle(pos)
-        var dotY = r.y + (r.height / 2)
-
-        // Прекращаем обход, если вышли за нижнюю границу видимости
-        if (r.y > height + 40) {
-            break
-        }
-
-        // Пропускаем строки выше верхней границы видимости
-        if (r.y + r.height >= -40) {
-            ctx.beginPath()
-            var radius = (isCurrentLine ? 3.2 : 2.2) * scale
-            ctx.arc(centerX, dotY, radius, 0, 2 * Math.PI)
-            ctx.fillStyle = isCurrentLine ? activeColor : textColor
-            ctx.fill()
-        }
-
-        pos += lineLen + 1
-    }
-}
 
 

@@ -32,7 +32,8 @@ ApplicationWindow {
     Loader {
         id: hotLoader
         objectName: "hotLoader"
-        anchors.fill: parent
+        width: root.width
+        height: root.height
         focus: true
         source: "web.qml"
         onLoaded: {

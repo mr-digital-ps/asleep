@@ -3,7 +3,8 @@ import "../theme"
 
 Item {
     id: frame
-    anchors.fill: parent
+    width: parent ? parent.width : (targetWindow ? targetWindow.width : 0)
+    height: parent ? parent.height : (targetWindow ? targetWindow.height : 0)
     z: 9999
 
     property var targetWindow: Window.window

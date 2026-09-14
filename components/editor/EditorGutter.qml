@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "../../js/editor/mainbar_controller.js" as Controller
+import "../../js/editor/gutter_renderer.js" as GutterRenderer
 import "../theme"
 
 Item {
@@ -71,6 +71,6 @@ Item {
             function onFontChanged() { gutterCanvas.requestPaint() }
         }
 
-        onPaint: Controller.drawGutterDots(gutterCanvas, gutterItem.editorArea, width, height, Theme.gutterActive, Theme.gutterText)
+        onPaint: GutterRenderer.drawGutterDots(gutterCanvas, gutterItem.editorArea, width, height, Theme.gutterActive, Theme.gutterText)
     }
 }
