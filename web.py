@@ -75,6 +75,20 @@ class Backend(QObject):
         self._current_folder: Path = None
         self._is_syncing_files = False
         self._last_config_mtime: int = 0
+        self._last_user_files_snapshot: dict = {}
+
+    def _get_user_files_snapshot(self) -> dict:
+        if not self._current_folder or not self._current_folder.exists() or not self._current_folder.is_dir():
+            return {}
+        try:
+            exts = self.file_service.get_supported_extensions(self._current_folder)
+            snap = {}
+            for p in self._current_folder.iterdir():
+                if p.is_file() and p.suffix.lower() in exts and not p.name.startswith(".") and p.name != "_Граф связей.md":
+                    snap[p.name] = p.stat().st_mtime_ns
+            return snap
+        except Exception:
+            return {}
 
         self.config_watcher = QFileSystemWatcher(self)
         self.config_watcher.fileChanged.connect(self._on_config_file_changed)
@@ -119,28 +133,40 @@ class Backend(QObject):
             self.appConfigChanged.emit()
 
     def _on_directory_changed(self, path: str):
-        if not self._is_syncing_files and self._current_folder:
-            self.graph_service.invalidate_cache(self._current_folder)
-            exts = self.file_service.get_supported_extensions(self._current_folder)
-            self.block_engine.reindex_folder(self._current_folder, exts)
-            cfg_path = self.config_service.get_config_file_path(self._current_folder)
-            if cfg_path and cfg_path.exists():
-                cur_mtime = cfg_path.stat().st_mtime_ns
-                if self._last_config_mtime > 0 and cur_mtime != self._last_config_mtime:
-                    self._last_config_mtime = cur_mtime
-                    self.config_service.load_folder_config(self._current_folder)
-                    self.configUpdated.emit(json.dumps(self.config_service.current_config))
-                elif self._last_config_mtime == 0:
-                    self._last_config_mtime = cur_mtime
+        if self._is_syncing_files or not self._current_folder:
+            return
 
-            # Фоновая проекция структуры связей в _Граф связей.md
-            try:
-                self._is_syncing_files = True
-                self.graph_service.sync_graph_markdown_file(self._current_folder)
-            except Exception as e:
-                _safe_print(f"[Backend] Ошибка синхронизации графа связей: {e}")
-            finally:
-                self._is_syncing_files = False
+        new_snapshot = self._get_user_files_snapshot()
+        cfg_path = self.config_service.get_config_file_path(self._current_folder)
+        cfg_changed = False
+        if cfg_path and cfg_path.exists():
+            cur_mtime = cfg_path.stat().st_mtime_ns
+            if self._last_config_mtime > 0 and cur_mtime != self._last_config_mtime:
+                self._last_config_mtime = cur_mtime
+                self.config_service.load_folder_config(self._current_folder)
+                self.configUpdated.emit(json.dumps(self.config_service.current_config))
+                cfg_changed = True
+            elif self._last_config_mtime == 0:
+                self._last_config_mtime = cur_mtime
+
+        # Если файлы заметок не изменились (например, сохранена геометрия окна в .session_config.json
+        # или обновлены координаты в _graph_positions.json) - не сбрасываем граф
+        if new_snapshot == self._last_user_files_snapshot and not cfg_changed:
+            return
+
+        self._last_user_files_snapshot = new_snapshot
+        self.graph_service.invalidate_cache(self._current_folder)
+        exts = self.file_service.get_supported_extensions(self._current_folder)
+        self.block_engine.reindex_folder(self._current_folder, exts)
+
+        # Фоновая проекция структуры связей в _Граф связей.md
+        try:
+            self._is_syncing_files = True
+            self.graph_service.sync_graph_markdown_file(self._current_folder)
+        except Exception as e:
+            _safe_print(f"[Backend] Ошибка синхронизации графа связей: {e}")
+        finally:
+            self._is_syncing_files = False
 
         self.folderFilesChanged.emit()
         self.graphDataChanged.emit()
@@ -194,6 +220,7 @@ class Backend(QObject):
                     _safe_print(f"[Backend] Ошибка создания _Граф связей.md: {e}")
                 finally:
                     self._is_syncing_files = False
+                self._last_user_files_snapshot = self._get_user_files_snapshot()
         except Exception as e:
             print(f"[Backend] Ошибка отслеживания папки: {e}")
 

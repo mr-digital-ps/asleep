@@ -29,7 +29,7 @@
 
 	// Центрированный / полный лист
 	"toggle_centered_mode": {
-		"keys": ["Alt+W", "Ctrl+Shift+W"],
+		"keys": ["Alt+J", "Ctrl+Shift+J"],
 		"description": "Переключить ширину листа (по центру / на всю ширину)"
 	},
 

@@ -174,9 +174,14 @@ tags:
     ev_detach = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 32, 0x44, 0)
     assert matcher.match_event(ev_detach) == "detach_window", "Ctrl+D/Ctrl+В должен распознаваться"
 
-    # 11. Проверка toggle_centered_mode: Alt+W (RU 'Ц', scan 17, VK 0x57)
-    ev_centered = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.AltModifier, 17, 0x57, 0)
-    assert matcher.match_event(ev_centered) == "toggle_centered_mode", "Alt+W/Alt+Ц должен распознаваться"
+    # 11. Проверка toggle_centered_mode (поддержка дефолтного Alt+W и пользовательского Alt+J)
+    centered_keys = hks.get("toggle_centered_mode", {}).get("keys", [])
+    if any("Alt+J" in k for k in centered_keys):
+        ev_centered = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.AltModifier, 36, 0x4A, 0)
+        assert matcher.match_event(ev_centered) == "toggle_centered_mode", "Alt+J/Alt+О должен распознаваться"
+    else:
+        ev_centered = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.AltModifier, 17, 0x57, 0)
+        assert matcher.match_event(ev_centered) == "toggle_centered_mode", "Alt+W/Alt+Ц должен распознаваться"
 
 
     # 7. Тест GraphService

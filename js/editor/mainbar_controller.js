@@ -221,7 +221,10 @@ function handleGraphModeChanged(mainBar, editorScroll, sheetGraphView, editorAre
         if (sheetGraphView) {
             sheetGraphView.activeFileUrl = mainBar.fileUrl
             if (sheetGraphView.sim && sheetGraphView.sim.nodes && sheetGraphView.sim.nodes.length > 0) {
-                sheetGraphView.centerOnNode(mainBar.fileUrl)
+                if (sheetGraphView.lastCenteredUrl !== mainBar.fileUrl) {
+                    sheetGraphView.lastCenteredUrl = mainBar.fileUrl
+                    sheetGraphView.centerOnNode(mainBar.fileUrl)
+                }
                 if (typeof sheetGraphView.wakeSimulation === "function") {
                     sheetGraphView.wakeSimulation()
                 } else if (sheetGraphView.canvas) {

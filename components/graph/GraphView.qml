@@ -64,6 +64,8 @@ Rectangle {
         return Interaction.getGraphStats(sim)
     }
 
+    property string lastCenteredUrl: ""
+
     Component.onCompleted: reloadGraph()
 
     onVisibleChanged: {
@@ -71,14 +73,20 @@ Rectangle {
             if (!sim || !sim.nodes || sim.nodes.length === 0) {
                 reloadGraph()
             } else {
-                if (activeFileUrl) centerOnNode(activeFileUrl)
+                if (activeFileUrl && activeFileUrl !== lastCenteredUrl) {
+                    lastCenteredUrl = activeFileUrl
+                    centerOnNode(activeFileUrl)
+                }
                 wakeSimulation()
             }
         }
     }
 
     onActiveFileUrlChanged: {
-        if (activeFileUrl) centerOnNode(activeFileUrl)
+        if (activeFileUrl && activeFileUrl !== lastCenteredUrl) {
+            lastCenteredUrl = activeFileUrl
+            centerOnNode(activeFileUrl)
+        }
     }
 
     onFolderUrlChanged: {
@@ -91,7 +99,7 @@ Rectangle {
         target: (typeof backend !== "undefined") ? backend : null
         function onGraphDataChanged() { graphRoot.reloadGraph() }
         function onFolderFilesChanged() {
-            if (graphRoot.visible || !graphRoot.sim) {
+            if (!graphRoot.sim || !graphRoot.sim.nodes || graphRoot.sim.nodes.length === 0) {
                 graphRoot.reloadGraph()
             }
         }
