@@ -19,22 +19,13 @@ ApplicationWindow {
     property string initialTitle: ""
     property string initialContent: ""
 
-    Keys.forwardTo: (hotLoader && hotLoader.item) ? [hotLoader.item] : []
-
-    Keys.onPressed: (event) => {
-        if (hotLoader && hotLoader.item && typeof hotLoader.item.handleGlobalKeyEvent === "function") {
-            if (hotLoader.item.handleGlobalKeyEvent(event)) {
-                return
-            }
-        }
-    }
-
     Loader {
         id: hotLoader
         objectName: "hotLoader"
         width: root.width
         height: root.height
         focus: true
+        Keys.forwardTo: (item ? [item] : [])
         source: "web.qml"
         onLoaded: {
             if (item) {
