@@ -165,9 +165,12 @@ function handleGraphModeChanged(mainBar, editorScroll, sheetGraphView, editorAre
         if (sheetGraphView) {
             sheetGraphView.activeFileUrl = mainBar.fileUrl
             if (sheetGraphView.sim && sheetGraphView.sim.nodes && sheetGraphView.sim.nodes.length > 0) {
-                if (sheetGraphView.lastCenteredUrl !== mainBar.fileUrl) {
-                    sheetGraphView.lastCenteredUrl = mainBar.fileUrl
-                    sheetGraphView.centerOnNode(mainBar.fileUrl)
+                if (mainBar.fileUrl && !sheetGraphView.centerOnNode(mainBar.fileUrl)) {
+                    Qt.callLater(function() {
+                        if (sheetGraphView && mainBar.isGraphMode && mainBar.fileUrl) {
+                            sheetGraphView.centerOnNode(mainBar.fileUrl)
+                        }
+                    })
                 }
                 if (typeof sheetGraphView.wakeSimulation === "function") {
                     sheetGraphView.wakeSimulation()
@@ -186,13 +189,24 @@ function handleGraphModeChanged(mainBar, editorScroll, sheetGraphView, editorAre
                 } else {
                     sheetGraphView.reloadGraph()
                 }
+                if (mainBar.fileUrl && !sheetGraphView.centerOnNode(mainBar.fileUrl)) {
+                    Qt.callLater(function() {
+                        if (sheetGraphView && mainBar.isGraphMode && mainBar.fileUrl) {
+                            sheetGraphView.centerOnNode(mainBar.fileUrl)
+                        }
+                    })
+                }
             }
-            sheetGraphView.forceActiveFocus()
+            if (mainBar.isActivePane) {
+                sheetGraphView.forceActiveFocus()
+            }
         }
     } else {
-        if (editorArea) {
+        if (mainBar.isActivePane && editorArea) {
             Qt.callLater(function() {
-                editorArea.forceActiveFocus()
+                if (mainBar.isActivePane && editorArea) {
+                    editorArea.forceActiveFocus()
+                }
             })
         }
     }
@@ -240,46 +254,17 @@ function handleBlockSyncTriggered(mainBar, editorArea, backend, BlockSync) {
 function handleBackgroundDragPressed(mouse, mainBar, state) {
     if (mouse.button === Qt.LeftButton) {
         mainBar.paneActivated()
-        if (mainBar.isSplitMode) {
-            state.pressX = mouse.x
-            state.pressY = mouse.y
-            state.isPressed = true
-            state.isDragging = false
-        } else {
-            var win = mainBar.Window ? mainBar.Window.window : null
-            if (win && typeof win.startSystemMove === "function") {
-                win.startSystemMove()
-            }
+        var win = mainBar.targetWindow
+        if (win && typeof win.startSystemMove === "function") {
+            win.startSystemMove()
         }
     }
 }
 
 function handleBackgroundDragMoved(mouse, mainBar, containerItem, state) {
-    if (!state.isPressed || !mainBar.isSplitMode) return
-    var dx = mouse.x - state.pressX
-    var dy = mouse.y - state.pressY
-    var dist = Math.hypot(dx, dy)
-    var globalP = containerItem.mapToGlobal(mouse.x, mouse.y)
-
-    if (!state.isDragging) {
-        if (dist > 8 && !mainBar.isEmpty) {
-            state.isDragging = true
-            mainBar.fileDragStarted(mainBar.fileUrl, mainBar.fileName, globalP.x, globalP.y)
-        }
-    } else {
-        mainBar.fileDragMoved(globalP.x, globalP.y)
-    }
 }
 
 function handleBackgroundDragReleased(mouse, mainBar, containerItem, state) {
-    if (mouse.button === Qt.LeftButton) {
-        state.isPressed = false
-        if (state.isDragging && mainBar.isSplitMode) {
-            state.isDragging = false
-            var globalP = containerItem.mapToGlobal(mouse.x, mouse.y)
-            mainBar.fileDragEnded(mainBar.fileUrl, mainBar.fileName, globalP.x, globalP.y)
-        }
-    }
 }
 
 function calculateFooterY(mainBar, docFooter, editorCanvas, editorScroll) {

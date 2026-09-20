@@ -15,9 +15,93 @@ Item {
     property string dropZone: "" // "left" | "right" | "center" | "sidebar" | ""
 
     // Свойства графа связей
-    property bool isGraphVisible: false
+    property bool isPrimaryGraphVisible: false
+    property bool isSecondaryGraphVisible: false
+    property bool isPrimaryLocalGraph: false
+    property bool isSecondaryLocalGraph: false
+    readonly property bool isGraphVisible: isPrimaryGraphVisible || (isSplit && isSecondaryGraphVisible)
     property string currentFolderUrl: ""
     property string currentFolderName: ""
+    property var openFileUrls: []
+
+    onIsSplitChanged: {
+        if (!isSplit) {
+            if (activePane === 1) {
+                isPrimaryGraphVisible = isSecondaryGraphVisible
+                isPrimaryLocalGraph = isSecondaryLocalGraph
+            }
+            isSecondaryGraphVisible = false
+            isSecondaryLocalGraph = false
+        }
+    }
+
+    function toggleGraph() {
+        if (isSplit && activePane === 1) {
+            if (isSecondaryGraphVisible && isSecondaryLocalGraph) {
+                isSecondaryLocalGraph = false
+            } else {
+                isSecondaryGraphVisible = !isSecondaryGraphVisible
+                isSecondaryLocalGraph = false
+            }
+        } else {
+            if (isPrimaryGraphVisible && isPrimaryLocalGraph) {
+                isPrimaryLocalGraph = false
+            } else {
+                isPrimaryGraphVisible = !isPrimaryGraphVisible
+                isPrimaryLocalGraph = false
+            }
+        }
+    }
+
+    function toggleLocalGraph() {
+        if (isSplit && activePane === 1) {
+            if (isSecondaryGraphVisible && !isSecondaryLocalGraph) {
+                isSecondaryLocalGraph = true
+            } else if (isSecondaryGraphVisible && isSecondaryLocalGraph) {
+                isSecondaryGraphVisible = false
+                isSecondaryLocalGraph = false
+            } else {
+                isSecondaryLocalGraph = true
+                isSecondaryGraphVisible = true
+            }
+        } else {
+            if (isPrimaryGraphVisible && !isPrimaryLocalGraph) {
+                isPrimaryLocalGraph = true
+            } else if (isPrimaryGraphVisible && isPrimaryLocalGraph) {
+                isPrimaryGraphVisible = false
+                isPrimaryLocalGraph = false
+            } else {
+                isPrimaryLocalGraph = true
+                isPrimaryGraphVisible = true
+            }
+        }
+    }
+
+    function closeGraph() {
+        if (isSplit && activePane === 1) {
+            if (isSecondaryGraphVisible) {
+                isSecondaryGraphVisible = false
+                isSecondaryLocalGraph = false
+                return
+            }
+        }
+        if (isPrimaryGraphVisible) {
+            isPrimaryGraphVisible = false
+            isPrimaryLocalGraph = false
+            return
+        }
+        if (isSecondaryGraphVisible) {
+            isSecondaryGraphVisible = false
+            isSecondaryLocalGraph = false
+        }
+    }
+
+    function closeAllGraphs() {
+        isPrimaryGraphVisible = false
+        isPrimaryLocalGraph = false
+        isSecondaryGraphVisible = false
+        isSecondaryLocalGraph = false
+    }
 
     // Свойства документов
     property string primaryFileName: "Новый документ"
@@ -47,11 +131,14 @@ Item {
     signal fileDragEnded(int paneIndex, string url, string name, real gx, real gy)
     signal saveRequested()
     signal openRequested()
+    signal openSplitRequested()
     signal newRequested()
+    signal newSplitRequested()
     signal toggleGraphRequested()
     signal toggleSplitRequested()
     signal nodeSelected(string fileUrl, string label)
     signal closeGraphRequested()
+    signal openStructureRequested()
 
 
     // Контейнер с панелями редактора
@@ -71,9 +158,11 @@ Item {
             isEmpty: splitLayout.isPrimaryEmpty
 
             // Режим графа на листе
-            isGraphMode: splitLayout.isGraphVisible && splitLayout.activePane === 0
+            isGraphMode: splitLayout.isPrimaryGraphVisible
+            isLocalGraphMode: splitLayout.isPrimaryLocalGraph
             folderUrl: splitLayout.currentFolderUrl
             currentFolderName: splitLayout.currentFolderName
+            openFileUrls: splitLayout.openFileUrls
 
             anchors.left: parent.left
             anchors.top: parent.top
@@ -89,11 +178,23 @@ Item {
             onFileDragEnded: (url, name, gx, gy) => splitLayout.fileDragEnded(0, url, name, gx, gy)
             onSaveRequested: splitLayout.saveRequested()
             onOpenRequested: splitLayout.openRequested()
+            onOpenSplitRequested: splitLayout.openSplitRequested()
             onNewRequested: splitLayout.newRequested()
-            onToggleGraphRequested: splitLayout.toggleGraphRequested()
+            onNewSplitRequested: splitLayout.newSplitRequested()
+            onToggleGraphRequested: {
+                splitLayout.isPrimaryGraphVisible = !splitLayout.isPrimaryGraphVisible
+                splitLayout.toggleGraphRequested()
+            }
             onToggleSplitRequested: splitLayout.toggleSplitRequested()
-            onCloseGraphRequested: splitLayout.closeGraphRequested()
-            onNodeSelected: (fUrl, lbl) => splitLayout.nodeSelected(fUrl, lbl)
+            onCloseGraphRequested: {
+                splitLayout.isPrimaryGraphVisible = false
+                splitLayout.closeGraphRequested()
+            }
+            onNodeSelected: (fUrl, lbl) => {
+                splitLayout.isPrimaryGraphVisible = false
+                splitLayout.nodeSelected(fUrl, lbl)
+            }
+            onOpenStructureRequested: splitLayout.openStructureRequested()
         }
 
         // Вертикальный разделитель (виден только при включенном сплите)
@@ -143,9 +244,11 @@ Item {
             isActivePane: splitLayout.activePane === 1
 
             // Режим графа на листе
-            isGraphMode: splitLayout.isSplit && splitLayout.isGraphVisible && splitLayout.activePane === 1
+            isGraphMode: splitLayout.isSplit && splitLayout.isSecondaryGraphVisible
+            isLocalGraphMode: splitLayout.isSecondaryLocalGraph
             folderUrl: splitLayout.currentFolderUrl
             currentFolderName: splitLayout.currentFolderName
+            openFileUrls: splitLayout.openFileUrls
 
             anchors.left: splitterDivider.right
             anchors.right: parent.right
@@ -161,11 +264,23 @@ Item {
             onFileDragEnded: (url, name, gx, gy) => splitLayout.fileDragEnded(1, url, name, gx, gy)
             onSaveRequested: splitLayout.saveRequested()
             onOpenRequested: splitLayout.openRequested()
+            onOpenSplitRequested: splitLayout.openSplitRequested()
             onNewRequested: splitLayout.newRequested()
-            onToggleGraphRequested: splitLayout.toggleGraphRequested()
+            onNewSplitRequested: splitLayout.newSplitRequested()
+            onToggleGraphRequested: {
+                splitLayout.isSecondaryGraphVisible = !splitLayout.isSecondaryGraphVisible
+                splitLayout.toggleGraphRequested()
+            }
             onToggleSplitRequested: splitLayout.toggleSplitRequested()
-            onCloseGraphRequested: splitLayout.closeGraphRequested()
-            onNodeSelected: (fUrl, lbl) => splitLayout.nodeSelected(fUrl, lbl)
+            onCloseGraphRequested: {
+                splitLayout.isSecondaryGraphVisible = false
+                splitLayout.closeGraphRequested()
+            }
+            onNodeSelected: (fUrl, lbl) => {
+                splitLayout.isSecondaryGraphVisible = false
+                splitLayout.nodeSelected(fUrl, lbl)
+            }
+            onOpenStructureRequested: splitLayout.openStructureRequested()
         }
 
 

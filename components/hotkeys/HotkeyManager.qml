@@ -38,9 +38,20 @@ Item {
         if (!(event.modifiers & Qt.ControlModifier)) return false
         // W key: Key_W, scan code 17, or Cyrillic 'ц'
         if (event.key === Qt.Key_W || event.nativeScanCode === 17 || event.text === 'w' || event.text === 'W' || event.text === 'ц' || event.text === 'Ц' || event.key === 1062 || event.key === 1030) return true
-        // Q key: Key_Q, scan code 16, or Cyrillic 'й'
-        if (event.key === Qt.Key_Q || event.nativeScanCode === 16 || event.text === 'q' || event.text === 'Q' || event.text === 'й' || event.text === 'Й' || event.key === 1081 || event.key === 1049) return true
         return false
+    }
+
+    function isKeyG(event) {
+        return event.key === Qt.Key_G || event.nativeScanCode === 34 || event.text === 'g' || event.text === 'G' || event.text === 'п' || event.text === 'П' || event.key === 1087 || event.key === 1055
+            || event.key === Qt.Key_U || event.nativeScanCode === 22 || event.text === 'г' || event.text === 'Г' || event.key === 1075 || event.key === 1043
+    }
+
+    function isKeyP(event) {
+        return event.key === Qt.Key_P || event.nativeScanCode === 25 || event.text === 'p' || event.text === 'P' || event.text === 'з' || event.text === 'З' || event.key === 1079 || event.key === 1047
+    }
+
+    function isKeyE(event) {
+        return event.key === Qt.Key_E || event.nativeScanCode === 18 || event.text === 'e' || event.text === 'E' || event.text === 'у' || event.text === 'У' || event.key === 1091 || event.key === 1059
     }
 
     function handleKeyEvent(event) {
@@ -49,12 +60,44 @@ Item {
             event.accepted = true
             return true
         }
+
+        // Локальные: Alt + G (Локальный граф), Alt + P (Локальная иерархия / Outliner)
+        if (event.modifiers & Qt.AltModifier) {
+            if (isKeyG(event)) {
+                hotkeyRoot.actionTriggered("toggle_local_graph")
+                event.accepted = true
+                return true
+            }
+            if (isKeyP(event)) {
+                hotkeyRoot.actionTriggered("toggle_outline")
+                event.accepted = true
+                return true
+            }
+        }
+
+        // Глобальные: Ctrl + G (Глобальный граф), Ctrl + P (Глобальная структура)
         if (event.modifiers & Qt.ControlModifier) {
-            // G key: Key_G (34, 'g', 'п'), or Russian letter 'Г' (Key_U / 22, 'г')
-            var isG = (event.key === Qt.Key_G || event.nativeScanCode === 34 || event.text === 'g' || event.text === 'G' || event.text === 'п' || event.text === 'П' || event.key === 1087 || event.key === 1055)
-            var isRuGe = (event.key === Qt.Key_U || event.nativeScanCode === 22 || event.text === 'г' || event.text === 'Г' || event.key === 1075 || event.key === 1043)
-            if (isG || isRuGe) {
+            if (isKeyG(event)) {
                 hotkeyRoot.actionTriggered("toggle_graph")
+                event.accepted = true
+                return true
+            }
+            if (isKeyP(event)) {
+                hotkeyRoot.actionTriggered("open_structure")
+                event.accepted = true
+                return true
+            }
+            if (isKeyE(event)) {
+                hotkeyRoot.actionTriggered("toggle_outline")
+                event.accepted = true
+                return true
+            }
+
+            // D key: Key_D (32, 'd', 'в'), or Russian letter 'Д' (Key_L / 38, 'д')
+            var isD = (event.key === Qt.Key_D || event.nativeScanCode === 32 || event.text === 'd' || event.text === 'D' || event.text === 'в' || event.text === 'В' || event.key === 1074 || event.key === 1042)
+            var isRuDe = (event.key === Qt.Key_L || event.nativeScanCode === 38 || event.text === 'д' || event.text === 'Д' || event.key === 1076 || event.key === 1044)
+            if (isD || isRuDe) {
+                hotkeyRoot.actionTriggered("detach_window")
                 event.accepted = true
                 return true
             }

@@ -1,0 +1,4 @@
+module components.editor.canvas
+EditorGutter 1.0 EditorGutter.qml
+BracketHighlightOverlay 1.0 BracketHighlightOverlay.qml
+EditorFocusDimmer 1.0 EditorFocusDimmer.qml

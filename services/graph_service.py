@@ -2,12 +2,17 @@ import copy
 import re
 from pathlib import Path
 from PyQt6.QtCore import QUrl
-from services.config_service import parse_json_with_comments
+from services.config_service import parse_json_with_comments, compile_safe_regex, ConfigService
 
-WIKILINK_REGEX = re.compile(r'\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]')
-MD_LINK_REGEX = re.compile(r'\[([^\]]+)\]\(([^)]+\.(?:md|markdown|txt))\)', re.IGNORECASE)
-TAG_REGEX = re.compile(r'(?<!\S)#([a-zA-Zа-яА-ЯёЁ0-9_\-]+)(?!\S)')
-H1_REGEX = re.compile(r'^#\s+([^\n\r]+)', re.MULTILINE)
+DEFAULT_WIKILINK_REGEX = re.compile(r'\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]')
+DEFAULT_MD_LINK_REGEX = re.compile(r'\[([^\]]+)\]\(([^)]+\.(?:md|markdown|txt))\)', re.IGNORECASE)
+DEFAULT_TAG_REGEX = re.compile(r'(?<!\S)#([a-zA-Zа-яА-ЯёЁ0-9_\-]+)(?!\S)')
+DEFAULT_H1_REGEX = re.compile(r'^#\s+([^\n\r]+)', re.MULTILINE)
+
+WIKILINK_REGEX = DEFAULT_WIKILINK_REGEX
+MD_LINK_REGEX = DEFAULT_MD_LINK_REGEX
+TAG_REGEX = DEFAULT_TAG_REGEX
+H1_REGEX = DEFAULT_H1_REGEX
 
 def load_default_graph_config(project_root: Path | None = None) -> dict:
     """Динамически загружает эталонные дефолты из config/default/graph.json."""
@@ -41,13 +46,57 @@ class GraphService:
     Сервис сбора и построения интерактивного графа связей между заметками,
     включая вики-ссылки [[...]], общие H1-блоки, теги и настройки симуляции.
     """
-    def __init__(self, block_engine=None, file_service=None):
+    def __init__(self, block_engine=None, file_service=None, config_service=None):
         self.block_engine = block_engine
         self.file_service = file_service
+        self.config_service = config_service
         self.project_root = Path(__file__).resolve().parent.parent
         self._graph_cache = {}
         self._config_cache = {}
         self._node_positions = {}
+
+    def get_markdown_rules(self, folder_path: Path | None = None) -> dict:
+        """Загружает правила разбора Markdown с защитой от сломанных regex пользователя"""
+        cs = self.config_service or ConfigService()
+        cfg = cs.get_markdown_config(folder_path) or {}
+
+        wl_cfg = cfg.get("wikilinks", {})
+        wl_regex = compile_safe_regex(wl_cfg.get("pattern"), DEFAULT_WIKILINK_REGEX)
+        md_regex = compile_safe_regex(wl_cfg.get("md_link_pattern"), DEFAULT_MD_LINK_REGEX, re.IGNORECASE)
+
+        tag_cfg = cfg.get("tags", {})
+        tag_regex = compile_safe_regex(tag_cfg.get("pattern"), DEFAULT_TAG_REGEX)
+        try:
+            tag_min = max(1, int(tag_cfg.get("min_occurrences_for_graph", 2)))
+        except (ValueError, TypeError):
+            tag_min = 2
+
+        blk_cfg = cfg.get("blocks", {})
+        h_lvl = blk_cfg.get("graph_transclusion_level", 1)
+        if h_lvl == 1:
+            h_regex = compile_safe_regex(blk_cfg.get("heading_h1_pattern"), DEFAULT_H1_REGEX, re.MULTILINE)
+        else:
+            dyn_pat = rf'^(#{{{h_lvl}}})\s+([^\n\r]+)'
+            h_regex = compile_safe_regex(dyn_pat, DEFAULT_H1_REGEX, re.MULTILINE)
+        try:
+            blk_min = max(1, int(blk_cfg.get("min_occurrences_for_graph", 2)))
+        except (ValueError, TypeError):
+            blk_min = 2
+
+        sys_cfg = cfg.get("system_files", {})
+        ignore_prefixes = sys_cfg.get("ignore_prefixes", ["_", "."])
+        if not isinstance(ignore_prefixes, (list, tuple)):
+            ignore_prefixes = ["_", "."]
+
+        return {
+            "wikilink_regex": wl_regex,
+            "md_link_regex": md_regex,
+            "tag_regex": tag_regex,
+            "tag_min": tag_min,
+            "h_regex": h_regex,
+            "block_min": blk_min,
+            "ignore_prefixes": tuple(ignore_prefixes)
+        }
 
     def _get_folder_key(self, folder_path: Path | str | None) -> str:
         if not folder_path:
@@ -170,11 +219,20 @@ class GraphService:
         file_tags = {}  # tag -> list of paths
 
         # 1. Первый проход: собираем файлы и индексируем имена
+        rules = self.get_markdown_rules(folder_path)
+        ignore_prefixes = rules["ignore_prefixes"]
+        wl_regex = rules["wikilink_regex"]
+        md_regex = rules["md_link_regex"]
+        h_regex = rules["h_regex"]
+        tag_regex = rules["tag_regex"]
+        block_min = rules["block_min"]
+        tag_min = rules["tag_min"]
+
         supported_exts = self.file_service.get_supported_extensions(folder_path) if self.file_service else {".md", ".markdown", ".txt"}
         for p in folder_path.iterdir():
             if not p.is_file() or p.suffix.lower() not in supported_exts:
                 continue
-            if p.name.startswith(".") or p.name.startswith("_"):
+            if any(p.name.startswith(pre) for pre in ignore_prefixes):
                 continue
 
             stem_norm = p.stem.strip().lower()
@@ -207,7 +265,7 @@ class GraphService:
                 continue
 
             # А. Поиск вики-ссылок [[Имя заметки]]
-            for m in WIKILINK_REGEX.finditer(content):
+            for m in wl_regex.finditer(content):
                 target_name = m.group(1).strip()
                 target_norm = target_name.lower()
                 if target_norm in files_data:
@@ -219,7 +277,7 @@ class GraphService:
                         nodes_map[target_url]["val"] += 1
 
             # Б. Поиск стандартных Markdown ссылок [текст](файл.md)
-            for m in MD_LINK_REGEX.finditer(content):
+            for m in md_regex.finditer(content):
                 raw_target = m.group(2).strip()
                 target_stem = Path(raw_target).stem.strip().lower()
                 if target_stem in files_data:
@@ -230,7 +288,7 @@ class GraphService:
                         nodes_map[target_url]["val"] += 1
 
             # В. Поиск H1-блоков (# Заголовок)
-            for m in H1_REGEX.finditer(content):
+            for m in h_regex.finditer(content):
                 h_text = m.group(1).strip()
                 h_norm = h_text.lower()
                 if h_norm not in file_blocks:
@@ -239,7 +297,7 @@ class GraphService:
                     file_blocks[h_norm].append((file_url, h_text))
 
             # Г. Поиск тегов (#тег)
-            for m in TAG_REGEX.finditer(content):
+            for m in tag_regex.finditer(content):
                 tag_name = m.group(1).strip()
                 tag_norm = tag_name.lower()
                 if tag_norm not in file_tags:
@@ -249,8 +307,8 @@ class GraphService:
 
         # 3. Добавляем связи по общим H1-блокам (трансклюзия)
         for h_norm, occurrences in file_blocks.items():
-            if len(occurrences) > 1:
-                # Если блок встречается в 2+ файлах, связываем эти файлы между собой
+            if len(occurrences) >= block_min:
+                # Если блок встречается в block_min+ файлах, связываем эти файлы между собой
                 block_id = f"block:{h_norm}"
                 display_title = occurrences[0][1]
                 nodes_map[block_id] = {
@@ -265,9 +323,9 @@ class GraphService:
                     links_set.add((f_url, block_id, "transclusion"))
                     nodes_map[f_url]["val"] += 1
 
-        # 4. Добавляем теги, если они связывают хотя бы 2 файла
+        # 4. Добавляем теги, если они связывают хотя бы tag_min файлов
         for tag_norm, occurrences in file_tags.items():
-            if len(occurrences) > 1:
+            if len(occurrences) >= tag_min:
                 tag_id = f"tag:{tag_norm}"
                 display_tag = occurrences[0][1]
                 nodes_map[tag_id] = {
@@ -378,7 +436,10 @@ class GraphService:
             return None
 
         content = self.generate_graph_markdown(folder_path, graph_data=graph_data)
-        file_path = folder_path / "_Граф связей.md"
+        cs = self.config_service or ConfigService()
+        cfg = cs.get_markdown_config(folder_path) or {}
+        graph_filename = cfg.get("system_files", {}).get("graph_file", "_Граф связей.md")
+        file_path = folder_path / graph_filename
 
         if file_path.exists():
             try:
@@ -391,7 +452,7 @@ class GraphService:
         try:
             file_path.write_text(content, encoding="utf-8")
         except Exception as e:
-            print(f"[GraphService] Ошибка сохранения _Граф связей.md: {e}")
+            print(f"[GraphService] Ошибка сохранения {graph_filename}: {e}")
 
         return file_path
 

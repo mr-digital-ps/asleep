@@ -22,6 +22,10 @@ class WindowManager:
     def clean_windows(self):
         self._windows = [(w, r) for w, r in self._windows if self._is_valid_qobject(w) and self._is_valid_qobject(r)]
 
+    def get_windows(self) -> list:
+        self.clean_windows()
+        return list(self._windows)
+
     def register_window(self, win: QObject, root_item: QObject):
         """Регистрация открытого окна приложения в реестре"""
         if not win:

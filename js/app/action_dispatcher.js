@@ -2,7 +2,9 @@
 
 function closeActiveTab(root) {
     if (root && root.isGraphVisible) {
-        root.isGraphVisible = false
+        if (typeof root.closeGraph === "function") {
+            root.closeGraph()
+        }
         return
     }
     if (!root || !root.tabsModel || root.tabsModel.count === 0) return
@@ -16,7 +18,28 @@ function closeActiveTab(root) {
     }
 }
 
-function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Markdown, Tabs, Logic, action) {
+function saveFile(root, saveDialog, backend) {
+    if (!root) return
+    var targetIndex = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
+    var tab = (root.tabsModel && targetIndex >= 0 && targetIndex < root.tabsModel.count) ? root.tabsModel.get(targetIndex) : null
+    var fileUrl = tab ? (tab.fileUrl || "") : (root.currentFileUrl || "")
+
+    if (!fileUrl) {
+        if (saveDialog && typeof saveDialog.open === "function") {
+            saveDialog.open()
+        }
+    } else {
+        var text = (root.editorArea ? root.editorArea.text : "")
+        if (backend) {
+            backend.save_file(fileUrl, text)
+        }
+        if (tab) {
+            tab.content = text
+        }
+    }
+}
+
+function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Markdown, Tabs, action) {
     switch (action) {
         case "toggle_header_footer":
             if (splitLayout && splitLayout.primaryBar && typeof splitLayout.primaryBar.toggleHeaderFooter === "function") {
@@ -60,18 +83,28 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Mark
             break
         case "new_tab":
             if (root && typeof root.createNewTab === "function") {
-                root.createNewTab()
+                root.createNewTab(false)
+            }
+            break
+        case "new_tab_split":
+            if (root && typeof root.createNewTab === "function") {
+                root.createNewTab(true)
             }
             break
         case "open_file":
+            if (root) root.openFileInSplit = false
+            if (openDialog && typeof openDialog.open === "function") {
+                openDialog.open()
+            }
+            break
+        case "open_file_split":
+            if (root) root.openFileInSplit = true
             if (openDialog && typeof openDialog.open === "function") {
                 openDialog.open()
             }
             break
         case "save_file":
-            if (Logic && typeof Logic.saveFile === "function") {
-                Logic.saveFile(root, saveDialog, backend)
-            }
+            saveFile(root, saveDialog, backend)
             break
         case "detach_window":
             var targetIdx = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
@@ -91,8 +124,32 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Mark
             break
         case "toggle_graph":
             if (root) {
-                root.isGraphVisible = !root.isGraphVisible
+                if (typeof root.toggleGraph === "function") {
+                    root.toggleGraph()
+                }
+            }
+            break
+        case "toggle_local_graph":
+            if (root) {
+                if (typeof root.toggleLocalGraph === "function") {
+                    root.toggleLocalGraph()
+                }
+            }
+            break
+        case "toggle_outline":
+            if (splitLayout) {
+                var targetBar = (splitLayout.isSplit && splitLayout.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
+                if (targetBar && typeof targetBar.toggleOutlineMode === "function") {
+                    targetBar.toggleOutlineMode()
+                }
+            }
+            break
+        case "open_structure":
+            if (root && typeof root.toggleProjectStructure === "function") {
+                root.toggleProjectStructure()
             }
             break
     }
 }
+
+

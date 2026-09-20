@@ -167,6 +167,22 @@ pinned: []
 Ниже блока настроек можно вести любые заметки, ссылки и описание этого каталога.
 """
 
+def compile_safe_regex(pattern: str | None, default_pattern: re.Pattern | str, flags: int = 0) -> re.Pattern:
+    """
+    Безопасно компилирует регулярное выражение.
+    Если передан некорректный паттерн (синтаксическая ошибка от пользователя),
+    выводит понятное предупреждение в лог и возвращает fallback (дефолтный паттерн),
+    гарантируя, что парсер никогда не упадет.
+    """
+    fallback = default_pattern if isinstance(default_pattern, re.Pattern) else re.compile(default_pattern, flags)
+    if not pattern or not isinstance(pattern, str):
+        return fallback
+    try:
+        return re.compile(pattern, flags)
+    except Exception as e:
+        _safe_print(f"[ConfigService] Ошибка в пользовательском регулярном выражении '{pattern}': {e}. Применен безопасный дефолт.")
+        return fallback
+
 class ConfigService:
     """
     Сервис управления конфигурациями каталогов, редактора и модульных настроек приложения (config/).
@@ -230,6 +246,9 @@ class ConfigService:
 
     def get_app_config(self, folder_path: Path | None = None) -> dict:
         return self.load_category_config("app", folder_path)
+
+    def get_markdown_config(self, folder_path: Path | None = None) -> dict:
+        return self.load_category_config("markdown", folder_path)
 
     @staticmethod
     def get_config_filename(folder_name: str) -> str:

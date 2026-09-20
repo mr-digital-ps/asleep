@@ -1,6 +1,8 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import "../theme"
+import "../history"
 
 Item {
     id: footerRoot
@@ -11,9 +13,42 @@ Item {
     property string statsText: ""
     property bool showBackground: true
     property int barSize: 36
+    property string folderUrl: ""
+
+    property string fileUrl: ""
+    property bool isProjectTree: false
+    readonly property string timelineMode: (isGraphMode || isProjectTree) ? "project" : "note"
+
+    // Свойства таймлайна истории проекта (проксируются в HistoryTimelineBar)
+    property alias timelineList: historyBar.timelineList
+    property alias currentSnapshotIndex: historyBar.currentSnapshotIndex
+    property alias isPlaying: historyBar.isPlaying
+    property alias isHistoricalMode: historyBar.isHistoricalMode
 
     signal pinToggled()
     signal activated()
+    signal snapshotSelected(int snapshotId)
+    signal liveRequested()
+
+    focus: true
+    Keys.onSpacePressed: (event) => {
+        historyBar.togglePlay()
+        event.accepted = true
+    }
+    Keys.onLeftPressed: (event) => {
+        historyBar.stepPrev()
+        event.accepted = true
+    }
+    Keys.onRightPressed: (event) => {
+        historyBar.stepNext()
+        event.accepted = true
+    }
+
+    function togglePlay() { historyBar.togglePlay() }
+    function stepPrev() { historyBar.stepPrev() }
+    function stepNext() { historyBar.stepNext() }
+    function goLive() { historyBar.goLive() }
+    function reloadTimeline() { historyBar.reloadTimeline() }
 
     Rectangle {
         anchors.fill: parent
@@ -24,14 +59,32 @@ Item {
     MouseArea {
         anchors.fill: parent
         z: -1
-        onPressed: footerRoot.activated()
+        acceptedButtons: Qt.LeftButton
+        cursorShape: Qt.ArrowCursor
+        onPressed: (mouse) => {
+            footerRoot.activated()
+            let win = Window.window
+            if (win && typeof win.startSystemMove === "function") {
+                win.startSystemMove()
+            }
+        }
+        onDoubleClicked: {
+            let win = Window.window
+            if (win) {
+                if (win.visibility === Window.Maximized) {
+                    win.showNormal()
+                } else {
+                    win.showMaximized()
+                }
+            }
+        }
     }
 
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
 
-        // Разделительная линия (клик = переключить закрепление)
+        // Разделительная линия
         Item {
             id: footerDividerArea
             Layout.fillWidth: true
@@ -56,35 +109,31 @@ Item {
                 id: footerDividerMouse
                 anchors.fill: parent
                 hoverEnabled: true
-                cursorShape: footerRoot.isGraphMode ? Qt.ArrowCursor : Qt.PointingHandCursor
+                cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                    if (!footerRoot.isGraphMode) {
-                        footerRoot.pinToggled()
-                        footerRoot.activated()
-                    }
+                    footerRoot.pinToggled()
+                    footerRoot.activated()
                 }
             }
         }
 
-        // Информационная строка со статистикой (слова, знаки)
-        RowLayout {
-            id: statsRow
+        // Шкала истории (всегда активна: для графа, структуры или заметки)
+        HistoryTimelineBar {
+            id: historyBar
+            visible: true
+            folderUrl: footerRoot.folderUrl
+            fileUrl: footerRoot.fileUrl
+            mode: footerRoot.timelineMode
+            statsText: footerRoot.statsText
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.leftMargin: footerRoot.barSize
             Layout.rightMargin: footerRoot.barSize
-            Layout.bottomMargin: 12
-            spacing: 12
+            Layout.bottomMargin: 10
 
-            Text {
-                id: docStatsText
-                Layout.alignment: Qt.AlignVCenter
-                font.pixelSize: 12
-                color: Theme.textSecondary
-                text: footerRoot.statsText
-            }
-
-            Item { Layout.fillWidth: true }
+            onActivated: footerRoot.activated()
+            onSnapshotSelected: (snapshotId) => footerRoot.snapshotSelected(snapshotId)
+            onLiveRequested: footerRoot.liveRequested()
         }
     }
 }

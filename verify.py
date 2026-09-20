@@ -105,6 +105,23 @@ tags:
     assert parsed["physics"]["repulsion"] == 3600, "Ошибка парсинга числа с комментариями"
     assert parsed["physics"]["url"] == "http://example.com//not-a-comment", "Строка с // не должна искажаться"
 
+    # 4.6. Тест конфигурации Markdown диалекта и безопасной компиляции regex
+    from services.config_service import compile_safe_regex
+    md_cfg = cfg_service.get_markdown_config()
+    assert "wikilinks" in md_cfg and "pattern" in md_cfg["wikilinks"], "markdown.json должен содержать секцию wikilinks"
+    assert "tags" in md_cfg and "blocks" in md_cfg, "markdown.json должен содержать tags и blocks"
+
+    # Проверка Safe Regex Fallback: сломанный regex пользователя не роняет систему
+    import re
+    default_re = re.compile(r"\[\[(.+)\]\]")
+    safe_re = compile_safe_regex("[broken(regex", default_re)
+    assert safe_re is default_re, "Сломанный regex должен безопасно откатываться на дефолт"
+    valid_re = compile_safe_regex(r"@([a-zA-Z0-9_]+)", default_re)
+    assert valid_re.pattern == r"@([a-zA-Z0-9_]+)", "Корректный regex должен компилироваться"
+    assert "system_files" in md_cfg, "markdown.json должен содержать system_files"
+    assert md_cfg["system_files"]["structure_file"] == "_Структура.md"
+    assert md_cfg["system_files"]["graph_file"] == "_Граф связей.md"
+
     # 5. Тест MarkdownHighlighter
     from services.syntax_highlighter import MarkdownHighlighter
     from PyQt6.QtGui import QTextDocument
@@ -132,11 +149,11 @@ tags:
     assert matcher.match_event(ev_ru_p) == "toggle_graph", "Ctrl+П (VK 0x47 / scan 34) должен распознаваться"
     assert matcher.match_event(ev_ru_g) == "toggle_graph", "Ctrl+Г (VK 0x55 / scan 22) должен распознаваться"
 
-    # 2. Проверка close_tab: Ctrl+W (EN scan 17), Ctrl+Ц (RU scan 17, VK 0x57), Ctrl+Q (RU scan 16, VK 0x51)
+    # 2. Проверка close_tab: Ctrl+W (EN scan 17), Ctrl+Ц (RU scan 17, VK 0x57), Ctrl+Q не закрывает вкладку
     ev_w = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 17, 0x57, 0)
-    ev_q = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 16, 0x51, 0)
     assert matcher.match_event(ev_w) == "close_tab", "Ctrl+W/Ctrl+Ц должен распознаваться"
-    assert matcher.match_event(ev_q) == "close_tab", "Ctrl+Q/Ctrl+Й должен распознаваться"
+    ev_q = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 16, 0x51, 0)
+    assert matcher.match_event(ev_q) != "close_tab", "Ctrl+Q не должен быть привязан к close_tab"
 
     # 3. Проверка toggle_split: Ctrl+\ (scan 43, 86, VK 0xDC, 0xE2)
     ev_split_scan43 = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Backslash, Qt.KeyboardModifier.ControlModifier, 43, 0xDC, 0)
@@ -158,9 +175,15 @@ tags:
     ev_new = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 49, 0x4E, 0)
     assert matcher.match_event(ev_new) == "new_tab", "Ctrl+N/Ctrl+Т должен распознаваться"
 
+    ev_new_split = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier, 49, 0x4E, 0)
+    assert matcher.match_event(ev_new_split) == "new_tab_split", "Ctrl+Shift+N должен распознаваться как new_tab_split"
+
     # 7. Проверка open_file: Ctrl+O (RU 'Щ', scan 24, VK 0x4F)
     ev_open = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 24, 0x4F, 0)
     assert matcher.match_event(ev_open) == "open_file", "Ctrl+O/Ctrl+Щ должен распознаваться"
+
+    ev_open_split = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier, 24, 0x4F, 0)
+    assert matcher.match_event(ev_open_split) == "open_file_split", "Ctrl+Shift+O должен распознаваться как open_file_split"
 
     # 8. Проверка toggle_bold: Ctrl+B (RU 'И', scan 48, VK 0x42)
     ev_bold = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 48, 0x42, 0)
@@ -170,9 +193,11 @@ tags:
     ev_italic = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 23, 0x49, 0)
     assert matcher.match_event(ev_italic) == "toggle_italic", "Ctrl+I/Ctrl+Ш должен распознаваться"
 
-    # 10. Проверка detach_window: Ctrl+D (RU 'В', scan 32, VK 0x44)
+    # 10. Проверка detach_window: Ctrl+D (RU 'В', scan 32, VK 0x44) и мнемонический Ctrl+Д (scan 38, VK 0x4C)
     ev_detach = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 32, 0x44, 0)
     assert matcher.match_event(ev_detach) == "detach_window", "Ctrl+D/Ctrl+В должен распознаваться"
+    ev_detach_de = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 38, 0x4C, 0)
+    assert matcher.match_event(ev_detach_de) == "detach_window", "Ctrl+Д (буква Д, scan 38, VK 0x4C) должен распознаваться"
 
     # 11. Проверка toggle_centered_mode (поддержка дефолтного Alt+W и пользовательского Alt+J)
     centered_keys = hks.get("toggle_centered_mode", {}).get("keys", [])
@@ -247,7 +272,11 @@ tags:
     assert "tab_size" in editor_cfg, "backend.get_editor_config должен содержать tab_size"
     app_cfg = backend.get_app_config()
     assert "auto_save_delay_ms" in app_cfg and "supported_extensions" in app_cfg, "backend.get_app_config должен содержать auto_save_delay_ms"
-    assert "ignored_directories" in app_cfg, "backend.get_app_config должен содержать ignored_directories"
+    assert "target_fps" in app_cfg and "vsync" in app_cfg, "backend.get_app_config должен содержать target_fps и vsync"
+    refresh_rate = backend.get_screen_refresh_rate()
+    assert refresh_rate > 0, f"get_screen_refresh_rate должен быть > 0, получено {refresh_rate}"
+    target_fps = backend.get_target_fps()
+    assert target_fps >= 0, f"get_target_fps должен быть >= 0, получено {target_fps}"
     assert ".md" in backend.file_service.get_supported_extensions(), "FileService должен динамически считывать supported_extensions"
     assert ".git" in backend.file_service.get_ignored_directories(), "FileService должен динамически считывать ignored_directories"
     sync_res = backend.sync_graph_file()
@@ -255,7 +284,108 @@ tags:
     backend.save_node_positions("", {"test_node": {"x": 100, "y": 200}})
     node_pos = backend.get_node_positions("")
     assert "test_node" in node_pos and node_pos["test_node"]["x"] == 100, "backend.save_node_positions/get_node_positions должны корректно работать"
+
+    # 8. Тест HistoryService
+    from services.history_service import HistoryService
+    with tempfile.TemporaryDirectory() as tmp_hist_dir:
+        th_p = Path(tmp_hist_dir)
+        (th_p / "note1.md").write_text("# Заметка 1\nТекст с [[note2]]", encoding="utf-8")
+        (th_p / "note2.md").write_text("# Заметка 2\nОтвет", encoding="utf-8")
+        hs = HistoryService(backend.file_service, backend.graph_service)
+        snap1 = hs.create_snapshot(th_p, trigger="session_start", graph_data={"nodes": [{"id": "note1"}], "links": []})
+        assert snap1 is not None, "Снимок истории должен создаваться"
+        assert snap1["filesCount"] == 2, "Должно быть 2 файла в снимке"
+
+        # Дедупликация
+        snap_dup = hs.create_snapshot(th_p, trigger="save")
+        assert snap_dup is None, "Дублирующий снимок без изменений не должен создаваться"
+
+        # Новый снимок с изменением
+        (th_p / "note3.md").write_text("# Заметка 3\nНовая", encoding="utf-8")
+        snap2 = hs.create_snapshot(th_p, trigger="save", description="Добавлена заметка 3")
+        assert snap2 is not None, "Снимок с новым файлом должен создаваться"
+
+        tline = hs.get_timeline(th_p)
+        assert len(tline) == 2, f"Ожидалось 2 снимка в таймлайне, получено {len(tline)}"
+        g_snap = hs.get_snapshot_graph(th_p, snap1["id"])
+        assert "nodes" in g_snap, "Граф снимка должен содержать nodes"
+        f_content = hs.get_snapshot_file_content(th_p, snap1["id"], "note1.md")
+        assert "[[note2]]" in f_content, "Содержимое файла из снимка должно восстанавливаться"
+
+        # Тест таймлайна отдельного файла
+        file_tline = hs.get_file_timeline(th_p, "note1.md")
+        assert len(file_tline) >= 1, "Таймлайн note1.md должен содержать хотя бы 1 срез"
+        assert file_tline[0]["id"] == snap1["id"]
+
+        # Изменение note1.md и проверка добавления второго среза в таймлайн файла
+        (th_p / "note1.md").write_text("# Заметка 1 ред.\nНовый текст", encoding="utf-8")
+        snap3 = hs.create_snapshot(th_p, trigger="save", description="Правка note1")
+        assert snap3 is not None
+        file_tline_updated = hs.get_file_timeline(th_p, "note1.md")
+        assert len(file_tline_updated) == 2, f"Ожидалось 2 среза note1.md, получено {len(file_tline_updated)}"
+
+        # note3.md изменялся только в snap2 и не менялся в snap3
+        note3_tline = hs.get_file_timeline(th_p, "note3.md")
+        assert len(note3_tline) == 1, f"Ожидался 1 срез для note3.md, получено {len(note3_tline)}"
+
+    # 9. Тест OutlineService (иерархия блоков документа и перестановка с поддеревьями)
+    from services.outline_service import OutlineService
+    osvc = OutlineService()
+    test_doc = "# Глава 1\nТекст 1\n\n## Секция 1.1\nПодтекст 1.1\n\n# Глава 2\nТекст 2"
+    parsed_blks = osvc.parse_document(test_doc)
+    assert len(parsed_blks) == 3, f"Ожидалось 3 блока, получено {len(parsed_blks)}"
+    assert parsed_blks[0]["heading"] == "Глава 1"
+    assert parsed_blks[1]["level"] == 2
+    # Перемещение Главы 2 перед Главой 1
+    reordered_doc = osvc.reorder_blocks(test_doc, source_index=2, target_index=0, position="before")
+    new_blks = osvc.parse_document(reordered_doc)
+    assert new_blks[0]["heading"] == "Глава 2", "Глава 2 должна переместиться на первое место"
+    assert new_blks[1]["heading"] == "Глава 1"
+    assert new_blks[2]["heading"] == "Секция 1.1", "Секция 1.1 должна остаться с Главой 1"
+    # Повышение уровня Секция 1.1: H2 -> H1
+    promoted_doc = osvc.change_block_level(test_doc, block_index=1, delta=-1)
+    promoted_blks = osvc.parse_document(promoted_doc)
+    assert promoted_blks[1]["level"] == 1, "Уровень секции должен повыситься до H1"
+
+    # 10. Тест работы со структурой проекта (_Структура.md)
+    proj_md = "# Структура проекта\n\n- 📁 Папка 1\n    - [[Файл А]]\n    - [[Файл Б]]\n- 📁 Папка 2\n    - [[Файл В]]"
+    parsed_tree = osvc.parse_project_tree_flat(proj_md)
+    tree_items = parsed_tree["items"]
+    assert len(tree_items) == 5, f"Ожидалось 5 элементов дерева, получено {len(tree_items)}"
+    assert tree_items[0]["type"] == "folder" and tree_items[0]["label"] == "Папка 1"
+    assert tree_items[1]["level"] == 1 and tree_items[1]["label"] == "Файл А"
+    assert tree_items[0]["hasChildren"] is True, "Папка с вложенными файлами должна иметь hasChildren: True"
+    assert tree_items[1]["hasChildren"] is False, "Файл без дочерних элементов должен иметь hasChildren: False"
+
+    # Проверка корневых файлов после папок и секций
+    mixed_proj = "# Структура проекта\n\n- 📁 Папка\n    - [[Вложенный]]\n- [[Заметка в корне]]\n\n## Секция\n- [[В секции]]"
+    parsed_mixed = osvc.parse_project_tree_flat(mixed_proj)
+    mixed_items = parsed_mixed["items"]
+    assert mixed_items[2]["label"] == "Заметка в корне" and mixed_items[2]["level"] == 0, "Заметка в корне после папки должна иметь level: 0"
+    assert mixed_items[3]["type"] == "section" and mixed_items[3]["level"] == 0, "Секция должна иметь type: section"
+    assert mixed_items[4]["label"] == "В секции" and mixed_items[4]["level"] == 1, "Элемент в секции должен иметь level: 1"
+
+    # Проверка roundtrip сериализации секций
+    serialized = osvc.project_tree_flat_to_markdown(parsed_mixed["header"], mixed_items)
+    assert "## Секция" in serialized, "Секции ## должны сохраняться при сериализации"
+
+    # Перемещение Папки 2 перед Папкой 1
+    reordered_proj = osvc.reorder_project_tree(proj_md, source_index=3, target_index=0, position="before")
+    reordered_items = osvc.parse_project_tree_flat(reordered_proj)["items"]
+    assert reordered_items[0]["label"] == "Папка 2"
+    assert reordered_items[1]["label"] == "Файл В"
+    assert reordered_items[2]["label"] == "Папка 1"
+    # Изменение уровня отступа
+    indented_proj = osvc.change_project_tree_level(proj_md, item_index=0, delta=1)
+    indented_items = osvc.parse_project_tree_flat(indented_proj)["items"]
+    # Проверка sync_project_structure_file с кастомным именем файла
+    with tempfile.TemporaryDirectory() as tmp_struct_dir:
+        tmp_s_p = Path(tmp_struct_dir)
+        custom_struct = osvc.sync_project_structure_file(tmp_s_p, ["note1.md"], structure_filename="_MyStructure.md")
+        assert custom_struct.exists() and custom_struct.name == "_MyStructure.md", "sync_project_structure_file должен поддерживать кастомное имя структуры"
+
     print("  -> Сервисы Python: OK")
+
 
 
 def test_qml():
@@ -279,11 +409,20 @@ def test_qml():
         "components/window/WindowFrame.qml",
         "components/graph/GraphView.qml",
         "components/editor/EditorCanvas.qml",
+        "components/editor/EditorSheet.qml",
+        "components/editor/DocumentOutliner.qml",
         "components/editor/MainBar.qml",
         "views/web.qml"
     ]:
         comp = QQmlComponent(engine, QUrl.fromLocalFile(str(PROJECT_DIR / qml_f)))
         assert comp.status() == QQmlComponent.Status.Ready, f"Ошибка в {qml_f}: {comp.errorString()}"
+
+    # 1.1. Тест создания делегатов DocumentOutliner
+    outliner_comp = QQmlComponent(engine, QUrl.fromLocalFile(str(PROJECT_DIR / "components/editor/DocumentOutliner.qml")))
+    outliner_item = outliner_comp.create()
+    assert outliner_item is not None, f"Не удалось создать DocumentOutliner: {outliner_comp.errorString()}"
+    outliner_item.setProperty("blocksList", [{"level": 1, "label": "Тест", "content": "Контент"}])
+    QApplication.processEvents()
 
     # 2. Проверяем загрузку window.qml и его внутреннего Loader
     qml_path = PROJECT_DIR / "views" / "window.qml"
@@ -337,11 +476,14 @@ def test_structure():
         "config/default/graph.json",
         "config/default/theme.json",
         "config/default/app.json",
+        "config/default/markdown.json",
         "config/user/editor.json",
         "config/user/hotkeys.json",
         "config/user/graph.json",
         "config/user/theme.json",
         "config/user/app.json",
+        "config/user/markdown.json",
+        "config/user/markdown.md",
         "js/editor/editor_keys.js",
         "js/editor/markdown_shortcuts.js",
         "js/editor/block_sync.js",
@@ -360,8 +502,11 @@ def test_structure():
         "js/app/web_lifecycle.js",
 
         "components/editor/EditorCanvas.qml",
+        "components/editor/EditorSheet.qml",
         "components/editor/MainBar.qml",
         "components/editor/DocumentHeader.qml",
+        "components/editor/chrome/qmldir",
+        "components/editor/canvas/qmldir",
         "components/dialogs/EditorDialogs.qml",
         "components/dialogs/qmldir",
         "components/hotkeys/HotkeyManager.qml",

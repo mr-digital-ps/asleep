@@ -19,18 +19,14 @@ Rectangle {
 
     // Ссылка на родительское ApplicationWindow
     property var appWindow: null
+    readonly property url windowComponentUrl: Qt.resolvedUrl("window.qml")
 
     // Видимость интерактивного графа связей
-    property bool isGraphVisible: false
-    onIsGraphVisibleChanged: {
-        if (!isGraphVisible) {
-            Qt.callLater(() => {
-                if (splitLayout && splitLayout.activeEditorArea) {
-                    splitLayout.activeEditorArea.forceActiveFocus()
-                }
-            })
-        }
-    }
+    readonly property bool isGraphVisible: splitLayout ? splitLayout.isGraphVisible : false
+    function toggleGraph() { if (splitLayout) splitLayout.toggleGraph() }
+    function toggleLocalGraph() { if (splitLayout) splitLayout.toggleLocalGraph() }
+    function closeGraph() { if (splitLayout) splitLayout.closeGraph() }
+    function closeAllGraphs() { if (splitLayout) splitLayout.closeAllGraphs() }
 
     // Переменные текущего активного файла
     property string currentFileUrl: ""
@@ -40,6 +36,7 @@ Rectangle {
     // Текущая рабочая папка
     property string currentFolderUrl: (typeof backend !== "undefined" && backend) ? backend.get_default_folder() : ""
     property string currentFolderName: (typeof backend !== "undefined" && backend && currentFolderUrl) ? backend.get_folder_name(currentFolderUrl) : "my-text-editor"
+    property bool openFileInSplit: false
 
     // =========================================================================
     // РЕЖИМ СПЛИТА (SPLIT VIEW)
@@ -59,6 +56,23 @@ Rectangle {
     property alias editorArea: splitLayout.activeEditorArea
     property alias splitLayout: splitLayout
 
+    // Список открытых в данный момент файлов для подсветки в графе связей
+    readonly property var openFileUrls: {
+        let list = []
+        if (tabsModel) {
+            for (let i = 0; i < tabsModel.count; i++) {
+                let item = tabsModel.get(i)
+                let u = item ? item.fileUrl : ""
+                if (u && list.indexOf(u) === -1) list.push(u)
+            }
+        }
+        let pUrl = (tabsModel && tabsModel.count > primaryTabIndex && primaryTabIndex >= 0) ? tabsModel.get(primaryTabIndex).fileUrl : ""
+        let sUrl = (isSplit && tabsModel && tabsModel.count > secondaryTabIndex && secondaryTabIndex >= 0) ? tabsModel.get(secondaryTabIndex).fileUrl : ""
+        if (pUrl && list.indexOf(pUrl) === -1) list.push(pUrl)
+        if (sUrl && list.indexOf(sUrl) === -1) list.push(sUrl)
+        return list
+    }
+
     // =========================================================================
     // МОДЕЛЬ ВКЛАДОК, ФАЙЛОВ ПАПКИ И ОТКРЕПЛЕННЫХ ОКОН
     // =========================================================================
@@ -69,10 +83,14 @@ Rectangle {
     property string draggingFileName: ""
     property int draggingPaneIndex: -1
 
-    // Таймер аппаратного отслеживания курсора во время перетаскивания (60 FPS)
+    // Целевая частота кадров (FPS) и интервал таймеров интерфейса
+    property int targetFps: (typeof backend !== "undefined" && backend && typeof backend.get_target_fps === "function") ? backend.get_target_fps() : 60
+    readonly property int animIntervalMs: targetFps <= 0 ? 1 : Math.max(1, Math.round(1000 / targetFps))
+
+    // Таймер аппаратного отслеживания курсора во время перетаскивания (адаптируется под герцовку монитора)
     Timer {
         id: dragTrackerTimer
-        interval: 16
+        interval: root.animIntervalMs
         repeat: true
         running: false
         onTriggered: DragMgr.pollCursorState(root, Tabs)
@@ -115,6 +133,9 @@ Rectangle {
                 if (appCfg && typeof appCfg.auto_save_delay_ms === "number" && appCfg.auto_save_delay_ms > 0) {
                     autoSaveTimer.interval = appCfg.auto_save_delay_ms
                 }
+                if (typeof backend.get_target_fps === "function") {
+                    root.targetFps = backend.get_target_fps()
+                }
             } catch(e) {}
         }
     }
@@ -130,19 +151,83 @@ Rectangle {
     }
 
     function openFileFromFolder(fileUrl, fileName, isShift) {
-        root.isGraphVisible = false
+        root.closeGraph()
         Tabs.openFileFromFolder(root, fileUrl, fileName, isShift)
     }
 
+    property string previousFileUrlBeforeStructure: ""
+    property string previousFileNameBeforeStructure: ""
+    property string highlightStructureItem: ""
+
+    function toggleProjectStructure() {
+        if (typeof backend === "undefined" || !backend) return
+
+        var activeBar = (root.isSplit && root.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
+        var curName = activeBar ? activeBar.fileName : ""
+        var curUrl = activeBar ? activeBar.fileUrl : ""
+
+        // Если сейчас уже открыта структура проекта (_Структура.md) — возвращаемся назад к предыдущему файлу
+        if (curName && curName.indexOf("_Структура") !== -1) {
+            if (activeBar) {
+                activeBar.isOutlineMode = false
+            }
+            if (root.previousFileUrlBeforeStructure) {
+                root.openFileFromFolder(root.previousFileUrlBeforeStructure, root.previousFileNameBeforeStructure, false)
+            } else if (root.tabsModel.count > 1) {
+                for (var t = 0; t < root.tabsModel.count; t++) {
+                    var tabItem = root.tabsModel.get(t)
+                    if (tabItem && tabItem.fileUrl && tabItem.fileUrl !== curUrl) {
+                        root.openFileFromFolder(tabItem.fileUrl, tabItem.title, false)
+                        break
+                    }
+                }
+            }
+            Qt.callLater(() => {
+                var targetBar = (root.isSplit && root.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
+                if (targetBar) {
+                    targetBar.isOutlineMode = false
+                }
+            })
+            return
+        }
+
+        // Сохраняем состояние текущего текста перед открытием структуры
+        Tabs.syncCurrentPaneText(root)
+
+        // Если мы в обычной заметке — запоминаем ее и открываем визуальную структуру
+        root.previousFileUrlBeforeStructure = curUrl
+        root.previousFileNameBeforeStructure = curName
+        root.highlightStructureItem = root.stripExt(curName)
+
+        var info = backend.sync_project_structure_file(root.currentFolderUrl)
+        if (info && info.fileUrl) {
+            root.openFileFromFolder(info.fileUrl, info.fileName, false)
+
+            // Сразу переключаем в визуальный режим дерева (Outliner) и позиционируем на файл
+            Qt.callLater(() => {
+                var targetBar = (root.isSplit && root.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
+                if (targetBar) {
+                    targetBar.isOutlineMode = true
+                    if (targetBar.sheetOutliner) {
+                        targetBar.sheetOutliner.reload()
+                        targetBar.sheetOutliner.highlightLabel = root.highlightStructureItem
+                        targetBar.sheetOutliner.scrollToHighlight()
+                    }
+                }
+            })
+        }
+    }
+
     // Делегированные методы управления вкладками и сплитом
-    function createNewTab() {
-        root.isGraphVisible = false
-        Tabs.createNewTab(root)
+    function createNewTab(isShift) {
+        root.closeGraph()
+        Tabs.createNewTab(root, isShift)
     }
     function switchToTab(index) {
-        root.isGraphVisible = false
+        root.closeGraph()
         Tabs.switchToTab(root, index)
     }
+
     function closeTab(index) { Tabs.closeTab(root, index) }
     function renameTab(index, newTitle) { Tabs.renameTab(root, index, newTitle) }
     function detachTab(index, spawnX, spawnY) { Tabs.detachTab(root, index, spawnX, spawnY) }
@@ -197,6 +282,11 @@ Rectangle {
         target: (typeof backend !== "undefined") ? backend : null
         ignoreUnknownSignals: true
         function onActionRequested(action) {
+            var win = root.appWindow || (root.Window ? root.Window.window : null)
+            var count = (backend && typeof backend.get_window_count === "function") ? backend.get_window_count() : 1
+            if (count > 1 && win && !win.active) {
+                return
+            }
             root.executeAction(action)
         }
     }
@@ -206,7 +296,7 @@ Rectangle {
     function reloadHotkeys() { hotkeyManager.reloadHotkeys() }
 
     function executeAction(action) {
-        WebLifecycle.dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Markdown, Tabs, Logic, action)
+        WebLifecycle.dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Markdown, Tabs, action)
     }
 
     function closeActiveTab() { WebLifecycle.closeActiveTab(root) }
@@ -216,7 +306,7 @@ Rectangle {
             return true
         }
         if (event.key === Qt.Key_Escape && root.isGraphVisible) {
-            root.isGraphVisible = false
+            root.closeGraph()
             event.accepted = true
             return true
         }
@@ -249,14 +339,23 @@ Rectangle {
         isPrimaryEmpty: root.tabsModel.count === 0 || root.primaryTabIndex < 0
 
         // Передача состояния и событий графа
-        isGraphVisible: root.isGraphVisible
+        openFileUrls: root.openFileUrls
         currentFolderUrl: root.currentFolderUrl
         currentFolderName: root.currentFolderName
-        onCloseGraphRequested: root.isGraphVisible = false
+        onCloseGraphRequested: root.closeGraph()
 
         onNodeSelected: (fUrl, lbl) => {
+            var targetBar = (root.isSplit && root.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
+            if (targetBar) {
+                targetBar.isOutlineMode = false
+            }
             root.openFileFromFolder(fUrl, lbl, false)
-            root.isGraphVisible = false
+            Qt.callLater(() => {
+                var tBar = (root.isSplit && root.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
+                if (tBar) {
+                    tBar.isOutlineMode = false
+                }
+            })
         }
 
         onFileDragStarted: (paneIdx, url, name, gx, gy) => {
@@ -281,10 +380,13 @@ Rectangle {
         onPrimaryCloseRequested: root.closeTab(root.primaryTabIndex)
         onSecondaryCloseRequested: root.closeTab(root.secondaryTabIndex)
         onPaneActivated: (paneIndex) => Tabs.setActivePane(root, paneIndex)
-        onSaveRequested: Logic.saveFile(root, saveDialog, backend)
+        onSaveRequested: root.executeAction("save_file")
         onOpenRequested: root.executeAction("open_file")
-        onNewRequested: root.createNewTab()
+        onOpenSplitRequested: root.executeAction("open_file_split")
+        onNewRequested: root.createNewTab(false)
+        onNewSplitRequested: root.executeAction("new_tab_split")
         onToggleGraphRequested: root.executeAction("toggle_graph")
         onToggleSplitRequested: root.toggleSplit()
+        onOpenStructureRequested: root.executeAction("open_structure")
     }
 }

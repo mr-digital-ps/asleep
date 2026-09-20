@@ -9,8 +9,14 @@
   "supported_extensions": [".md", ".markdown", ".txt"],
 
   // Игнорируемые папки
-  "ignored_directories": [".git", ".venv", "__pycache__", "node_modules"],
+  "ignored_directories": [".git", ".venv", "__pycache__", "node_modules", ".asleep"],
 
   // Язык интерфейса
-  "language": "ru"
+  "language": "ru",
+
+  // Целевой FPS ("auto" — под частоту экрана 144 Гц, "unlimited" — без ограничений, или число 60, 120, 144)
+  "target_fps": "auto",
+
+  // Вертикальная синхронизация (true — плавно без разрывов кадров, false — VSync выключен)
+  "vsync": true
 }

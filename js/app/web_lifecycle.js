@@ -124,8 +124,8 @@ function initializeWorkspace(root, backend, Tabs, openDialog, saveDialog) {
 }
 
 function spawnClonedAppWindow(root, fileUrl, title, content, wx, wy, ww, wh) {
-    var comp = Qt.createComponent("window.qml")
-    if (comp.status === Component.Ready) {
+    var comp = Qt.createComponent(root && root.windowComponentUrl ? root.windowComponentUrl : "../../views/window.qml")
+    if (comp.status === 1) {
         var winW = Math.max(750, ww || 850)
         var winH = Math.max(550, wh || 600)
         var appWin = (root && root.appWindow) ? root.appWindow : (root && root.Window ? root.Window.window : null)
@@ -176,8 +176,12 @@ function closeActiveTab(root) {
     Dispatcher.closeActiveTab(root)
 }
 
-function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Markdown, Tabs, Logic, action) {
-    Dispatcher.dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Markdown, Tabs, Logic, action)
+function saveFile(root, saveDialog, backend) {
+    Dispatcher.saveFile(root, saveDialog, backend)
+}
+
+function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Markdown, Tabs, action) {
+    Dispatcher.dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Markdown, Tabs, action)
 }
 
 function handleAutoSave(root, splitLayout, backend) {
@@ -211,18 +215,53 @@ function handleFileOpenAccepted(root, backend, Tabs, selectedFile) {
     if (!root || !backend) return
     var content = backend.read_file(selectedFile)
     var name = backend.get_filename(selectedFile)
+    var cleanName = (root && typeof root.stripExt === "function") ? root.stripExt(name) : name
+
+    if (root.openFileInSplit) {
+        root.openFileInSplit = false
+        if (root.tabsModel.count === 0 || root.primaryTabIndex < 0) {
+            root.tabsModel.clear()
+            root.tabsModel.append({
+                title: cleanName,
+                fileUrl: selectedFile,
+                content: content,
+                isDetached: false
+            })
+            root.primaryTabIndex = 0
+            root.secondaryTabIndex = -1
+            root.isSplit = false
+            root.activePane = 0
+            Tabs.syncEditorsFromModel(root)
+            Tabs.setActivePane(root, 0)
+            return
+        }
+
+        root.tabsModel.append({
+            title: cleanName,
+            fileUrl: selectedFile,
+            content: content,
+            isDetached: false
+        })
+        root.secondaryTabIndex = root.tabsModel.count - 1
+        root.isSplit = true
+        root.activePane = 1
+        root.currentTabIndex = root.secondaryTabIndex
+        Tabs.syncEditorsFromModel(root)
+        Tabs.setActivePane(root, 1)
+        return
+    }
 
     var targetIndex = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
     var curTab = (targetIndex >= 0 && targetIndex < root.tabsModel.count) ? root.tabsModel.get(targetIndex) : null
 
     if (curTab && !curTab.isDetached && curTab.fileUrl === "" && root.editorArea && root.editorArea.text === "") {
-        root.tabsModel.setProperty(targetIndex, "title", name)
+        root.tabsModel.setProperty(targetIndex, "title", cleanName)
         root.tabsModel.setProperty(targetIndex, "fileUrl", selectedFile)
         root.tabsModel.setProperty(targetIndex, "content", content)
         Tabs.syncEditorsFromModel(root)
     } else {
         root.tabsModel.append({
-            title: name,
+            title: cleanName,
             fileUrl: selectedFile,
             content: content,
             isDetached: false

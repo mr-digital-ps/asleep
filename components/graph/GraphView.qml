@@ -15,6 +15,7 @@ Rectangle {
     property string activeFileUrl: ""
     property string activeNodeId: ""
     property bool embeddedInSheet: false
+    property bool isLocalGraph: false
     property var sim: null
     property real zoomScale: 1.0
     property real panX: 0
@@ -30,6 +31,7 @@ Rectangle {
 
     signal nodeClicked(string fileUrl, string label, string nodeType)
     signal closeRequested()
+    signal graphPressed()
 
     focus: true
     Keys.onPressed: (event) => Interaction.handleKey(graphRoot, event)
@@ -42,6 +44,10 @@ Rectangle {
 
     function reloadGraphWithDimensions(w, h) {
         Interaction.reloadGraph(graphRoot, canvas, (typeof backend !== "undefined" ? backend : null), Physics, animTimer, w, h)
+    }
+
+    function loadHistoricalGraph(graphData) {
+        Interaction.loadHistoricalGraph(graphRoot, canvas, graphData, Physics, animTimer)
     }
 
     function wakeSimulation() {
@@ -61,10 +67,13 @@ Rectangle {
     }
 
     function getGraphStats() {
-        return Interaction.getGraphStats(sim)
+        return Interaction.getGraphStats(sim, graphRoot.isLocalGraph)
     }
 
     property string lastCenteredUrl: ""
+
+    property var openFileUrls: []
+    onOpenFileUrlsChanged: if (canvas) canvas.requestPaint()
 
     Component.onCompleted: reloadGraph()
 
@@ -72,20 +81,35 @@ Rectangle {
         if (visible) {
             if (!sim || !sim.nodes || sim.nodes.length === 0) {
                 reloadGraph()
-            } else {
-                if (activeFileUrl && activeFileUrl !== lastCenteredUrl) {
-                    lastCenteredUrl = activeFileUrl
-                    centerOnNode(activeFileUrl)
-                }
-                wakeSimulation()
             }
+            if (activeFileUrl) {
+                if (!centerOnNode(activeFileUrl)) {
+                    Qt.callLater(() => {
+                        if (graphRoot && graphRoot.visible && graphRoot.activeFileUrl) {
+                            graphRoot.centerOnNode(graphRoot.activeFileUrl)
+                        }
+                    })
+                }
+            }
+            wakeSimulation()
         }
     }
 
+    onIsLocalGraphChanged: {
+        reloadGraph()
+    }
+
     onActiveFileUrlChanged: {
-        if (activeFileUrl && activeFileUrl !== lastCenteredUrl) {
-            lastCenteredUrl = activeFileUrl
-            centerOnNode(activeFileUrl)
+        if (isLocalGraph) {
+            reloadGraph()
+        } else if (activeFileUrl && activeFileUrl !== lastCenteredUrl) {
+            if (!centerOnNode(activeFileUrl)) {
+                Qt.callLater(() => {
+                    if (graphRoot && graphRoot.visible && graphRoot.activeFileUrl) {
+                        graphRoot.centerOnNode(graphRoot.activeFileUrl)
+                    }
+                })
+            }
         }
     }
 
@@ -112,13 +136,28 @@ Rectangle {
         Interaction.handleResize(graphRoot, canvas, width, height)
     }
 
+    // Целевая частота кадров физики графа
+    property int targetFps: (typeof backend !== "undefined" && backend && typeof backend.get_target_fps === "function") ? backend.get_target_fps() : 60
+    readonly property int animIntervalMs: targetFps <= 0 ? 1 : Math.max(1, Math.round(1000 / targetFps))
+
+    Connections {
+        target: (typeof backend !== "undefined") ? backend : null
+        ignoreUnknownSignals: true
+        function onAppConfigChanged() {
+            if (backend && typeof backend.get_target_fps === "function") {
+                graphRoot.targetFps = backend.get_target_fps()
+            }
+        }
+    }
+
     Timer {
         id: animTimer
-        interval: 16
+        interval: graphRoot.animIntervalMs
         repeat: true
         running: false
-        onTriggered: Interaction.stepAnimation(graphRoot, canvas, animTimer, Physics, (typeof backend !== "undefined" ? backend : null))
+        onTriggered: Interaction.stepAnimation(graphRoot, canvas, animTimer, Physics, (typeof backend !== "undefined" ? backend : null), (graphRoot.animIntervalMs / 16.666))
     }
+
 
     Canvas {
         id: canvas
@@ -135,6 +174,7 @@ Rectangle {
                 highlightedNodeIds: graphRoot.highlightedNodeIds,
                 activeNodeId: graphRoot.activeNodeId,
                 activeFileUrl: graphRoot.activeFileUrl,
+                openFileUrls: graphRoot.openFileUrls,
                 searchQuery: graphRoot.searchQuery,
                 graphConfig: graphRoot.graphConfig,
                 theme: {
@@ -178,6 +218,7 @@ Rectangle {
         onPositionChanged: (mouse) => Interaction.handleMouseMove(graphRoot, canvas, animTimer, mouse, graphMouse, Renderer)
         onPressed: (mouse) => {
             graphRoot.forceActiveFocus()
+            graphRoot.graphPressed()
             Interaction.handleMouseDown(graphRoot, animTimer, mouse, graphMouse, Renderer)
         }
         onReleased: (mouse) => Interaction.handleMouseUp(graphRoot, canvas, animTimer, mouse, graphMouse, (typeof backend !== "undefined" ? backend : null))
@@ -187,5 +228,29 @@ Rectangle {
         target: null
         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
         onWheel: (event) => Interaction.handleWheel(graphRoot, canvas, event)
+    }
+
+    // Подсказка при отсутствии связей в локальном графе
+    Rectangle {
+        visible: Boolean(graphRoot.isLocalGraph && graphRoot.sim && graphRoot.sim.nodes && graphRoot.sim.nodes.length <= 1 && (!graphRoot.sim.links || graphRoot.sim.links.length === 0))
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 24
+        anchors.horizontalCenter: parent.horizontalCenter
+        height: 32
+        width: localHintText.implicitWidth + 24
+        radius: 16
+        color: Theme.bgPaper
+        border.color: Theme.borderColor
+        border.width: 1
+        opacity: 0.85
+        z: 20
+
+        Text {
+            id: localHintText
+            anchors.centerIn: parent
+            text: "Нет связей с другими заметками. Добавьте [[ссылку]] или тег #тег"
+            font.pixelSize: 11
+            color: Theme.textMuted
+        }
     }
 }

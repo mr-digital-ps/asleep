@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Controls
-import "../theme"
+import "../../theme"
 
 Item {
     id: scrollbarOverlay
@@ -36,6 +36,10 @@ Item {
         cursorShape: Qt.ArrowCursor
         onPressed: (mouse) => {
             scrollbarOverlay.activated()
+            let win = Window.window
+            if (win && typeof win.startSystemMove === "function") {
+                win.startSystemMove()
+            }
         }
         onDoubleClicked: {
             let win = Window.window

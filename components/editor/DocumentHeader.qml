@@ -21,6 +21,7 @@ RowLayout {
     property bool isSplitMode: false
     property bool isActivePane: false
     property bool isEmpty: false
+    property bool isOutlineMode: false
 
     property real contentLeftPadding: 0
     property real contentRightPadding: 0
@@ -29,6 +30,8 @@ RowLayout {
 
     signal titleCommitted(string newTitle)
     signal paneActivated()
+    signal toggleOutlineRequested()
+    signal openStructureRequested()
 
     function stripExt(name) {
         if (!name) return ""
@@ -180,3 +183,4 @@ RowLayout {
         }
     }
 }
+

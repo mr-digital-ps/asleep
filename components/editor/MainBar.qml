@@ -3,13 +3,13 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "../../js/editor/block_sync.js" as BlockSync
 import "../../js/editor/mainbar_controller.js" as Controller
-import "../graph"
+import "chrome"
 import "../theme"
 
 Item {
     id: mainBar
 
-    // Свойства
+    // Свойства панели
     property int barSize: 36
     property string fileName: "Новый документ"
     property string fileUrl: ""
@@ -30,14 +30,16 @@ Item {
     property real editorLineHeightPercent: 135.0
     property bool showLineDots: true
     property int tabSize: 4
+    readonly property var targetWindow: Window.window
 
     // Свойства графа связей на листе
     property bool isGraphMode: false
     property string folderUrl: ""
     property string currentFolderName: ""
-    readonly property string graphStatsText: sheetGraphView ? sheetGraphView.getGraphStats() : ""
+    property var openFileUrls: []
+    readonly property string graphStatsText: paperSheet ? paperSheet.graphStatsText : ""
 
-    onIsGraphModeChanged: Controller.handleGraphModeChanged(mainBar, editorScroll, sheetGraphView, editorArea, smoothScrollAnim)
+    onIsGraphModeChanged: Controller.handleGraphModeChanged(mainBar, editorScroll, paperSheet.sheetGraphView, editorArea, smoothScrollAnim)
 
     function toggleHeaderFooter() {
         Controller.toggleHeaderFooter(mainBar, (typeof backend !== "undefined" ? backend : null))
@@ -51,6 +53,25 @@ Item {
         Controller.toggleHeaderOnly(mainBar, (typeof backend !== "undefined" ? backend : null))
     }
 
+    // Режим локального графа заметки
+    property bool isLocalGraphMode: false
+
+    // Режим иерархии блоков документа (Outliner)
+    property bool isOutlineMode: false
+    property alias sheetOutliner: paperSheet.sheetOutliner
+    property alias sheetGraphView: paperSheet.sheetGraphView
+    property alias docHeader: paperSheet.docHeader
+    property alias docFooter: paperSheet.docFooter
+    property alias paperSheet: paperSheet
+
+    function toggleOutlineMode() {
+        if (mainBar.isGraphMode) return
+        mainBar.isOutlineMode = !mainBar.isOutlineMode
+        if (mainBar.isOutlineMode && paperSheet.sheetOutliner) {
+            paperSheet.sheetOutliner.reload()
+        }
+    }
+
     property string statsString: "0 слов · 0 знаков"
 
     Timer {
@@ -58,7 +79,7 @@ Item {
         interval: 300
         repeat: false
         onTriggered: {
-            mainBar.statsString = Controller.calculateStats((editorCanvas && editorCanvas.text) ? editorCanvas.text : "")
+            mainBar.statsString = Controller.calculateStats((paperSheet && paperSheet.text) ? paperSheet.text : "")
         }
     }
 
@@ -84,10 +105,10 @@ Item {
     }
 
     // Доступ к редактору и заголовку для внешних скриптов (обратная совместимость)
-    property alias editorArea: editorCanvas.editorArea
+    property alias editorArea: paperSheet.editorArea
     property alias editorScroll: editorScroll
-    property alias text: editorCanvas.text
-    property alias titleField: docHeader.titleField
+    property alias text: paperSheet.text
+    property alias titleField: paperSheet.titleField
     readonly property real scrollY: (editorScroll && editorScroll.contentItem) ? editorScroll.contentItem.contentY : 0
 
     // Сигналы
@@ -97,17 +118,19 @@ Item {
     signal detachRequested()
     signal saveRequested()
     signal newRequested()
+    signal newSplitRequested()
     signal toggleGraphRequested()
     signal toggleSplitRequested()
     signal openRequested()
+    signal openSplitRequested()
     signal nodeSelected(string fileUrl, string label)
     signal closeGraphRequested()
     signal fileDragStarted(string url, string name, real gx, real gy)
     signal fileDragMoved(real gx, real gy)
     signal fileDragEnded(string url, string name, real gx, real gy)
+    signal openStructureRequested()
 
-
-    readonly property bool isResizingSheet: (leftHandle && (leftHandle.containsMouse || leftHandle.pressed)) || (rightHandle && (rightHandle.containsMouse || rightHandle.pressed))
+    readonly property bool isResizingSheet: paperSheet ? paperSheet.isResizingSheet : false
 
     function stripExt(name) {
         return Controller.stripExt(name)
@@ -140,7 +163,6 @@ Item {
     function ensureCursorVisible() {
         Controller.ensureCursorVisible(mainBar, editorArea, editorScroll)
     }
-
 
     function requestEnsureCursorVisible() {
         Qt.callLater(mainBar.ensureCursorVisible)
@@ -178,7 +200,7 @@ Item {
     TapHandler {
         gesturePolicy: TapHandler.WithinBounds
         onTapped: {
-            if (docHeader && docHeader.titleField && docHeader.titleField.activeFocus) return
+            if (paperSheet && paperSheet.titleField && paperSheet.titleField.activeFocus) return
             mainBar.paneActivated()
         }
     }
@@ -227,29 +249,22 @@ Item {
             width: editorScroll.availableWidth
             readonly property real singleLineHeight: (editorArea && editorArea.cursorRectangle.height > 0) ? editorArea.cursorRectangle.height : 24
             readonly property real headerOffset: (mainBar.showHeader && mainBar.isHeaderPinned) ? 70 : 0
-            readonly property real lastLineTop: editorArea ? (editorCanvas.y + editorArea.topPadding + editorArea.contentHeight - singleLineHeight) : 0
+            readonly property real lastLineTop: editorArea ? (paperSheet.editorCanvas.y + editorArea.topPadding + editorArea.contentHeight - singleLineHeight) : 0
             height: mainBar.isGraphMode ? mainBar.height : Math.max(mainBar.height, (editorArea && editorArea.lineCount > 1 && editorArea.contentHeight > 60)
                 ? Math.max(mainBar.height, lastLineTop - (headerOffset + 16) + editorScroll.availableHeight)
                 : mainBar.height)
 
-            // Перетаскивание файла по пустому пространству вокруг документа (в режиме сплита)
+            // Перетаскивание окна по пустому пространству вокруг документа (фона)
             MouseArea {
                 anchors.fill: parent
-                z: -1
                 acceptedButtons: Qt.LeftButton
-                cursorShape: mainBar.isSplitMode ? Qt.OpenHandCursor : Qt.ArrowCursor
+                cursorShape: Qt.ArrowCursor
                 hoverEnabled: true
-
-                property real pressX: 0
-                property real pressY: 0
-                property bool isPressed: false
-                property bool isDragging: false
+                preventStealing: true
 
                 onPressed: (mouse) => Controller.handleBackgroundDragPressed(mouse, mainBar, this)
-                onPositionChanged: (mouse) => Controller.handleBackgroundDragMoved(mouse, mainBar, scrollContentContainer, this)
-                onReleased: (mouse) => Controller.handleBackgroundDragReleased(mouse, mainBar, scrollContentContainer, this)
                 onDoubleClicked: {
-                    var win = mainBar.Window ? mainBar.Window.window : null
+                    var win = mainBar.targetWindow
                     if (win) {
                         if (win.visibility === Window.Maximized) {
                             win.showNormal()
@@ -260,182 +275,96 @@ Item {
                 }
             }
 
-
             // Экран-заглушка, если нет открытых файлов
             EditorEmptyState {
                 visible: mainBar.isEmpty && !mainBar.isGraphMode
             }
 
-            // Поле для отображения страницы (на полную или среднюю/настраиваемую ширину)
-            Rectangle {
+            // Лист документа (EditorSheet)
+            EditorSheet {
                 id: paperSheet
-                visible: !mainBar.isEmpty || mainBar.isGraphMode
+                barSize: mainBar.barSize
+                fileName: mainBar.fileName
+                fileUrl: mainBar.fileUrl
+                folderUrl: mainBar.folderUrl
+                openFileUrls: mainBar.openFileUrls
+                isCenteredMode: mainBar.isCenteredMode
+                customSheetWidth: mainBar.customSheetWidth
+                minSheetWidth: mainBar.minSheetWidth
+                isSplitMode: mainBar.isSplitMode
+                isActivePane: mainBar.isActivePane
+                isEmpty: mainBar.isEmpty
+                customFontFamily: mainBar.customFontFamily
+                typewriterMode: mainBar.typewriterMode
+                focusMode: mainBar.focusMode
+                isHeaderPinned: mainBar.isHeaderPinned
+                isFooterPinned: mainBar.isFooterPinned
+                showHeader: mainBar.showHeader
+                showFooter: mainBar.showFooter
+                showLineDots: mainBar.showLineDots
+                tabSize: mainBar.tabSize
+                scrollY: mainBar.scrollY
+                statsString: mainBar.statsString
+                availableHeight: editorScroll.availableHeight
+                viewHeight: mainBar.height
+                containerItem: scrollContentContainer
+                editorScroll: editorScroll
+                isGraphMode: mainBar.isGraphMode
+                isLocalGraphMode: mainBar.isLocalGraphMode
+                isOutlineMode: mainBar.isOutlineMode
 
-                width: mainBar.isCenteredMode ? Math.min(parent.width, Math.max(mainBar.minSheetWidth, mainBar.customSheetWidth)) : parent.width
-                height: parent.height
-                y: 0
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: parent.top
-
-                color: Theme.bgPaper
-
-                opacity: (mainBar.isSplitMode && !mainBar.isActivePane) ? 0.55 : 1.0
-                Behavior on opacity {
-                    NumberAnimation { duration: 150 }
+                onTitleChangedByUser: (t) => mainBar.titleChangedByUser(t)
+                onPaneActivated: mainBar.paneActivated()
+                onCloseRequested: mainBar.closeRequested()
+                onDetachRequested: mainBar.detachRequested()
+                onSaveRequested: mainBar.saveRequested()
+                onNewRequested: mainBar.newRequested()
+                onNewSplitRequested: mainBar.newSplitRequested()
+                onToggleGraphRequested: mainBar.toggleGraphRequested()
+                onToggleSplitRequested: mainBar.toggleSplitRequested()
+                onOpenRequested: mainBar.openRequested()
+                onOpenSplitRequested: mainBar.openSplitRequested()
+                onNodeSelected: (u, l) => mainBar.nodeSelected(u, l)
+                onCloseGraphRequested: mainBar.closeGraphRequested()
+                onOpenStructureRequested: mainBar.openStructureRequested()
+                onCursorVisibilityRequested: mainBar.requestEnsureCursorVisible()
+                onToggleHeaderFooterRequested: mainBar.toggleHeaderFooter()
+                onToggleFooterRequested: mainBar.toggleFooterOnly()
+                onToggleHeaderRequested: mainBar.toggleHeaderOnly()
+                onToggleCenteredModeRequested: mainBar.isCenteredMode = !mainBar.isCenteredMode
+                onTextChangedByUser: {
+                    Controller.handleTextChangedByUser(mainBar, blockSyncTimer, activeFocus)
+                    statsUpdateTimer.restart()
                 }
-
-                // Фокус-режим: затемнение неактивных строк
-                EditorFocusDimmer {
-                    editorArea: editorCanvas.editorArea
-                    focusMode: mainBar.focusMode
-                }
-
-                // 1. Верхний контейнер заголовка (с поддержкой закрепления Sticky Header)
-                EditorHeader {
-                    id: docHeader
-                    barSize: mainBar.barSize
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    fileName: mainBar.fileName
-                    fileUrl: mainBar.fileUrl
-                    isSplitMode: mainBar.isSplitMode
-                    isActivePane: mainBar.isActivePane
-                    isEmpty: mainBar.isEmpty
-                    isPinned: mainBar.isHeaderPinned
-                    isGraphMode: mainBar.isGraphMode
-                    scrollY: mainBar.scrollY
-                    contentLeftPadding: editorArea.leftPadding
-                    contentRightPadding: editorArea.rightPadding
-                    visible: mainBar.showHeader && (!mainBar.isEmpty || mainBar.isGraphMode)
-
-                    onTitleCommitted: (newTitle) => mainBar.titleChangedByUser(newTitle)
-                    onPaneActivated: mainBar.paneActivated()
-                    onPinToggled: {
-                        mainBar.isHeaderPinned = !mainBar.isHeaderPinned
-                        mainBar.saveHeaderPinnedState(mainBar.isHeaderPinned)
+                onScrollRequested: (dy) => mainBar.smoothScrollBy(dy)
+                onScrollToTopRequested: {
+                    if (editorScroll && editorScroll.contentItem) {
+                        editorScroll.contentItem.contentY = 0
                     }
                 }
-
-                // 2. Рабочая область документа (Gutter + TextArea + шорткаты)
-                EditorCanvas {
-                    id: editorCanvas
-                    visible: !mainBar.isGraphMode && !mainBar.isEmpty
-                    anchors.top: parent.top
-                    anchors.topMargin: mainBar.showHeader ? 70 : 16
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    availableHeight: editorScroll.availableHeight
-                    barSize: mainBar.barSize
-                    showLineDots: mainBar.showLineDots
-                    tabSize: mainBar.tabSize
-                    customFontFamily: mainBar.customFontFamily
-                    hasHeader: mainBar.showHeader
-                    hasFooter: mainBar.showFooter
-
-                    onPaneActivated: mainBar.paneActivated()
-                    onCursorVisibilityRequested: mainBar.requestEnsureCursorVisible()
-                    onToggleHeaderFooterRequested: mainBar.toggleHeaderFooter()
-                    onToggleFooterRequested: mainBar.toggleFooterOnly()
-                    onToggleHeaderRequested: mainBar.toggleHeaderOnly()
-                    onToggleCenteredModeRequested: mainBar.isCenteredMode = !mainBar.isCenteredMode
-                    onSaveRequested: mainBar.saveRequested()
-                    onOpenRequested: mainBar.openRequested()
-                    onNewRequested: mainBar.newRequested()
-                    onToggleGraphRequested: mainBar.toggleGraphRequested()
-                    onToggleSplitRequested: mainBar.toggleSplitRequested()
-                    onTextChangedByUser: {
-                        Controller.handleTextChangedByUser(mainBar, blockSyncTimer, activeFocus)
-                        statsUpdateTimer.restart()
+                onFontSizeChanged: (sz) => Controller.handleFontSizeChanged(mainBar, (typeof backend !== "undefined" ? backend : null), sz)
+                onSyncNoticeRequested: (t) => mainBar.showSyncNotice(t)
+                onSheetWidthRequested: (w) => Controller.handleSheetWidthRequested(mainBar, w)
+                onSheetWidthCommitted: (w) => Controller.handleSheetWidthCommitted(mainBar, (typeof backend !== "undefined" ? backend : null), w)
+                onToggleFullWidthRequested: mainBar.toggleFullWidth()
+                onHeaderPinToggled: (pinned) => mainBar.saveHeaderPinnedState(pinned)
+                onFooterPinToggled: (pinned) => mainBar.saveFooterPinnedState(pinned)
+                onOutlineModeToggled: mainBar.toggleOutlineMode()
+                onTextChangedByOutliner: (newText) => {
+                    mainBar.text = newText
+                    if (mainBar.editorArea) {
+                        mainBar.editorArea.text = newText
                     }
-                    onScrollRequested: (dy) => mainBar.smoothScrollBy(dy)
-                    onScrollToTopRequested: {
-                        if (editorScroll && editorScroll.contentItem) {
-                            editorScroll.contentItem.contentY = 0
-                        }
-                    }
-                    onFontSizeChanged: (sz) => Controller.handleFontSizeChanged(mainBar, (typeof backend !== "undefined" ? backend : null), sz)
-                    onCloseRequested: mainBar.closeRequested()
-                    onDetachRequested: mainBar.detachRequested()
-                    onSyncNoticeRequested: (t) => mainBar.showSyncNotice(t)
-                }
-
-                // 2.1 Интерактивный граф связей на листе (In-Sheet Graph View)
-                GraphView {
-                    id: sheetGraphView
-                    visible: mainBar.isGraphMode
-                    embeddedInSheet: true
-                    folderUrl: mainBar.folderUrl
-                    activeFileUrl: mainBar.fileUrl
-                    anchors.top: parent.top
-                    anchors.topMargin: mainBar.showHeader ? 70 : 0
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    height: Math.max(100, mainBar.height - (mainBar.showHeader ? 70 : 0) - (mainBar.showFooter ? 70 : 0))
-
-                    onNodeClicked: (fUrl, lbl, type) => {
-                        mainBar.paneActivated()
-                        mainBar.nodeSelected(fUrl, lbl)
-                    }
-                    onCloseRequested: {
-                        mainBar.closeGraphRequested()
-                        if (editorArea) {
-                            Qt.callLater(() => editorArea.forceActiveFocus())
-                        }
+                    if (mainBar.fileUrl && typeof backend !== "undefined" && backend) {
+                        backend.save_file(mainBar.fileUrl, newText)
                     }
                 }
-
-                // 3. Нижний контейнер со статистикой и разделителем (прилипает к низу экрана)
-                EditorFooter {
-                    id: docFooter
-                    barSize: mainBar.barSize
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    height: 70
-                    z: 20
-                    isPinned: mainBar.isFooterPinned
-                    isGraphMode: mainBar.isGraphMode
-                    statsText: mainBar.isGraphMode ? mainBar.graphStatsText : mainBar.statsString
-                    visible: mainBar.showFooter && (!mainBar.isEmpty || mainBar.isGraphMode)
-                    y: Controller.calculateFooterY(mainBar, docFooter, editorCanvas, editorScroll)
-
-                    onPinToggled: {
-                        mainBar.isFooterPinned = !mainBar.isFooterPinned
-                        mainBar.saveFooterPinnedState(mainBar.isFooterPinned)
-                        mainBar.paneActivated()
-                    }
-                    onActivated: mainBar.paneActivated()
+                onSnapshotSelected: (snapshotId) => {
+                    // Делегировано в paperSheet.loadHistoricalSnapshot
                 }
-
-                // Интерактивная граница изменения ширины листа слева
-                SheetResizeHandle {
-                    id: leftHandle
-                    isLeft: true
-                    containerItem: scrollContentContainer
-                    anchors.left: parent.left
-                    anchors.leftMargin: -12
-                    minWidth: mainBar.minSheetWidth
-                    maxWidth: scrollContentContainer.width
-                    forceVisible: mainBar.isResizingSheet
-                    onSheetWidthRequested: (w) => Controller.handleSheetWidthRequested(mainBar, w)
-                    onSheetWidthCommitted: (w) => Controller.handleSheetWidthCommitted(mainBar, (typeof backend !== "undefined" ? backend : null), w)
-                    onDoubleClickedToggle: mainBar.toggleFullWidth()
+                onLiveRequested: {
+                    // Делегировано в paperSheet.restoreLive
                 }
-
-                // Интерактивная граница изменения ширины листа справа
-                SheetResizeHandle {
-                    id: rightHandle
-                    isLeft: false
-                    containerItem: scrollContentContainer
-                    anchors.right: parent.right
-                    anchors.rightMargin: -12
-                    minWidth: mainBar.minSheetWidth
-                    maxWidth: scrollContentContainer.width
-                    forceVisible: mainBar.isResizingSheet
-                    onSheetWidthRequested: (w) => Controller.handleSheetWidthRequested(mainBar, w)
-                    onSheetWidthCommitted: (w) => Controller.handleSheetWidthCommitted(mainBar, (typeof backend !== "undefined" ? backend : null), w)
-                    onDoubleClickedToggle: mainBar.toggleFullWidth()
-                }
-
             }
         }
     }

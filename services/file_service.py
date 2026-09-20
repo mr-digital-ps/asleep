@@ -58,7 +58,7 @@ class FileService:
                     return {d.lower().strip() for d in app_cfg["ignored_directories"] if d}
             except Exception:
                 pass
-        return {".git", ".venv", "__pycache__", "node_modules", "venv"}
+        return {".git", ".venv", "__pycache__", "node_modules", "venv", ".asleep"}
 
     def get_supported_extensions(self, folder: Path | None = None) -> set[str]:
         if self.config_service:

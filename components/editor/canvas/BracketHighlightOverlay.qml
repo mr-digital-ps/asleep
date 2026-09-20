@@ -1,7 +1,6 @@
 import QtQuick
-import "../../js/editor/markdown_shortcuts.js" as Markdown
-import "../theme"
-
+import "../../../js/editor/markdown_shortcuts.js" as Markdown
+import "../../theme"
 
 Item {
     id: bracketOverlay

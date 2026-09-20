@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import "../../js/editor/markdown_shortcuts.js" as Markdown
 import "../../js/editor/editor_keys.js" as EditorKeys
 import "../theme"
+import "canvas"
 
 
 RowLayout {
@@ -36,7 +37,9 @@ RowLayout {
     signal toggleCenteredModeRequested()
     signal saveRequested()
     signal openRequested()
+    signal openSplitRequested()
     signal newRequested()
+    signal newSplitRequested()
     signal toggleGraphRequested()
     signal toggleSplitRequested()
 

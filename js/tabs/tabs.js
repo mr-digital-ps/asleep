@@ -39,8 +39,8 @@ function switchToTab(root, index) {
     return Split.switchToTab(root, index, Sync.syncCurrentPaneText, Sync.syncEditorsFromModel)
 }
 
-function createNewTab(root) {
-    return Model.createNewTab(root, Sync.syncCurrentPaneText, Sync.syncEditorsFromModel, Split.setActivePane, function(r, i) {
+function createNewTab(root, isShift) {
+    return Model.createNewTab(root, Boolean(isShift), Sync.syncCurrentPaneText, Sync.syncEditorsFromModel, Split.setActivePane, function(r, i) {
         Split.switchToTab(r, i, Sync.syncCurrentPaneText, Sync.syncEditorsFromModel)
     })
 }

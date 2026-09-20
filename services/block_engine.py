@@ -15,16 +15,18 @@ def _safe_print(*args, **kwargs):
     except Exception:
         pass
 
-BLOCK_HEADING_REGEX = re.compile(r'^[ \t]*(#{1,6})\s+(.+)$', re.MULTILINE)
+DEFAULT_BLOCK_HEADING_REGEX = re.compile(r'^[ \t]*(#{1,6})\s+(.+)$', re.MULTILINE)
+BLOCK_HEADING_REGEX = DEFAULT_BLOCK_HEADING_REGEX
 
-def parse_markdown_blocks(text: str) -> list:
+def parse_markdown_blocks(text: str, heading_regex: re.Pattern | None = None) -> list:
     """
     Разбивает Markdown текст на блоки по заголовкам #..###### Заголовок.
     Возвращает список словарей со свойствами каждого блока.
     """
     if not text:
         return []
-    matches = list(BLOCK_HEADING_REGEX.finditer(text))
+    regex = heading_regex if isinstance(heading_regex, re.Pattern) else BLOCK_HEADING_REGEX
+    matches = list(regex.finditer(text))
     blocks = []
     for i, m in enumerate(matches):
         raw_title = m.group(2).strip()
@@ -44,14 +46,15 @@ def parse_markdown_blocks(text: str) -> list:
         })
     return blocks
 
-def replace_block_in_markdown(text: str, target_heading_norm: str, new_content: str) -> tuple[str, bool]:
+def replace_block_in_markdown(text: str, target_heading_norm: str, new_content: str, heading_regex: re.Pattern | None = None) -> tuple[str, bool]:
     """
     Находит блок с указанным заголовком (без учета регистра) и заменяет его содержимое.
     Возвращает (обновленный_текст, был_ли_заменен).
     """
     if not text:
         return text, False
-    matches = list(BLOCK_HEADING_REGEX.finditer(text))
+    regex = heading_regex if isinstance(heading_regex, re.Pattern) else BLOCK_HEADING_REGEX
+    matches = list(regex.finditer(text))
     for i, m in enumerate(matches):
         raw_title = m.group(2).strip()
         if raw_title.lower() == target_heading_norm.lower():
@@ -74,8 +77,18 @@ class BlockEngine:
     Движок индексации и синхронизации блоков Markdown (Трансклюзия).
     Управляет кэшем блоков в памяти и слиянием коллизий.
     """
-    def __init__(self):
+    def __init__(self, config_service=None):
+        self.config_service = config_service
         self._block_cache = {}  # norm_title -> {"title": raw, "content": text, "source": url, "time": float}
+
+    def get_heading_regex(self) -> re.Pattern:
+        """Безопасно возвращает регулярное выражение для заголовков блоков из конфигурации"""
+        if self.config_service:
+            from services.config_service import compile_safe_regex
+            cfg = self.config_service.get_markdown_config() or {}
+            pat = cfg.get("blocks", {}).get("heading_pattern")
+            return compile_safe_regex(pat, DEFAULT_BLOCK_HEADING_REGEX, re.MULTILINE)
+        return DEFAULT_BLOCK_HEADING_REGEX
 
     def reindex_folder(self, folder: Path, extensions: list[str] | set[str] | None = None):
         """Сканирует папку и индексирует блоки из всех поддерживаемых файлов"""
@@ -85,10 +98,11 @@ class BlockEngine:
             exts = {e.lower().strip() for e in extensions} if extensions else {".md", ".markdown", ".txt"}
             files = [p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in exts]
             files.sort(key=lambda x: x.stat().st_mtime if x.exists() else 0)
+            h_regex = self.get_heading_regex()
             for p in files:
                 try:
                     text = p.read_text(encoding="utf-8")
-                    blocks = parse_markdown_blocks(text)
+                    blocks = parse_markdown_blocks(text, heading_regex=h_regex)
                     file_url = QUrl.fromLocalFile(str(p.resolve())).toString()
                     mtime = p.stat().st_mtime
                     for b in blocks:
@@ -106,7 +120,7 @@ class BlockEngine:
 
     def index_file_content(self, file_url: str, text: str):
         """Обновляет индекс блоков из сохраненного файла"""
-        blocks = parse_markdown_blocks(text)
+        blocks = parse_markdown_blocks(text, heading_regex=self.get_heading_regex())
         now = time.time()
         for b in blocks:
             if b["content"]:

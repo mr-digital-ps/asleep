@@ -53,7 +53,7 @@ function getFileContent(root, fileUrl) {
     return ""
 }
 
-function createNewTab(root, syncCurrentPaneText, syncEditorsFromModel, setActivePane, switchToTab) {
+function createNewTab(root, isShift, syncCurrentPaneText, syncEditorsFromModel, setActivePane, switchToTab) {
     if (syncCurrentPaneText) syncCurrentPaneText(root)
 
     let folderUrl = root.currentFolderUrl
@@ -96,7 +96,7 @@ function createNewTab(root, syncCurrentPaneText, syncEditorsFromModel, setActive
         return
     }
 
-    if (root.tabsModel.count === 1) {
+    if (!isShift && root.tabsModel.count === 1) {
         let first = root.tabsModel.get(0)
         let curText = (root.splitLayout && root.splitLayout.primaryBar) ? root.splitLayout.primaryBar.text : ""
         if ((!first.fileUrl || first.fileUrl === "") && (!curText || curText.trim() === "")) {
@@ -121,7 +121,14 @@ function createNewTab(root, syncCurrentPaneText, syncEditorsFromModel, setActive
     })
     let newIdx = root.tabsModel.count - 1
 
-    if (root.isSplit) {
+    if (isShift) {
+        root.secondaryTabIndex = newIdx
+        root.isSplit = true
+        root.activePane = 1
+        root.currentTabIndex = newIdx
+        if (syncEditorsFromModel) syncEditorsFromModel(root)
+        if (setActivePane) setActivePane(root, 1)
+    } else if (root.isSplit) {
         if (root.activePane === 1) {
             root.secondaryTabIndex = newIdx
         } else {
@@ -164,7 +171,13 @@ function closeTab(root, index, syncCurrentPaneText, syncEditorsFromModel, setAct
 
     if (root.isSplit) {
         if (isClosingSecondary) {
-            if (closeSplit) closeSplit(root)
+            root.secondaryTabIndex = -1
+            root.isSplit = false
+            root.activePane = 0
+            if (root.primaryTabIndex > index) root.primaryTabIndex -= 1
+            root.currentTabIndex = root.primaryTabIndex
+            if (syncEditorsFromModel) syncEditorsFromModel(root)
+            if (setActivePane) setActivePane(root, 0)
             return
         }
         if (isClosingPrimary) {

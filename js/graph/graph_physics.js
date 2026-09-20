@@ -85,11 +85,12 @@ function initSimulation(nodes, links, width, height, options) {
     }
 }
 
-function stepSimulation(sim) {
+function stepSimulation(sim, dt) {
     if (!sim || sim.isSleeping || !sim.nodes || sim.nodes.length === 0) {
         return false
     }
 
+    var timeScale = (typeof dt === "number" && dt > 0 && !isNaN(dt)) ? Math.min(2.0, dt) : 1.0
     var nodes = sim.nodes
     var links = sim.links
     var cx = (typeof sim.cx === "number") ? sim.cx : sim.width / 2
@@ -99,6 +100,7 @@ function stepSimulation(sim) {
     var linkStrength = sim.linkStrength
     var gravity = sim.gravity
     var damping = sim.damping
+    var effectiveDamping = (timeScale === 1.0) ? damping : Math.pow(damping, timeScale)
 
     var nLen = nodes.length
 
@@ -132,12 +134,12 @@ function stepSimulation(sim) {
                 }
 
                 if (!n1.isFixed) {
-                    n1.vx -= fx
-                    n1.vy -= fy
+                    n1.vx -= fx * timeScale
+                    n1.vy -= fy * timeScale
                 }
                 if (!n2.isFixed) {
-                    n2.vx += fx
-                    n2.vy += fy
+                    n2.vx += fx * timeScale
+                    n2.vy += fy * timeScale
                 }
             }
         }
@@ -170,12 +172,12 @@ function stepSimulation(sim) {
         var lfy = (ldy / ldist) * lforce
 
         if (!s.isFixed) {
-            s.vx += lfx
-            s.vy += lfy
+            s.vx += lfx * timeScale
+            s.vy += lfy * timeScale
         }
         if (!t.isFixed) {
-            t.vx -= lfx
-            t.vy -= lfy
+            t.vx -= lfx * timeScale
+            t.vy -= lfy * timeScale
         }
     }
 
@@ -196,11 +198,11 @@ function stepSimulation(sim) {
             // Гравитация относительно центра масс: сумма сил равна строго 0 (нет дрейфа графа)
             var gdx = comX - n.x
             var gdy = comY - n.y
-            n.vx += gdx * gravity
-            n.vy += gdy * gravity
+            n.vx += gdx * gravity * timeScale
+            n.vy += gdy * gravity * timeScale
 
-            n.vx *= damping
-            n.vy *= damping
+            n.vx *= effectiveDamping
+            n.vy *= effectiveDamping
 
             // Ограничение максимальной скорости
             var speed = Math.sqrt(n.vx * n.vx + n.vy * n.vy)
@@ -209,8 +211,8 @@ function stepSimulation(sim) {
                 n.vy = (n.vy / speed) * maxV
             }
 
-            n.x += n.vx
-            n.y += n.vy
+            n.x += n.vx * timeScale
+            n.y += n.vy * timeScale
 
             energy += n.vx * n.vx + n.vy * n.vy
         }

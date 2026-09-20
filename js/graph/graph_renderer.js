@@ -62,6 +62,12 @@ function renderGraph(ctx, width, height, sim, state) {
     var activeNodeId = state.activeNodeId || ""
     var activeFileUrl = state.activeFileUrl || ""
     var normActiveUrl = normalizeUrl(activeFileUrl)
+    var openFileUrls = state.openFileUrls || []
+    var openUrlsMap = {}
+    for (var u = 0; u < openFileUrls.length; u++) {
+        var nu = normalizeUrl(openFileUrls[u])
+        if (nu) openUrlsMap[nu] = true
+    }
     var q = state.searchQuery || ""
     var graphConfig = state.graphConfig || {}
 
@@ -84,6 +90,7 @@ function renderGraph(ctx, width, height, sim, state) {
     var borderHover = (theme.borderHover ? theme.borderHover.toString() : "#383838")
     var bgActive = (theme.bgActive ? theme.bgActive.toString() : "#282828")
     var bgHover = (theme.bgHover ? theme.bgHover.toString() : "#202020")
+    var accentColor = (theme.accentColor ? theme.accentColor.toString() : "#7aa2f7")
 
     var linkCol = vis.linkColor || borderColor
     var linkHoverCol = vis.linkHoverColor || borderHover
@@ -127,12 +134,14 @@ function renderGraph(ctx, width, height, sim, state) {
             (activeNodeId && n.id === activeNodeId) ||
             (normActiveUrl && n.fileUrl && normalizeUrl(n.fileUrl) === normActiveUrl)
         )
+        var normNodeUrl = (n.type === "file" && n.fileUrl) ? normalizeUrl(n.fileUrl) : ""
+        var isOpenAdjacent = (n.type === "file") && normNodeUrl && (openUrlsMap[normNodeUrl] === true) && !isActivePlayer
         var matchesSearch = (!q || (n.label && n.label.toLowerCase().indexOf(q) !== -1))
 
         var nodeAlpha = 1.0
         if (q && !matchesSearch) {
             nodeAlpha = 0.12
-        } else if (hasHover && !isHover && !isConnected && !isActivePlayer) {
+        } else if (hasHover && !isHover && !isConnected && !isActivePlayer && !isOpenAdjacent) {
             nodeAlpha = 0.35
         }
 
@@ -142,12 +151,18 @@ function renderGraph(ctx, width, height, sim, state) {
         var baseFill = (n.type === "block" ? nodeColorBlock : (n.type === "tag" ? nodeColorTag : nodeColorFile))
         var baseStroke = borderColor
 
-        // Маркер активного файла ("Вы здесь") — аккуратное кольцо
+        // Маркер активного файла ("Вы здесь") или соседнего открытого файла
         if (isActivePlayer) {
             ctx.beginPath()
             ctx.arc(n.x, n.y, (n.radius || 4.5) + 2.6, 0, 2 * Math.PI)
             ctx.strokeStyle = textSecondary
             ctx.lineWidth = 1.2
+            ctx.stroke()
+        } else if (isOpenAdjacent) {
+            ctx.beginPath()
+            ctx.arc(n.x, n.y, (n.radius || 4.5) + 2.6, 0, 2 * Math.PI)
+            ctx.strokeStyle = accentColor
+            ctx.lineWidth = 1.3
             ctx.stroke()
         }
 
@@ -172,6 +187,12 @@ function renderGraph(ctx, width, height, sim, state) {
             ctx.strokeStyle = borderColor
             ctx.lineWidth = 1.0
             ctx.stroke()
+        } else if (isOpenAdjacent) {
+            ctx.fillStyle = bgActive
+            ctx.fill()
+            ctx.strokeStyle = accentColor
+            ctx.lineWidth = 1.3
+            ctx.stroke()
         } else if (isConnected) {
             ctx.fillStyle = bgActive
             ctx.fill()
@@ -187,11 +208,15 @@ function renderGraph(ctx, width, height, sim, state) {
         }
 
         // Текстовая подпись узла
-        var shouldDrawLabel = isHover || isConnected || isActivePlayer || (q && matchesSearch) || (zoomScale > 0.9)
+        var shouldDrawLabel = isHover || isConnected || isActivePlayer || isOpenAdjacent || (q && matchesSearch) || (zoomScale > 0.9)
         if (shouldDrawLabel && nodeAlpha > 0.25) {
             if (isActivePlayer) {
                 var playerFontSize = labelFontSize + 1
                 ctx.font = "600 " + playerFontSize + "px sans-serif"
+                ctx.fillStyle = textPrimary
+            } else if (isOpenAdjacent) {
+                var openFontSize = labelFontSize + 0.5
+                ctx.font = "600 " + openFontSize + "px sans-serif"
                 ctx.fillStyle = textPrimary
             } else {
                 var curFontSize = isHover ? (labelFontSize + 0.5) : labelFontSize

@@ -1,0 +1,2 @@
+module components.history
+HistoryTimelineBar 1.0 HistoryTimelineBar.qml

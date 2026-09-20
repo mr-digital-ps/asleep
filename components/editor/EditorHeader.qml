@@ -14,6 +14,8 @@ Item {
     property bool isEmpty: false
     property bool isPinned: false
     property bool isGraphMode: false
+    property bool isLocalGraphMode: false
+    property bool isOutlineMode: false
     property int barSize: 36
     property real scrollY: 0
     property real contentLeftPadding: 0
@@ -24,6 +26,8 @@ Item {
     signal titleCommitted(string newTitle)
     signal paneActivated()
     signal pinToggled()
+    signal toggleOutlineRequested()
+    signal openStructureRequested()
 
     function stripExt(name) {
         if (!name) return ""
@@ -36,6 +40,30 @@ Item {
         anchors.fill: parent
         color: Theme.bgHeader
         visible: headerRoot.isPinned && (headerRoot.scrollY > 0)
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        z: -1
+        acceptedButtons: Qt.LeftButton
+        cursorShape: Qt.ArrowCursor
+        onPressed: (mouse) => {
+            headerRoot.paneActivated()
+            let win = Window.window
+            if (win && typeof win.startSystemMove === "function") {
+                win.startSystemMove()
+            }
+        }
+        onDoubleClicked: {
+            let win = Window.window
+            if (win) {
+                if (win.visibility === Window.Maximized) {
+                    win.showNormal()
+                } else {
+                    win.showMaximized()
+                }
+            }
+        }
     }
 
     ColumnLayout {
@@ -51,11 +79,14 @@ Item {
             isSplitMode: headerRoot.isSplitMode
             isActivePane: headerRoot.isActivePane
             isEmpty: headerRoot.isEmpty
+            isOutlineMode: headerRoot.isOutlineMode
             contentLeftPadding: headerRoot.contentLeftPadding
             contentRightPadding: headerRoot.contentRightPadding
 
             onTitleCommitted: (newTitle) => headerRoot.titleCommitted(newTitle)
             onPaneActivated: headerRoot.paneActivated()
+            onToggleOutlineRequested: headerRoot.toggleOutlineRequested()
+            onOpenStructureRequested: headerRoot.openStructureRequested()
         }
 
         // Строка заголовка в режиме графа на листе
@@ -73,12 +104,31 @@ Item {
             spacing: 8
 
             Text {
-                text: "🕸 " + (headerRoot.fileName ? headerRoot.stripExt(headerRoot.fileName) : "Граф связей")
+                text: (headerRoot.isLocalGraphMode ? "🕸 Локальный граф: " : "🕸 ") + (headerRoot.fileName ? headerRoot.stripExt(headerRoot.fileName) : "Граф связей")
                 font.pixelSize: 17
                 font.bold: true
                 color: Theme.textPrimary
                 elide: Text.ElideRight
                 Layout.alignment: Qt.AlignVCenter
+            }
+
+            Rectangle {
+                visible: headerRoot.isLocalGraphMode
+                Layout.preferredHeight: 20
+                Layout.preferredWidth: localBadgeText.implicitWidth + 12
+                Layout.alignment: Qt.AlignVCenter
+                radius: 4
+                color: Theme.bgApp
+                border.color: Theme.borderColor
+                border.width: 1
+
+                Text {
+                    id: localBadgeText
+                    anchors.centerIn: parent
+                    text: "Локальный (1-hop)"
+                    font.pixelSize: 10
+                    color: Theme.textSecondary
+                }
             }
 
             Item {
@@ -121,3 +171,4 @@ Item {
         }
     }
 }
+

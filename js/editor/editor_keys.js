@@ -17,12 +17,28 @@ function isSaveKey(event) {
 
 function isNewKey(event) {
     if (!(event.modifiers & Qt.ControlModifier)) return false
+    if (event.modifiers & Qt.ShiftModifier) return false
+    // N (scan 49, 'т')
+    return (event.key === Qt.Key_N || event.nativeScanCode === 49 || event.key === 1058 || event.key === 1090 || event.text === 'n' || event.text === 'N' || event.text === 'т' || event.text === 'Т')
+}
+
+function isNewSplitKey(event) {
+    if (!(event.modifiers & Qt.ControlModifier)) return false
+    if (!(event.modifiers & Qt.ShiftModifier)) return false
     // N (scan 49, 'т')
     return (event.key === Qt.Key_N || event.nativeScanCode === 49 || event.key === 1058 || event.key === 1090 || event.text === 'n' || event.text === 'N' || event.text === 'т' || event.text === 'Т')
 }
 
 function isOpenKey(event) {
     if (!(event.modifiers & Qt.ControlModifier)) return false
+    if (event.modifiers & Qt.ShiftModifier) return false
+    // O (scan 24, 'щ')
+    return (event.key === Qt.Key_O || event.nativeScanCode === 24 || event.key === 1065 || event.key === 1097 || event.text === 'o' || event.text === 'O' || event.text === 'щ' || event.text === 'Щ')
+}
+
+function isOpenSplitKey(event) {
+    if (!(event.modifiers & Qt.ControlModifier)) return false
+    if (!(event.modifiers & Qt.ShiftModifier)) return false
     // O (scan 24, 'щ')
     return (event.key === Qt.Key_O || event.nativeScanCode === 24 || event.key === 1065 || event.key === 1097 || event.text === 'o' || event.text === 'O' || event.text === 'щ' || event.text === 'Щ')
 }
@@ -102,7 +118,9 @@ function handleShortcutOverride(event, canvasRoot, editorArea, Markdown) {
         isCenteredModeKey(event) ||
         isSaveKey(event) ||
         isNewKey(event) ||
+        isNewSplitKey(event) ||
         isOpenKey(event) ||
+        isOpenSplitKey(event) ||
         isToggleSplitKey(event) ||
         isDetachKey(event) ||
         isToggleGraphKey(event) ||
@@ -163,6 +181,16 @@ function handleKeyPressed(event, canvasRoot, editorArea, Markdown) {
     if (isSaveKey(event)) {
         event.accepted = true
         canvasRoot.saveRequested()
+        return true
+    }
+    if (isNewSplitKey(event)) {
+        event.accepted = true
+        canvasRoot.newSplitRequested()
+        return true
+    }
+    if (isOpenSplitKey(event)) {
+        event.accepted = true
+        canvasRoot.openSplitRequested()
         return true
     }
     if (isNewKey(event)) {

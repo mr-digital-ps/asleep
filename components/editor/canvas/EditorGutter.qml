@@ -1,8 +1,8 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "../../js/editor/gutter_renderer.js" as GutterRenderer
-import "../theme"
+import "../../../js/editor/gutter_renderer.js" as GutterRenderer
+import "../../theme"
 
 Item {
     id: gutterItem
@@ -35,6 +35,10 @@ Item {
         cursorShape: Qt.ArrowCursor
         onPressed: (mouse) => {
             gutterItem.activated()
+            let win = Window.window
+            if (win && typeof win.startSystemMove === "function") {
+                win.startSystemMove()
+            }
         }
         onDoubleClicked: {
             let win = Window.window
