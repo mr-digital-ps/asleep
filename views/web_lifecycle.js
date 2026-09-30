@@ -22,8 +22,25 @@ function getOpenFileUrls(tabsModel, primaryTabIndex, secondaryTabIndex, isSplit)
     return list
 }
 
+// Хелперы для устранения повторяющихся паттернов выбора активной панели
+function getActiveBar(root, splitLayout) {
+    if (!splitLayout) return null
+    return (root && root.isSplit && root.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
+}
 
+function getActiveTabIndex(root) {
+    return (root && root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
+}
 
+function applyToBothBars(splitLayout, method) {
+    if (!splitLayout) return
+    if (splitLayout.primaryBar && typeof splitLayout.primaryBar[method] === "function") {
+        splitLayout.primaryBar[method]()
+    }
+    if (splitLayout.isSplit && splitLayout.secondaryBar && typeof splitLayout.secondaryBar[method] === "function") {
+        splitLayout.secondaryBar[method]()
+    }
+}
 
 // =========================================================================
 // Синхронизация модели и двух панелей (Split View)
@@ -638,7 +655,7 @@ function closeActiveTab(root) {
         return
     }
     if (!root || !root.tabsModel || root.tabsModel.count === 0) return
-    var targetIdx = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
+    var targetIdx = getActiveTabIndex(root)
     if (targetIdx >= 0 && targetIdx < root.tabsModel.count) {
         root.closeTab(targetIdx)
     } else if (root.currentTabIndex >= 0 && root.currentTabIndex < root.tabsModel.count) {
@@ -650,7 +667,7 @@ function closeActiveTab(root) {
 
 function saveFile(root, saveDialog, backend) {
     if (!root) return
-    var targetIndex = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
+    var targetIndex = getActiveTabIndex(root)
     var tab = (root.tabsModel && targetIndex >= 0 && targetIndex < root.tabsModel.count) ? root.tabsModel.get(targetIndex) : null
     var fileUrl = tab ? (tab.fileUrl || "") : (root.currentFileUrl || "")
 
@@ -672,28 +689,13 @@ function saveFile(root, saveDialog, backend) {
 function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Markdown, action) {
     switch (action) {
         case "toggle_header_footer":
-            if (splitLayout && splitLayout.primaryBar && typeof splitLayout.primaryBar.toggleHeaderFooter === "function") {
-                splitLayout.primaryBar.toggleHeaderFooter()
-            }
-            if (splitLayout && splitLayout.isSplit && splitLayout.secondaryBar && typeof splitLayout.secondaryBar.toggleHeaderFooter === "function") {
-                splitLayout.secondaryBar.toggleHeaderFooter()
-            }
+            applyToBothBars(splitLayout, "toggleHeaderFooter")
             break
         case "toggle_footer":
-            if (splitLayout && splitLayout.primaryBar && typeof splitLayout.primaryBar.toggleFooterOnly === "function") {
-                splitLayout.primaryBar.toggleFooterOnly()
-            }
-            if (splitLayout && splitLayout.isSplit && splitLayout.secondaryBar && typeof splitLayout.secondaryBar.toggleFooterOnly === "function") {
-                splitLayout.secondaryBar.toggleFooterOnly()
-            }
+            applyToBothBars(splitLayout, "toggleFooterOnly")
             break
         case "toggle_header":
-            if (splitLayout && splitLayout.primaryBar && typeof splitLayout.primaryBar.toggleHeaderOnly === "function") {
-                splitLayout.primaryBar.toggleHeaderOnly()
-            }
-            if (splitLayout && splitLayout.isSplit && splitLayout.secondaryBar && typeof splitLayout.secondaryBar.toggleHeaderOnly === "function") {
-                splitLayout.secondaryBar.toggleHeaderOnly()
-            }
+            applyToBothBars(splitLayout, "toggleHeaderOnly")
             break
         case "toggle_search":
             if (splitLayout && typeof splitLayout.toggleSearch === "function") {
@@ -766,10 +768,8 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Mark
             break
         case "toggle_local_graph":
             if (splitLayout) {
-                var activeBarG = (splitLayout.isSplit && splitLayout.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
-                if (activeBarG) {
-                    activeBarG.isOutlineMode = false
-                }
+                var activeBarG = getActiveBar(root, splitLayout)
+                if (activeBarG) activeBarG.isOutlineMode = false
                 if (typeof splitLayout.toggleLocalGraph === "function") {
                     splitLayout.toggleLocalGraph()
                 }
@@ -779,25 +779,19 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Mark
             if (splitLayout && typeof splitLayout.closeGraph === "function") {
                 splitLayout.closeGraph()
             }
-            if (splitLayout) {
-                var targetBarText = (splitLayout.isSplit && splitLayout.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
-                if (targetBarText) {
-                    targetBarText.isOutlineMode = false
-                    if (typeof targetBarText.showTextMode === "function") {
-                        targetBarText.showTextMode()
-                    }
-                }
+            var barText = getActiveBar(root, splitLayout)
+            if (barText) {
+                barText.isOutlineMode = false
+                if (typeof barText.showTextMode === "function") barText.showTextMode()
             }
             break
         case "toggle_outline":
             if (splitLayout && typeof splitLayout.closeGraph === "function") {
                 splitLayout.closeGraph()
             }
-            if (splitLayout) {
-                var targetBar = (splitLayout.isSplit && splitLayout.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
-                if (targetBar && typeof targetBar.toggleOutlineMode === "function") {
-                    targetBar.toggleOutlineMode()
-                }
+            var barOutline = getActiveBar(root, splitLayout)
+            if (barOutline && typeof barOutline.toggleOutlineMode === "function") {
+                barOutline.toggleOutlineMode()
             }
             break
         case "toggle_live_preview":
@@ -812,27 +806,21 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Mark
             }
             break
         case "toggle_history":
-            if (splitLayout) {
-                var targetBarH = (splitLayout.isSplit && splitLayout.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
-                if (targetBarH && typeof targetBarH.toggleHistoryMode === "function") {
-                    targetBarH.toggleHistoryMode()
-                }
+            var barHist = getActiveBar(root, splitLayout)
+            if (barHist && typeof barHist.toggleHistoryMode === "function") {
+                barHist.toggleHistoryMode()
             }
             break
         case "toggle_history_playback":
-            if (splitLayout) {
-                var targetBarP = (splitLayout.isSplit && splitLayout.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
-                if (targetBarP && typeof targetBarP.toggleHistoryPlayback === "function") {
-                    targetBarP.toggleHistoryPlayback(false)
-                }
+            var barPlay = getActiveBar(root, splitLayout)
+            if (barPlay && typeof barPlay.toggleHistoryPlayback === "function") {
+                barPlay.toggleHistoryPlayback(false)
             }
             break
         case "play_history_from_start":
-            if (splitLayout) {
-                var targetBarS = (splitLayout.isSplit && splitLayout.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
-                if (targetBarS && typeof targetBarS.toggleHistoryPlayback === "function") {
-                    targetBarS.toggleHistoryPlayback(true)
-                }
+            var barStart = getActiveBar(root, splitLayout)
+            if (barStart && typeof barStart.toggleHistoryPlayback === "function") {
+                barStart.toggleHistoryPlayback(true)
             }
             break
         case "navigate_pane_left":
@@ -850,28 +838,16 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Mark
             }
             break
         case "show_source_view":
-            if (splitLayout) {
-                var targetBarSrc = (splitLayout.isSplit && root && root.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
-                if (targetBarSrc && typeof targetBarSrc.showTextMode === "function") {
-                    targetBarSrc.showTextMode()
-                }
-            }
+            var barSrc = getActiveBar(root, splitLayout)
+            if (barSrc && typeof barSrc.showTextMode === "function") barSrc.showTextMode()
             break
         case "show_hierarchy_view":
-            if (splitLayout) {
-                var targetBarHier = (splitLayout.isSplit && root && root.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
-                if (targetBarHier && typeof targetBarHier.showHierarchyMode === "function") {
-                    targetBarHier.showHierarchyMode()
-                }
-            }
+            var barHier = getActiveBar(root, splitLayout)
+            if (barHier && typeof barHier.showHierarchyMode === "function") barHier.showHierarchyMode()
             break
         case "show_graph_view":
-            if (splitLayout) {
-                var targetBarGView = (splitLayout.isSplit && root && root.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
-                if (targetBarGView && typeof targetBarGView.showGraphMode === "function") {
-                    targetBarGView.showGraphMode()
-                }
-            }
+            var barGraph = getActiveBar(root, splitLayout)
+            if (barGraph && typeof barGraph.showGraphMode === "function") barGraph.showGraphMode()
             break
     }
 }
@@ -946,7 +922,7 @@ function handleFileOpenAccepted(root, backend, selectedFile) {
         return
     }
 
-    var targetIndex = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
+    var targetIndex = getActiveTabIndex(root)
     var curTab = (targetIndex >= 0 && targetIndex < root.tabsModel.count) ? root.tabsModel.get(targetIndex) : null
 
     if (curTab && !curTab.isDetached && curTab.fileUrl === "" && root.editorArea && root.editorArea.text === "") {
@@ -996,7 +972,7 @@ function reloadAppConfig(root, autoSaveTimer, backend) {
 function toggleProjectStructure(root, splitLayout, backend) {
     if (!root || !backend) return
 
-    var activeBar = (root.isSplit && root.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
+    var activeBar = getActiveBar(root, splitLayout)
     var curName = activeBar ? activeBar.fileName : ""
     var curUrl = activeBar ? activeBar.fileUrl : ""
 
@@ -1052,7 +1028,7 @@ function handleGlobalKeyEvent(root, splitLayout, hotkeyManager, backend, event) 
     if (hotkeyManager && hotkeyManager.handleKeyEvent(event)) {
         return true
     }
-    var activeBar = (root.isSplit && root.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
+    var activeBar = getActiveBar(root, splitLayout)
     if (event.key === 32) { // Qt.Key_Space
         var isAlt = Boolean(event.modifiers & 0x08000000) // Qt.AltModifier
         var inHistory = activeBar && (activeBar.isHistoricalMode || activeBar.isHistoryMode)
@@ -1094,7 +1070,7 @@ function handleGlobalKeyEvent(root, splitLayout, hotkeyManager, backend, event) 
 
 function handleNodeSelected(root, splitLayout, fUrl, lbl) {
     if (!root || !splitLayout) return
-    var targetBar = (root.isSplit && root.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
+    var targetBar = getActiveBar(root, splitLayout)
     if (targetBar) {
         targetBar.isOutlineMode = false
     }
