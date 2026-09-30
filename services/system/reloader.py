@@ -21,7 +21,7 @@ def setup_live_reload(engine: QQmlApplicationEngine, root_file: Path):
             file_mtimes[p] = f.stat().st_mtime_ns
             watched_files.append(f.name)
 
-    print(f"[Live Reload] Отслеживаются: {', '.join(sorted(set(watched_files)))}")
+    print(f"[Live Reload] Активен ({len(set(watched_files))} файлов)")
 
     reload_timer = QTimer(engine)
     reload_timer.setSingleShot(True)

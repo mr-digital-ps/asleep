@@ -239,8 +239,6 @@ Rectangle {
 
         onPrimaryTitleChanged: (newTitle) => Tabs.renameTab(root, root.primaryTabIndex, newTitle)
         onSecondaryTitleChanged: (newTitle) => Tabs.renameTab(root, root.secondaryTabIndex, newTitle)
-        onPrimaryDetachRequested: Tabs.detachTab(root, root.primaryTabIndex)
-        onSecondaryDetachRequested: Tabs.detachTab(root, root.secondaryTabIndex)
         onPrimaryTextChanged: autoSaveTimer.restart()
         onSecondaryTextChanged: autoSaveTimer.restart()
         onPrimaryCloseRequested: root.closeTab(root.primaryTabIndex)

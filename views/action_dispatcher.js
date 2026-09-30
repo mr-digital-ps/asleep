@@ -121,12 +121,6 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Mark
         case "save_file":
             saveFile(root, saveDialog, backend)
             break
-        case "detach_window":
-            var targetIdx = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
-            if (Tabs && typeof Tabs.detachTab === "function") {
-                Tabs.detachTab(root, targetIdx >= 0 ? targetIdx : 0)
-            }
-            break
         case "toggle_bold":
             if (splitLayout && splitLayout.activeEditorArea && Markdown) {
                 Markdown.toggleBold(splitLayout.activeEditorArea)
