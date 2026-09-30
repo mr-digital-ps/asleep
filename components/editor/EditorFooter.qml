@@ -6,8 +6,7 @@ import "../history"
 
 Item {
     id: footerRoot
-    height: isPinned ? 70 : 66
-    Behavior on height { NumberAnimation { duration: 150 } }
+    height: 70
 
     property bool isPinned: false
     property bool isGraphMode: false
