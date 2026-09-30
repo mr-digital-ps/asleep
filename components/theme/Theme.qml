@@ -44,6 +44,9 @@ Item {
     property color scrollbarTrack: "#18ffffff"
     property color dangerColor: "#ef4444"
 
+    // 6. Размеры и геометрия (Geometry Tokens)
+    property int barSize: 36
+
     // Применение настроек из объекта темы (автоматический маппинг snake_case -> camelCase)
     function applyConfig(cfg) {
         if (!cfg) return

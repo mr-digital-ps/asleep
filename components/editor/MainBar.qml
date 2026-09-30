@@ -120,6 +120,7 @@ Item {
     signal newRequested()
     signal newSplitRequested()
     signal toggleGraphRequested()
+    signal toggleLocalGraphRequested()
     signal toggleSplitRequested()
     signal openRequested()
     signal openSplitRequested()
