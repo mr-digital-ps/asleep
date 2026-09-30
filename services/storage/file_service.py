@@ -17,12 +17,23 @@ def _safe_print(*args, **kwargs):
 
 _this_p = Path(__file__).resolve()
 _root = _this_p.parent.parent if (_this_p.parent.parent / "config").exists() else _this_p.parent.parent.parent
-CONFIG_FILE = _root / ".session_config.json"
+CONFIG_DIR = _root / "config" / "user"
+CONFIG_FILE = CONFIG_DIR / "session.json"
+_LEGACY_CONFIG_FILE = _root / ".session_config.json"
 
 def load_session_config() -> dict:
     try:
         if CONFIG_FILE.exists():
             return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+        if _LEGACY_CONFIG_FILE.exists():
+            data = json.loads(_LEGACY_CONFIG_FILE.read_text(encoding="utf-8"))
+            try:
+                CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+                CONFIG_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+                _LEGACY_CONFIG_FILE.unlink(missing_ok=True)
+            except Exception:
+                pass
+            return data
     except Exception:
         pass
     return {}
@@ -31,6 +42,7 @@ def save_session_config(data: dict):
     try:
         cfg = load_session_config()
         cfg.update(data)
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         CONFIG_FILE.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
     except Exception as e:
         _safe_print(f"[FileService] Ошибка сохранения сессии: {e}")

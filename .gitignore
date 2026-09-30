@@ -11,4 +11,5 @@ wheels/
 
 .backup_my-text-editor-pre-split/
 .session_config.json
+config/user/session.json
 *_vault/
