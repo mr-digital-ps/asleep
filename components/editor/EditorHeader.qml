@@ -152,9 +152,11 @@ Item {
                 height: 2
                 radius: 1
                 color: (headerRoot.isPinned || headerRoot.isGraphMode)
-                    ? (headerDividerMouse.containsMouse ? Theme.textSecondary : Theme.textMuted)
-                    : (headerDividerMouse.containsMouse ? Theme.borderHover : Theme.borderColor)
+                    ? (headerDividerMouse.containsMouse ? Theme.textPrimary : Theme.textSecondary)
+                    : (headerDividerMouse.containsMouse ? Theme.borderFocus : Theme.borderColor)
+                opacity: (headerRoot.isPinned || headerRoot.isGraphMode) ? 0.9 : 0.6
                 Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on opacity { NumberAnimation { duration: 150 } }
             }
 
             MouseArea {

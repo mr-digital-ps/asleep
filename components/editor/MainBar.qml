@@ -381,6 +381,8 @@ Item {
         isEmpty: mainBar.isEmpty || mainBar.isGraphMode
         hasHeader: mainBar.showHeader
         hasFooter: mainBar.showFooter
+        isHeaderPinned: mainBar.isHeaderPinned
+        isFooterPinned: mainBar.isFooterPinned
         barSize: mainBar.barSize
         onActivated: mainBar.paneActivated()
     }

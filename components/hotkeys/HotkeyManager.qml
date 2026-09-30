@@ -42,8 +42,13 @@ Item {
     }
 
     function isKeyG(event) {
+        // G (scan 34, Russian 'п')
         return event.key === Qt.Key_G || event.nativeScanCode === 34 || event.text === 'g' || event.text === 'G' || event.text === 'п' || event.text === 'П' || event.key === 1087 || event.key === 1055
-            || event.key === Qt.Key_U || event.nativeScanCode === 22 || event.text === 'г' || event.text === 'Г' || event.key === 1075 || event.key === 1043
+    }
+
+    function isKeyU(event) {
+        // U (scan 22, Russian 'г')
+        return event.key === Qt.Key_U || event.nativeScanCode === 22 || event.text === 'u' || event.text === 'U' || event.text === 'г' || event.text === 'Г' || event.key === 1075 || event.key === 1043
     }
 
     function isKeyP(event) {
@@ -70,6 +75,11 @@ Item {
             }
             if (isKeyP(event)) {
                 hotkeyRoot.actionTriggered("toggle_outline")
+                event.accepted = true
+                return true
+            }
+            if (isKeyU(event)) {
+                hotkeyRoot.actionTriggered("toggle_header")
                 event.accepted = true
                 return true
             }
