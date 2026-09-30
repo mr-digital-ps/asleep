@@ -7,7 +7,6 @@ import "../components/hotkeys"
 import "../components/theme"
 import "./web_lifecycle.js" as WebLifecycle
 import "../js/tabs/tabs.js" as Tabs
-import "../js/tabs/drag_manager.js" as DragMgr
 import "../js/editor/markdown_shortcuts.js" as Markdown
 
 Rectangle {
@@ -71,15 +70,6 @@ Rectangle {
     property int targetFps: (typeof backend !== "undefined" && backend && typeof backend.get_target_fps === "function") ? backend.get_target_fps() : 60
     readonly property int animIntervalMs: targetFps <= 0 ? 1 : Math.max(1, Math.round(1000 / targetFps))
 
-    // Таймер аппаратного отслеживания курсора во время перетаскивания (адаптируется под герцовку монитора)
-    Timer {
-        id: dragTrackerTimer
-        interval: root.animIntervalMs
-        repeat: true
-        running: false
-        onTriggered: DragMgr.pollCursorState(root, Tabs)
-    }
-
     // Авто-сохранение изменений в файле с задержкой 1 сек после ввода
     Timer {
         id: autoSaveTimer
@@ -88,10 +78,8 @@ Rectangle {
         onTriggered: WebLifecycle.handleAutoSave(root, splitLayout, (typeof backend !== "undefined" ? backend : null))
     }
 
-
     property alias tabsModel: tabsModel
     property alias folderFilesModel: folderFilesModel
-    property alias dragTrackerTimer: dragTrackerTimer
 
     ListModel {
         id: tabsModel
@@ -144,17 +132,6 @@ Rectangle {
     function toggleSplit() { Tabs.toggleSplit(root) }
     function closeSplit() { Tabs.closeSplit(root) }
     function setActivePane(paneIndex) { Tabs.setActivePane(root, paneIndex) }
-    function openInNewWindow(fileUrl, fileName, wx, wy) { Tabs.openInNewWindow(root, fileUrl, fileName, wx, wy) }
-    function handleFileDragMoved(gx, gy) { DragMgr.handleFileDragMoved(root, gx, gy) }
-    function handleFileDragEnded(fileUrl, fileName, gx, gy) { DragMgr.handleFileDragEnded(root, fileUrl, fileName, gx, gy, Tabs) }
-    function dockExternalTab(fileUrl, fileName, content, zone) { DragMgr.dockFileInCurrentWindow(root, fileUrl, fileName, content, zone, Tabs) }
-
-    // Делегирование управления окнами и клонированием в модуль WebLifecycle
-    function spawnClonedAppWindow(fileUrl, title, content, wx, wy, ww, wh) {
-        return WebLifecycle.spawnClonedAppWindow(root, fileUrl, title, content, wx, wy, ww, wh)
-    }
-    function registerExternalFile(fUrl, win) { WebLifecycle.registerExternalFile(root, fUrl, win) }
-    function unregisterExternalFile(fUrl) { WebLifecycle.unregisterExternalFile(root, fUrl) }
     function applyInitialState() { return WebLifecycle.applyInitialState(root, Tabs) }
 
     // =========================================================================
@@ -232,10 +209,6 @@ Rectangle {
         currentFolderName: root.currentFolderName
 
         onNodeSelected: (fUrl, lbl) => WebLifecycle.handleNodeSelected(root, splitLayout, fUrl, lbl)
-
-        onFileDragStarted: (paneIdx, url, name, gx, gy) => WebLifecycle.handleFileDragStarted(root, dragTrackerTimer, paneIdx, url, name, gx, gy)
-        onFileDragMoved: (gx, gy) => root.handleFileDragMoved(gx, gy)
-        onFileDragEnded: (paneIdx, fUrl, fName, gx, gy) => root.handleFileDragEnded(fUrl, fName, gx, gy)
 
         onPrimaryTitleChanged: (newTitle) => Tabs.renameTab(root, root.primaryTabIndex, newTitle)
         onSecondaryTitleChanged: (newTitle) => Tabs.renameTab(root, root.secondaryTabIndex, newTitle)

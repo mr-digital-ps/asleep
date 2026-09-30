@@ -597,7 +597,6 @@ def test_structure():
         "js/history/timeline_controller.js",
         "js/graph/graph_physics.js",
         "js/tabs/tabs.js",
-        "js/tabs/drag_manager.js",
 
         # QML компоненты
         "components/dialogs/EditorDialogs.qml",
