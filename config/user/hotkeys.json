@@ -11,7 +11,7 @@
 
 	// Показать / скрыть статус-бар
 	"toggle_footer": {
-		"keys": ["Ctrl+Shift+F", "Alt+F"],
+		"keys": ["Alt+K", "Ctrl+Shift+F", "Alt+F"],
 		"description": "Показать / скрыть только нижний статус-бар (Footer)"
 	},
 

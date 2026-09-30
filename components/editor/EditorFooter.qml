@@ -6,7 +6,8 @@ import "../history"
 
 Item {
     id: footerRoot
-    height: 70
+    height: isPinned ? 70 : 66
+    Behavior on height { NumberAnimation { duration: 150 } }
 
     property bool isPinned: false
     property bool isGraphMode: false
@@ -100,9 +101,11 @@ Item {
                 height: 2
                 radius: 1
                 color: (footerRoot.isPinned || footerRoot.isGraphMode)
-                    ? (footerDividerMouse.containsMouse ? Theme.textSecondary : Theme.textMuted)
-                    : (footerDividerMouse.containsMouse ? Theme.borderHover : Theme.borderColor)
+                    ? (footerDividerMouse.containsMouse ? Theme.textPrimary : Theme.textSecondary)
+                    : (footerDividerMouse.containsMouse ? Theme.borderFocus : Theme.borderColor)
+                opacity: (footerRoot.isPinned || footerRoot.isGraphMode) ? 0.9 : 0.6
                 Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on opacity { NumberAnimation { duration: 150 } }
             }
 
             MouseArea {

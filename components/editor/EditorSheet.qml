@@ -332,7 +332,6 @@ Rectangle {
         isProjectTree: sheetRoot.isProjectTree
         anchors.left: parent.left
         anchors.right: parent.right
-        height: 70
         z: 20
         isPinned: sheetRoot.isFooterPinned
         isGraphMode: sheetRoot.isGraphMode

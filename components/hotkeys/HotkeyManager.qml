@@ -59,6 +59,21 @@ Item {
         return event.key === Qt.Key_E || event.nativeScanCode === 18 || event.text === 'e' || event.text === 'E' || event.text === 'у' || event.text === 'У' || event.key === 1091 || event.key === 1059
     }
 
+    function isKeyK(event) {
+        // K (scan 37, Russian 'л')
+        return event.key === Qt.Key_K || event.nativeScanCode === 37 || event.text === 'k' || event.text === 'K' || event.text === 'л' || event.text === 'Л' || event.key === 1051 || event.key === 1083
+    }
+
+    function isKeyH(event) {
+        // H (scan 35, Russian 'р')
+        return event.key === Qt.Key_H || event.nativeScanCode === 35 || event.text === 'h' || event.text === 'H' || event.text === 'р' || event.text === 'Р' || event.key === 1056 || event.key === 1088
+    }
+
+    function isKeyF(event) {
+        // F (scan 33, Russian 'а')
+        return event.key === Qt.Key_F || event.nativeScanCode === 33 || event.text === 'f' || event.text === 'F' || event.text === 'а' || event.text === 'А' || event.key === 1040 || event.key === 1072
+    }
+
     function handleKeyEvent(event) {
         if (isCloseKey(event)) {
             hotkeyRoot.closeActiveTabRequested()
@@ -66,7 +81,12 @@ Item {
             return true
         }
 
-        // Локальные: Alt + G (Локальный граф), Alt + P (Локальная иерархия / Outliner)
+        // Локальные комбинации с Alt:
+        // Alt + G: локальный граф
+        // Alt + P: аутлайнер
+        // Alt + U: заголовок (Header)
+        // Alt + K / Alt + F: подвал (Footer)
+        // Alt + H: заголовок и подвал (Header + Footer)
         if (event.modifiers & Qt.AltModifier) {
             if (isKeyG(event)) {
                 hotkeyRoot.actionTriggered("toggle_local_graph")
@@ -80,6 +100,16 @@ Item {
             }
             if (isKeyU(event)) {
                 hotkeyRoot.actionTriggered("toggle_header")
+                event.accepted = true
+                return true
+            }
+            if (isKeyK(event) || isKeyF(event)) {
+                hotkeyRoot.actionTriggered("toggle_footer")
+                event.accepted = true
+                return true
+            }
+            if (isKeyH(event)) {
+                hotkeyRoot.actionTriggered("toggle_header_footer")
                 event.accepted = true
                 return true
             }

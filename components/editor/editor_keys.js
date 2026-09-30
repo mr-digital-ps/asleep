@@ -94,10 +94,11 @@ function isToggleHeaderFooterKey(event) {
 }
 
 function isToggleFooterKey(event) {
-    // F (scan 33, 'а')
+    // F (scan 33, 'а') or K (scan 37, 'л')
     var isF = (event.key === Qt.Key_F || event.nativeScanCode === 33 || event.key === 1040 || event.key === 1072 || event.text === 'f' || event.text === 'F' || event.text === 'а' || event.text === 'А')
-    if ((event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.ShiftModifier) && isF) return true
-    if ((event.modifiers & Qt.AltModifier) && isF) return true
+    var isK = (event.key === Qt.Key_K || event.nativeScanCode === 37 || event.key === 1051 || event.key === 1083 || event.text === 'k' || event.text === 'K' || event.text === 'л' || event.text === 'Л')
+    if ((event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.ShiftModifier) && (isF || isK)) return true
+    if ((event.modifiers & Qt.AltModifier) && (isF || isK)) return true
     return false
 }
 
