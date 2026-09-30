@@ -148,7 +148,7 @@ Rectangle {
     property alias openDialog: editorDialogs.openDialog
     property alias saveDialog: editorDialogs.saveDialog
 
-    Component.onCompleted: WebLifecycle.initWebRoot(root, backend, openDialog, saveDialog)
+    Component.onCompleted: WebLifecycle.initWebRoot(root, (typeof backend !== "undefined" ? backend : null))
 
     // =========================================================================
     // МЕНЕДЖЕР ГОРЯЧИХ КЛАВИШ

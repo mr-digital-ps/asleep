@@ -1,9 +1,6 @@
-// web_lifecycle.js — Единый контроллер рабочего пространства, вкладок/сплита, хоткеев и жизненного цикла
+// web_lifecycle.js — Чистый контроллер жизненного цикла рабочей области и синхронизации сплита
 .pragma library
 
-// =========================================================================
-// Вспомогательные функции
-// =========================================================================
 function stripExt(name) {
     if (!name) return ""
     return name.replace(/\.md$/i, "")
@@ -25,12 +22,41 @@ function getOpenFileUrls(tabsModel, primaryTabIndex, secondaryTabIndex, isSplit)
     return list
 }
 
+function toggleGraph(splitLayout) {
+    if (splitLayout && typeof splitLayout.toggleGraph === "function") {
+        splitLayout.toggleGraph()
+    }
+}
+
+function toggleLocalGraph(splitLayout) {
+    if (splitLayout && typeof splitLayout.toggleLocalGraph === "function") {
+        splitLayout.toggleLocalGraph()
+    }
+}
+
+function closeGraph(splitLayout) {
+    if (splitLayout && typeof splitLayout.closeGraph === "function") {
+        splitLayout.closeGraph()
+    }
+}
+
+function closeAllGraphs(splitLayout) {
+    if (splitLayout && typeof splitLayout.closeAllGraphs === "function") {
+        splitLayout.closeAllGraphs()
+    }
+}
+
+function toggleSearch(splitLayout) {
+    if (splitLayout && typeof splitLayout.toggleSearch === "function") {
+        splitLayout.toggleSearch()
+    }
+}
+
 // =========================================================================
-// Синхронизация текста и панелей (Split View & Model Sync)
+// Синхронизация модели и двух панелей (Split View)
 // =========================================================================
 function syncCurrentPaneText(root) {
     if (!root || !root.splitLayout || !root.tabsModel) return
-
     if (root.primaryTabIndex >= 0 && root.primaryTabIndex < root.tabsModel.count) {
         root.tabsModel.setProperty(root.primaryTabIndex, "content", root.splitLayout.primaryBar.text)
     }
@@ -103,7 +129,9 @@ function swapPanes(root) {
 
 function switchToTab(root, index) {
     if (!root || !root.tabsModel || index < 0 || index >= root.tabsModel.count) return
-    root.closeGraph()
+    if (root.splitLayout && typeof root.splitLayout.closeGraph === "function") {
+        root.splitLayout.closeGraph()
+    }
     syncCurrentPaneText(root)
 
     if (root.isSplit) {
@@ -132,7 +160,9 @@ function switchToTab(root, index) {
 
 function createNewTab(root, isShift) {
     if (!root) return
-    root.closeGraph()
+    if (root.splitLayout && typeof root.splitLayout.closeGraph === "function") {
+        root.splitLayout.closeGraph()
+    }
     syncCurrentPaneText(root)
 
     var folderUrl = root.currentFolderUrl
@@ -341,20 +371,6 @@ function closeSplit(root) {
     setActivePane(root, 0)
 }
 
-function findOtherTabIndex(root, excludeIdx) {
-    for (var i = 0; i < root.tabsModel.count; i++) {
-        if (i !== excludeIdx) return i
-    }
-    var nextNum = root.tabsModel.count + 1
-    root.tabsModel.append({
-        title: "Документ " + nextNum,
-        fileUrl: "",
-        content: "",
-        isDetached: false
-    })
-    return root.tabsModel.count - 1
-}
-
 function toggleSplit(root) {
     if (!root) return
     if (root.isSplit) {
@@ -365,7 +381,22 @@ function toggleSplit(root) {
             return
         }
         var curPrimary = root.primaryTabIndex
-        var otherIdx = findOtherTabIndex(root, curPrimary)
+        var otherIdx = -1
+        for (var i = 0; i < root.tabsModel.count; i++) {
+            if (i !== curPrimary) {
+                otherIdx = i
+                break
+            }
+        }
+        if (otherIdx === -1) {
+            root.tabsModel.append({
+                title: "Документ " + (root.tabsModel.count + 1),
+                fileUrl: "",
+                content: "",
+                isDetached: false
+            })
+            otherIdx = root.tabsModel.count - 1
+        }
 
         root.isSplit = true
         root.primaryTabIndex = curPrimary
@@ -379,7 +410,9 @@ function toggleSplit(root) {
 
 function openFileFromFolder(root, fileUrl, fileName, isShift) {
     if (!root || typeof backend === "undefined" || !backend || !fileUrl) return
-    root.closeGraph()
+    if (root.splitLayout && typeof root.splitLayout.closeGraph === "function") {
+        root.splitLayout.closeGraph()
+    }
 
     var cleanName = stripExt(fileName)
     var content = backend.read_file(fileUrl)
@@ -496,39 +529,6 @@ function replaceBlockInString(text, headingNorm, newContent) {
 }
 
 // =========================================================================
-// Граф связей и поиск
-// =========================================================================
-function toggleGraph(splitLayout) {
-    if (splitLayout && typeof splitLayout.toggleGraph === "function") {
-        splitLayout.toggleGraph()
-    }
-}
-
-function toggleLocalGraph(splitLayout) {
-    if (splitLayout && typeof splitLayout.toggleLocalGraph === "function") {
-        splitLayout.toggleLocalGraph()
-    }
-}
-
-function closeGraph(splitLayout) {
-    if (splitLayout && typeof splitLayout.closeGraph === "function") {
-        splitLayout.closeGraph()
-    }
-}
-
-function closeAllGraphs(splitLayout) {
-    if (splitLayout && typeof splitLayout.closeAllGraphs === "function") {
-        splitLayout.closeAllGraphs()
-    }
-}
-
-function toggleSearch(splitLayout) {
-    if (splitLayout && typeof splitLayout.toggleSearch === "function") {
-        splitLayout.toggleSearch()
-    }
-}
-
-// =========================================================================
 // Файлы папки и конфигурация
 // =========================================================================
 function reloadFolderFiles(root, backend) {
@@ -552,9 +552,7 @@ function applyFolderConfig(root, splitLayout, configJson) {
                 splitLayout.secondaryBar.applyConfig(cfg)
             }
         }
-    } catch(e) {
-        console.warn("[QML] Ошибка применения конфигурации:", e)
-    }
+    } catch(e) {}
 }
 
 function handleBlockUpdated(root, splitLayout, headingNorm, content, sourceFileUrl) {
@@ -602,20 +600,18 @@ function applyInitialState(root) {
     return false
 }
 
-function initWebRoot(root, backend, openDialog, saveDialog) {
+function initWebRoot(root, backend) {
     if (!root) return
     reloadAppConfig(root, root.autoSaveTimer, backend)
-    initializeWorkspace(root, backend, openDialog, saveDialog)
+    initializeWorkspace(root, backend)
 }
 
-function initializeWorkspace(root, backend, openDialog, saveDialog) {
+function initializeWorkspace(root, backend) {
     var hasInitialDoc = applyInitialState(root)
 
     if (backend) {
         root.currentFolderUrl = backend.get_default_folder()
         root.currentFolderName = backend.get_folder_name(root.currentFolderUrl)
-        if (openDialog) openDialog.currentFolder = root.currentFolderUrl
-        if (saveDialog) saveDialog.currentFolder = root.currentFolderUrl
 
         backend.watch_folder(root.currentFolderUrl)
         reloadFolderFiles(root, backend)
@@ -663,8 +659,8 @@ function initializeWorkspace(root, backend, openDialog, saveDialog) {
 // =========================================================================
 function closeActiveTab(root) {
     if (root && root.isGraphVisible) {
-        if (typeof root.closeGraph === "function") {
-            root.closeGraph()
+        if (root.splitLayout && typeof root.splitLayout.closeGraph === "function") {
+            root.splitLayout.closeGraph()
         }
         return
     }
@@ -727,9 +723,7 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Mark
             }
             break
         case "toggle_search":
-            if (root && typeof root.toggleSearch === "function") {
-                root.toggleSearch()
-            } else if (splitLayout && typeof splitLayout.toggleSearch === "function") {
+            if (splitLayout && typeof splitLayout.toggleSearch === "function") {
                 splitLayout.toggleSearch()
             }
             break
@@ -793,8 +787,8 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Mark
             }
             break
         case "toggle_graph":
-            if (root && typeof root.toggleGraph === "function") {
-                root.toggleGraph()
+            if (splitLayout && typeof splitLayout.toggleGraph === "function") {
+                splitLayout.toggleGraph()
             }
             break
         case "toggle_local_graph":
@@ -803,14 +797,14 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Mark
                 if (activeBarG) {
                     activeBarG.isOutlineMode = false
                 }
-            }
-            if (root && typeof root.toggleLocalGraph === "function") {
-                root.toggleLocalGraph()
+                if (typeof splitLayout.toggleLocalGraph === "function") {
+                    splitLayout.toggleLocalGraph()
+                }
             }
             break
         case "show_text_mode":
-            if (root && typeof root.closeGraph === "function") {
-                root.closeGraph()
+            if (splitLayout && typeof splitLayout.closeGraph === "function") {
+                splitLayout.closeGraph()
             }
             if (splitLayout) {
                 var targetBarText = (splitLayout.isSplit && splitLayout.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
@@ -823,8 +817,8 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Mark
             }
             break
         case "toggle_outline":
-            if (root && typeof root.closeGraph === "function") {
-                root.closeGraph()
+            if (splitLayout && typeof splitLayout.closeGraph === "function") {
+                splitLayout.closeGraph()
             }
             if (splitLayout) {
                 var targetBar = (splitLayout.isSplit && splitLayout.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
@@ -1013,37 +1007,6 @@ function handleFileSaveAccepted(root, backend, selectedFile) {
     }
 }
 
-function handleFileDeleteRequested(root, backend, fUrl) {
-    if (!root || !root.tabsModel) return
-    for (var i = root.tabsModel.count - 1; i >= 0; i--) {
-        if (root.tabsModel.get(i).fileUrl === fUrl) {
-            closeTab(root, i)
-        }
-    }
-    if (backend && typeof backend.delete_file === "function") {
-        backend.delete_file(fUrl)
-    }
-}
-
-function handleFileRenameRequested(root, backend, fUrl, newName) {
-    if (!root || !backend) return
-    var res = backend.rename_file(fUrl, newName)
-    if (res && res.success) {
-        for (var i = 0; i < root.tabsModel.count; i++) {
-            if (root.tabsModel.get(i).fileUrl === fUrl) {
-                root.tabsModel.setProperty(i, "fileUrl", res.fileUrl)
-                root.tabsModel.setProperty(i, "title", res.fileName)
-                if (i === root.primaryTabIndex) root.primaryFileName = res.fileName
-                if (i === root.secondaryTabIndex) root.secondaryFileName = res.fileName
-            }
-        }
-        if (root.currentFileUrl === fUrl) {
-            root.currentFileUrl = res.fileUrl
-            root.currentFileName = res.fileName
-        }
-    }
-}
-
 function reloadAppConfig(root, autoSaveTimer, backend) {
     if (!backend || typeof backend.get_app_config !== "function") return
     try {
@@ -1142,8 +1105,8 @@ function handleGlobalKeyEvent(root, splitLayout, hotkeyManager, backend, event) 
             event.accepted = true
             return true
         }
-        if (root.isGraphVisible) {
-            closeGraph(splitLayout)
+        if (splitLayout && splitLayout.isGraphVisible && typeof splitLayout.closeGraph === "function") {
+            splitLayout.closeGraph()
             event.accepted = true
             return true
         }
