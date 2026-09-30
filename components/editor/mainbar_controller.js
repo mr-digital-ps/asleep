@@ -267,29 +267,7 @@ function handleBackgroundDragMoved(mouse, mainBar, containerItem, state) {
 function handleBackgroundDragReleased(mouse, mainBar, containerItem, state) {
 }
 
-function calculateFooterY(mainBar, docFooter, editorCanvas, editorScroll) {
-    if (mainBar.isGraphMode) {
-        return docFooter.parent.height - docFooter.height
-    }
-    var naturalY = editorCanvas.y + editorCanvas.height + 12
-    if (!editorScroll || !editorScroll.contentItem) {
-        return naturalY
-    }
-    var curScrollY = editorScroll.contentItem.contentY
-    var viewportH = editorScroll.availableHeight > 0 ? editorScroll.availableHeight : editorScroll.height
-    // 4px отступ от нижнего края окна, чтобы футер никогда не срезался клиппингом ScrollView
-    var screenBottomY = curScrollY + viewportH - docFooter.height - 4
 
-    // 1. Если футер зафиксирован (isFooterPinned = true):
-    // Всегда примагничен к нижнему краю видимого окна
-    if (mainBar.isFooterPinned) {
-        return Math.max(0, screenBottomY)
-    }
-
-    // 2. Если футер откреплен (isFooterPinned = false):
-    // Находится внизу окна, если текст короткий, либо идет следом за текстом
-    return Math.max(naturalY, screenBottomY)
-}
 
 function initMainBar(mainBar, editorArea, backend) {
     if (backend && typeof backend.get_current_config === "function") {

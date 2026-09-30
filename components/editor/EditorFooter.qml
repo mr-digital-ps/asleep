@@ -96,23 +96,8 @@ Item {
             width: parent.width
             height: 2
             radius: 1
-            color: (footerRoot.isPinned || footerRoot.isGraphMode)
-                ? (footerDividerMouse.containsMouse ? Theme.textPrimary : Theme.textSecondary)
-                : (footerDividerMouse.containsMouse ? Theme.borderFocus : Theme.borderColor)
-            opacity: (footerRoot.isPinned || footerRoot.isGraphMode) ? 0.9 : 0.6
-            Behavior on color { ColorAnimation { duration: 150 } }
-            Behavior on opacity { NumberAnimation { duration: 150 } }
-        }
-
-        MouseArea {
-            id: footerDividerMouse
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: {
-                footerRoot.pinToggled()
-                footerRoot.activated()
-            }
+            color: Theme.borderColor
+            opacity: 0.6
         }
     }
 

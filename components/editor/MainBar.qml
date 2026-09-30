@@ -58,13 +58,19 @@ Item {
 
     // Режим локального графа заметки
     property bool isLocalGraphMode: false
+    readonly property bool isProjectTree: {
+        if (typeof backend !== "undefined" && backend && typeof backend.is_project_structure_file === "function") {
+            return backend.is_project_structure_file(mainBar.fileName)
+        }
+        return mainBar.fileName === "_Структура.md"
+    }
 
     // Режим иерархии блоков документа (Outliner)
     property bool isOutlineMode: false
     property alias sheetOutliner: paperSheet.sheetOutliner
     property alias sheetGraphView: paperSheet.sheetGraphView
     property alias docHeader: paperSheet.docHeader
-    property alias docFooter: paperSheet.docFooter
+    property alias docFooter: docFooter
     property alias paperSheet: paperSheet
 
     function toggleOutlineMode() {
@@ -214,7 +220,10 @@ Item {
     // =========================================================================
     ScrollView {
         id: editorScroll
-        anchors.fill: parent
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: (mainBar.showFooter && (!mainBar.isEmpty || mainBar.isGraphMode)) ? docFooter.top : parent.bottom
         clip: true
         contentWidth: availableWidth
         contentHeight: scrollContentContainer.height
@@ -299,13 +308,10 @@ Item {
                 typewriterMode: mainBar.typewriterMode
                 focusMode: mainBar.focusMode
                 isHeaderPinned: mainBar.isHeaderPinned
-                isFooterPinned: mainBar.isFooterPinned
                 showHeader: mainBar.showHeader
-                showFooter: mainBar.showFooter
                 showLineDots: mainBar.showLineDots
                 tabSize: mainBar.tabSize
                 scrollY: mainBar.scrollY
-                statsString: mainBar.statsString
                 availableHeight: editorScroll.availableHeight
                 viewHeight: mainBar.height
                 containerItem: scrollContentContainer
@@ -349,7 +355,6 @@ Item {
                 onSheetWidthCommitted: (w) => Controller.handleSheetWidthCommitted(mainBar, (typeof backend !== "undefined" ? backend : null), w)
                 onToggleFullWidthRequested: mainBar.toggleFullWidth()
                 onHeaderPinToggled: (pinned) => mainBar.saveHeaderPinnedState(pinned)
-                onFooterPinToggled: (pinned) => mainBar.saveFooterPinnedState(pinned)
                 onOutlineModeToggled: mainBar.toggleOutlineMode()
                 onTextChangedByOutliner: (newText) => {
                     mainBar.text = newText
@@ -360,13 +365,33 @@ Item {
                         backend.save_file(mainBar.fileUrl, newText)
                     }
                 }
-                onSnapshotSelected: (snapshotId) => {
-                    // Делегировано в paperSheet.loadHistoricalSnapshot
-                }
-                onLiveRequested: {
-                    // Делегировано в paperSheet.restoreLive
-                }
             }
+        }
+    }
+
+    // Нижняя панель (EditorFooter) закреплена внизу окна MainBar
+    EditorFooter {
+        id: docFooter
+        barSize: mainBar.barSize
+        folderUrl: mainBar.folderUrl
+        fileUrl: mainBar.fileUrl
+        isProjectTree: mainBar.isProjectTree
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        height: 70
+        z: 20
+        isPinned: true
+        isGraphMode: mainBar.isGraphMode
+        statsText: mainBar.isGraphMode ? mainBar.graphStatsText : mainBar.statsString
+        visible: mainBar.showFooter && (!mainBar.isEmpty || mainBar.isGraphMode)
+
+        onActivated: mainBar.paneActivated()
+        onSnapshotSelected: (snapshotId) => {
+            if (paperSheet) paperSheet.loadHistoricalSnapshot(snapshotId)
+        }
+        onLiveRequested: {
+            if (paperSheet) paperSheet.restoreLive()
         }
     }
 
@@ -377,9 +402,9 @@ Item {
         paperSheet: paperSheet
         isEmpty: mainBar.isEmpty || mainBar.isGraphMode
         hasHeader: mainBar.showHeader
-        hasFooter: mainBar.showFooter
+        hasFooter: false
         isHeaderPinned: mainBar.isHeaderPinned
-        isFooterPinned: mainBar.isFooterPinned
+        isFooterPinned: true
         barSize: mainBar.barSize
         onActivated: mainBar.paneActivated()
     }

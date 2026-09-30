@@ -24,9 +24,7 @@ Rectangle {
     property bool typewriterMode: false
     property bool focusMode: false
     property bool isHeaderPinned: false
-    property bool isFooterPinned: true
     property bool showHeader: true
-    property bool showFooter: true
     property bool showLineDots: true
     property int tabSize: 4
     property real scrollY: 0
@@ -60,19 +58,17 @@ Rectangle {
     property alias text: editorCanvas.text
     property alias titleField: docHeader.titleField
     property alias docHeader: docHeader
-    property alias docFooter: docFooter
     property alias sheetGraphView: sheetGraphView
     property alias sheetOutliner: sheetOutliner
     property alias leftHandle: leftHandle
     property alias rightHandle: rightHandle
     readonly property bool isResizingSheet: (leftHandle && (leftHandle.containsMouse || leftHandle.pressed)) || (rightHandle && (rightHandle.containsMouse || rightHandle.pressed))
 
-    // Чистый модульный расчет полной естественной высоты листа (Header + Content + Footer)
+    // Чистый модульный расчет полной естественной высоты листа (Header + Content)
     readonly property real contentNaturalHeight: {
         var hHeader = showHeader ? 70 : 16
         var hContent = (editorArea && editorArea.contentHeight > 0) ? editorArea.contentHeight : 0
-        var hFooter = showFooter ? 70 : 16
-        return hHeader + hContent + hFooter + 40
+        return hHeader + hContent + 40
     }
 
     // Сигналы
@@ -104,11 +100,8 @@ Rectangle {
     signal sheetWidthCommitted(real finalWidth)
     signal toggleFullWidthRequested()
     signal headerPinToggled(bool pinned)
-    signal footerPinToggled(bool pinned)
     signal outlineModeToggled()
     signal textChangedByOutliner(string newText)
-    signal snapshotSelected(string snapshotId)
-    signal liveRequested()
 
     visible: !isEmpty || isGraphMode
     width: isCenteredMode ? Math.min(parent.width, Math.max(minSheetWidth, customSheetWidth)) : parent.width
@@ -211,7 +204,7 @@ Rectangle {
         anchors.topMargin: sheetRoot.showHeader ? 70 : 0
         anchors.left: parent.left
         anchors.right: parent.right
-        height: Math.max(100, sheetRoot.viewHeight - (sheetRoot.showHeader ? 70 : 0) - (sheetRoot.showFooter ? 70 : 0))
+        height: Math.max(100, sheetRoot.availableHeight - (sheetRoot.showHeader ? 70 : 0))
 
         onGraphPressed: sheetRoot.paneActivated()
         onActiveFocusChanged: {
@@ -240,7 +233,7 @@ Rectangle {
         anchors.topMargin: sheetRoot.showHeader ? 70 : 0
         anchors.left: parent.left
         anchors.right: parent.right
-        height: Math.max(100, sheetRoot.viewHeight - (sheetRoot.showHeader ? 70 : 0) - (sheetRoot.showFooter ? 70 : 0))
+        height: Math.max(100, sheetRoot.availableHeight - (sheetRoot.showHeader ? 70 : 0))
 
         onTextChangedByOutliner: (newText) => sheetRoot.textChangedByOutliner(newText)
         onCloseRequested: {
@@ -324,44 +317,7 @@ Rectangle {
         }
     }
 
-    Keys.onEscapePressed: (event) => {
-        if (docFooter && docFooter.isHistoricalMode) {
-            docFooter.goLive()
-            event.accepted = true
-        }
-    }
 
-    // 3. Нижний контейнер со шкалой истории и статистикой
-    EditorFooter {
-        id: docFooter
-        barSize: sheetRoot.barSize
-        folderUrl: sheetRoot.folderUrl
-        fileUrl: sheetRoot.fileUrl
-        isProjectTree: sheetRoot.isProjectTree
-        anchors.left: parent.left
-        anchors.right: parent.right
-        z: 20
-        isPinned: sheetRoot.isFooterPinned
-        isGraphMode: sheetRoot.isGraphMode
-        statsText: sheetRoot.isGraphMode ? sheetRoot.graphStatsText : sheetRoot.statsString
-        visible: sheetRoot.showFooter && (!sheetRoot.isEmpty || sheetRoot.isGraphMode)
-        y: Controller.calculateFooterY(sheetRoot, docFooter, editorCanvas, editorScroll)
-
-        onPinToggled: {
-            sheetRoot.isFooterPinned = !sheetRoot.isFooterPinned
-            sheetRoot.footerPinToggled(sheetRoot.isFooterPinned)
-            sheetRoot.paneActivated()
-        }
-        onActivated: sheetRoot.paneActivated()
-        onSnapshotSelected: (snapshotId) => {
-            sheetRoot.loadHistoricalSnapshot(snapshotId)
-            sheetRoot.snapshotSelected(snapshotId)
-        }
-        onLiveRequested: {
-            sheetRoot.restoreLive()
-            sheetRoot.liveRequested()
-        }
-    }
 
     // Интерактивная граница изменения ширины листа слева
     SheetResizeHandle {
