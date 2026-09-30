@@ -20,11 +20,11 @@ Rectangle {
 
     // Видимость интерактивного графа связей
     readonly property bool isGraphVisible: splitLayout ? splitLayout.isGraphVisible : false
-    function toggleGraph() { WebLifecycle.toggleGraph(splitLayout) }
-    function toggleLocalGraph() { WebLifecycle.toggleLocalGraph(splitLayout) }
-    function closeGraph() { WebLifecycle.closeGraph(splitLayout) }
-    function closeAllGraphs() { WebLifecycle.closeAllGraphs(splitLayout) }
-    function toggleSearch() { WebLifecycle.toggleSearch(splitLayout) }
+    function toggleGraph() { if (splitLayout) splitLayout.toggleGraph() }
+    function toggleLocalGraph() { if (splitLayout) splitLayout.toggleLocalGraph() }
+    function closeGraph() { if (splitLayout) splitLayout.closeGraph() }
+    function closeAllGraphs() { if (splitLayout) splitLayout.closeAllGraphs() }
+    function toggleSearch() { if (splitLayout) splitLayout.toggleSearch() }
 
     // Переменные текущего активного файла
     property string currentFileUrl: ""

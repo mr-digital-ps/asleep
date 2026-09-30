@@ -22,35 +22,8 @@ function getOpenFileUrls(tabsModel, primaryTabIndex, secondaryTabIndex, isSplit)
     return list
 }
 
-function toggleGraph(splitLayout) {
-    if (splitLayout && typeof splitLayout.toggleGraph === "function") {
-        splitLayout.toggleGraph()
-    }
-}
 
-function toggleLocalGraph(splitLayout) {
-    if (splitLayout && typeof splitLayout.toggleLocalGraph === "function") {
-        splitLayout.toggleLocalGraph()
-    }
-}
 
-function closeGraph(splitLayout) {
-    if (splitLayout && typeof splitLayout.closeGraph === "function") {
-        splitLayout.closeGraph()
-    }
-}
-
-function closeAllGraphs(splitLayout) {
-    if (splitLayout && typeof splitLayout.closeAllGraphs === "function") {
-        splitLayout.closeAllGraphs()
-    }
-}
-
-function toggleSearch(splitLayout) {
-    if (splitLayout && typeof splitLayout.toggleSearch === "function") {
-        splitLayout.toggleSearch()
-    }
-}
 
 // =========================================================================
 // Синхронизация модели и двух панелей (Split View)
