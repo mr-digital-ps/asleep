@@ -167,7 +167,7 @@ Rectangle {
         tabSize: sheetRoot.tabSize
         customFontFamily: sheetRoot.customFontFamily
         hasHeader: sheetRoot.showHeader
-        hasFooter: sheetRoot.showFooter
+        hasFooter: false
 
         onPaneActivated: sheetRoot.paneActivated()
         onCursorVisibilityRequested: sheetRoot.cursorVisibilityRequested()

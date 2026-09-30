@@ -92,9 +92,11 @@ Item {
             radius: 4
             color: customVBar.pressed ? Theme.textSelected : (customVBar.hovered ? Theme.scrollbarHover : Theme.scrollbarThumb)
             anchors.horizontalCenter: parent.horizontalCenter
+            opacity: (customVBar.hovered || customVBar.pressed || customVBar.active) ? 0.85 : 0.35
 
             Behavior on implicitWidth { NumberAnimation { duration: 100 } }
             Behavior on color { ColorAnimation { duration: 120 } }
+            Behavior on opacity { NumberAnimation { duration: 150 } }
         }
 
         background: Rectangle {
@@ -106,6 +108,8 @@ Item {
             width: 4
             radius: 2
             color: Theme.scrollbarTrack
+            opacity: (customVBar.hovered || customVBar.pressed) ? 1.0 : 0.0
+            Behavior on opacity { NumberAnimation { duration: 150 } }
         }
     }
 }
