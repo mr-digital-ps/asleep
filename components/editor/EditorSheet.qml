@@ -67,6 +67,14 @@ Rectangle {
     property alias rightHandle: rightHandle
     readonly property bool isResizingSheet: (leftHandle && (leftHandle.containsMouse || leftHandle.pressed)) || (rightHandle && (rightHandle.containsMouse || rightHandle.pressed))
 
+    // Чистый модульный расчет полной естественной высоты листа (Header + Content + Footer)
+    readonly property real contentNaturalHeight: {
+        var hHeader = showHeader ? 70 : 16
+        var hContent = (editorArea && editorArea.contentHeight > 0) ? editorArea.contentHeight : 0
+        var hFooter = showFooter ? 70 : 16
+        return hHeader + hContent + hFooter + 40
+    }
+
     // Сигналы
     signal paneActivated()
     signal titleChangedByUser(string newTitle)

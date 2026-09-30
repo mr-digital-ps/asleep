@@ -280,14 +280,14 @@ function calculateFooterY(mainBar, docFooter, editorCanvas, editorScroll) {
     var screenBottomY = curScrollY + viewportH - docFooter.height
 
     // 1. Если футер зафиксирован (isFooterPinned = true):
-    // Примагничен к нижнему краю видимой области экрана
+    // Всегда примагничен к нижнему краю видимого окна
     if (mainBar.isFooterPinned) {
         return Math.max(0, screenBottomY)
     }
 
     // 2. Если футер откреплен (isFooterPinned = false):
-    // Находится строго под текстом документа как обычный блок контента
-    return naturalY
+    // Стоит внизу видимого окна (если документ короткий) либо под текстом (если документ длинный)
+    return Math.max(naturalY, screenBottomY)
 }
 
 function initMainBar(mainBar, editorArea, backend) {
