@@ -253,7 +253,7 @@ Item {
             width: editorScroll.availableWidth
             // Typewriter overscroll: запас высоты для комфортного скролла последней строки
             readonly property real typewriterOverscroll: (mainBar.typewriterMode || (editorArea && editorArea.lineCount > 3)) ? Math.round(editorScroll.availableHeight * 0.5) : 0
-            height: mainBar.isGraphMode ? mainBar.height : Math.max(mainBar.height, (paperSheet ? paperSheet.contentNaturalHeight : 0) + typewriterOverscroll)
+            height: mainBar.isGraphMode ? mainBar.height : Math.max(mainBar.height, (paperSheet ? paperSheet.contentNaturalHeight : 0) + typewriterOverscroll + 70)
 
             // Перетаскивание окна по пустому пространству вокруг документа (фона)
             MouseArea {
