@@ -9,8 +9,8 @@
 | **Окно (Window)** | `views/window.qml`, `WindowFrame.qml` | 🟢 Работает | Безрамочное окно, resize, drag, закрытие, QML движок собирает дерево |
 | **Тема (Theme)** | `components/theme/Theme.qml`, `config/default/theme.json` | 🟢 Работает | Цвета и стили темы |
 | **Конфиги (Config)** | `config/default/*.json` | 🟢 Работает | App, Theme, Editor, Hotkeys, Graph |
-| **Сборка представлений** | `views/web.qml`, `EditorSplitLayout.qml` | 🟢 Работает | Импорты восстановлены, дерево загружается чисто |
-| **Лист редактора** | `components/editor/EditorSheet.qml` | 🟡 В процессе | Проверка фокуса и ввода в живом окне |
+| **Сборка представлений** | `views/web.qml`, `EditorSplitLayout.qml` | 🟢 Работает | Импорты и сигналы восстановлены, дерево загружается чисто |
+| **Лист редактора** | `components/editor/EditorSheet.qml` | 🟢 Работает | Фокус, ввод текста, подсветка синтаксиса MarkdownHighlighter активна |
 | **Хедер листа** | `components/editor/EditorHeader.qml` | ⚪ Отложено | Заголовок документа, переименование |
 | **Футер листа** | `components/editor/EditorFooter.qml` | ⚪ Отложено | Sticky footer, статистика слов/символов |
 | **Сайдбар** | `components/sidebar/Sidebar.qml` | ⚪ Отложено | Дерево файлов / заметок |

@@ -7,8 +7,8 @@ PROJECT_DIR = Path(__file__).parent.resolve()
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
-# Предотвращаем сбой загрузки отсутствующего плагина qtquickcontrols2windowsstyleimplplugin.dll
-os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
+# Предотвращаем сбой загрузки отсутствующего плагина Windows стиля в PyQt6
+os.environ["QT_QUICK_CONTROLS_STYLE"] = "Basic"
 
 # Обеспечиваем корректный вывод UTF-8 в консоль Windows
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):

@@ -135,6 +135,7 @@ Item {
     signal newRequested()
     signal newSplitRequested()
     signal toggleGraphRequested()
+    signal toggleLocalGraphRequested()
     signal toggleSplitRequested()
     signal nodeSelected(string fileUrl, string label)
     signal closeGraphRequested()
