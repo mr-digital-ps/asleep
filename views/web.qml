@@ -1,14 +1,14 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "../components/canvas"
+import "../components/editor"
 import "../components/dialogs"
 import "../components/hotkeys"
 import "../components/theme"
 import "./web_lifecycle.js" as WebLifecycle
-import "../components/canvas/tabs.js" as Tabs
-import "../components/canvas/drag_manager.js" as DragMgr
-import "../components/pane/sheet/source/shortcuts/markdown_shortcuts.js" as Markdown
+import "../js/tabs/tabs.js" as Tabs
+import "../js/tabs/drag_manager.js" as DragMgr
+import "../js/editor/markdown_shortcuts.js" as Markdown
 
 Rectangle {
     id: root
@@ -212,7 +212,7 @@ Rectangle {
     // =========================================================================
     // ГЛАВНАЯ ОБЛАСТЬ РЕДАКТОРА
     // =========================================================================
-    CanvasView {
+    EditorSplitLayout {
         id: splitLayout
         anchors.fill: parent
         barSize: root.barSize
