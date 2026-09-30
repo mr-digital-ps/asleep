@@ -590,7 +590,7 @@ def test_structure():
         "config/user/markdown.json",
         # JS-контроллеры и логика фич (Feature-based)
         "views/web_lifecycle.js",
-        "views/action_dispatcher.js",
+        "views/window_controller.js",
         "components/editor/markdown_shortcuts.js",
         "components/editor/mainbar_controller.js",
         "components/editor/outliner_controller.js",
@@ -598,7 +598,6 @@ def test_structure():
         "components/graph/graph_physics.js",
         "components/graph/graph_renderer.js",
         "components/graph/graph_interaction.js",
-        "views/tabs/tabs.js",
 
         # QML компоненты
         "components/dialogs/EditorDialogs.qml",

@@ -6,7 +6,6 @@ import "../components/dialogs"
 import "../components/hotkeys"
 import "../components/theme"
 import "./web_lifecycle.js" as WebLifecycle
-import "./tabs/tabs.js" as Tabs
 import "../components/editor/markdown_shortcuts.js" as Markdown
 
 Rectangle {
@@ -104,14 +103,14 @@ Rectangle {
         target: (typeof backend !== "undefined") ? backend : null
         function onFolderFilesChanged() { root.reloadFolderFiles() }
         function onBlockUpdated(headingNorm, content, sourceFileUrl) {
-            WebLifecycle.handleBlockUpdated(root, splitLayout, Tabs, headingNorm, content, sourceFileUrl)
+            WebLifecycle.handleBlockUpdated(root, splitLayout, headingNorm, content, sourceFileUrl)
         }
         function onConfigUpdated(configJson) { root.applyFolderConfig(configJson) }
         function onAppConfigChanged() { root.reloadAppConfig() }
     }
 
     function openFileFromFolder(fileUrl, fileName, isShift) {
-        WebLifecycle.openFileFromFolder(root, Tabs, fileUrl, fileName, isShift)
+        WebLifecycle.openFileFromFolder(root, fileUrl, fileName, isShift)
     }
 
     property string previousFileUrlBeforeStructure: ""
@@ -119,20 +118,19 @@ Rectangle {
     property string highlightStructureItem: ""
 
     function toggleProjectStructure() {
-        WebLifecycle.toggleProjectStructure(root, splitLayout, backend, Tabs)
+        WebLifecycle.toggleProjectStructure(root, splitLayout, backend)
     }
 
     // Делегированные методы управления вкладками и сплитом
-    function createNewTab(isShift) { WebLifecycle.createNewTab(root, Tabs, isShift) }
-    function switchToTab(index) { WebLifecycle.switchToTab(root, Tabs, index) }
+    function createNewTab(isShift) { WebLifecycle.createNewTab(root, isShift) }
+    function switchToTab(index) { WebLifecycle.switchToTab(root, index) }
 
-    function closeTab(index) { Tabs.closeTab(root, index) }
-    function renameTab(index, newTitle) { Tabs.renameTab(root, index, newTitle) }
-    function detachTab(index, spawnX, spawnY) { Tabs.detachTab(root, index, spawnX, spawnY) }
-    function toggleSplit() { Tabs.toggleSplit(root) }
-    function closeSplit() { Tabs.closeSplit(root) }
-    function setActivePane(paneIndex) { Tabs.setActivePane(root, paneIndex) }
-    function applyInitialState() { return WebLifecycle.applyInitialState(root, Tabs) }
+    function closeTab(index) { WebLifecycle.closeTab(root, index) }
+    function renameTab(index, newTitle) { WebLifecycle.renameTab(root, index, newTitle) }
+    function toggleSplit() { WebLifecycle.toggleSplit(root) }
+    function closeSplit() { WebLifecycle.closeSplit(root) }
+    function setActivePane(paneIndex) { WebLifecycle.setActivePane(root, paneIndex) }
+    function applyInitialState() { return WebLifecycle.applyInitialState(root) }
 
     // =========================================================================
     // ДИАЛОГИ ВЫБОРА И СОХРАНЕНИЯ ФАЙЛОВ И ПАПОК
@@ -142,16 +140,15 @@ Rectangle {
         currentFolderUrl: root.currentFolderUrl
 
         onFolderAccepted: (folderUrl) => WebLifecycle.handleFolderAccepted(root, (typeof backend !== "undefined" ? backend : null), folderUrl)
-        onFileOpenAccepted: (selectedFile) => WebLifecycle.handleFileOpenAccepted(root, (typeof backend !== "undefined" ? backend : null), Tabs, selectedFile)
-        onFileSaveAccepted: (selectedFile) => WebLifecycle.handleFileSaveAccepted(root, (typeof backend !== "undefined" ? backend : null), Tabs, selectedFile)
+        onFileOpenAccepted: (selectedFile) => WebLifecycle.handleFileOpenAccepted(root, (typeof backend !== "undefined" ? backend : null), selectedFile)
+        onFileSaveAccepted: (selectedFile) => WebLifecycle.handleFileSaveAccepted(root, (typeof backend !== "undefined" ? backend : null), selectedFile)
     }
-
 
     property alias folderDialog: editorDialogs.folderDialog
     property alias openDialog: editorDialogs.openDialog
     property alias saveDialog: editorDialogs.saveDialog
 
-    Component.onCompleted: WebLifecycle.initWebRoot(root, backend, Tabs, openDialog, saveDialog)
+    Component.onCompleted: WebLifecycle.initWebRoot(root, backend, openDialog, saveDialog)
 
     // =========================================================================
     // МЕНЕДЖЕР ГОРЯЧИХ КЛАВИШ
@@ -173,7 +170,7 @@ Rectangle {
     function reloadHotkeys() { hotkeyManager.reloadHotkeys() }
 
     function executeAction(action) {
-        WebLifecycle.dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Markdown, Tabs, action)
+        WebLifecycle.dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Markdown, action)
     }
 
     function closeActiveTab() { WebLifecycle.closeActiveTab(root) }
@@ -210,13 +207,13 @@ Rectangle {
 
         onNodeSelected: (fUrl, lbl) => WebLifecycle.handleNodeSelected(root, splitLayout, fUrl, lbl)
 
-        onPrimaryTitleChanged: (newTitle) => Tabs.renameTab(root, root.primaryTabIndex, newTitle)
-        onSecondaryTitleChanged: (newTitle) => Tabs.renameTab(root, root.secondaryTabIndex, newTitle)
+        onPrimaryTitleChanged: (newTitle) => root.renameTab(root.primaryTabIndex, newTitle)
+        onSecondaryTitleChanged: (newTitle) => root.renameTab(root.secondaryTabIndex, newTitle)
         onPrimaryTextChanged: autoSaveTimer.restart()
         onSecondaryTextChanged: autoSaveTimer.restart()
         onPrimaryCloseRequested: root.closeTab(root.primaryTabIndex)
         onSecondaryCloseRequested: root.closeTab(root.secondaryTabIndex)
-        onPaneActivated: (paneIndex) => Tabs.setActivePane(root, paneIndex)
+        onPaneActivated: (paneIndex) => root.setActivePane(paneIndex)
         onSaveRequested: root.executeAction("save_file")
         onOpenRequested: root.executeAction("open_file")
         onOpenSplitRequested: root.executeAction("open_file_split")

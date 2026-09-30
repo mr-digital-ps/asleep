@@ -1,11 +1,503 @@
-// web_lifecycle.js — Управление жизненным циклом рабочего пространства, окнами и внешними событиями
-.import "action_dispatcher.js" as Dispatcher
+// web_lifecycle.js — Единый контроллер рабочего пространства, вкладок/сплита, хоткеев и жизненного цикла
+.pragma library
 
+// =========================================================================
+// Вспомогательные функции
+// =========================================================================
 function stripExt(name) {
     if (!name) return ""
     return name.replace(/\.md$/i, "")
 }
 
+function getOpenFileUrls(tabsModel, primaryTabIndex, secondaryTabIndex, isSplit) {
+    var list = []
+    if (tabsModel) {
+        for (var i = 0; i < tabsModel.count; i++) {
+            var item = tabsModel.get(i)
+            var u = item ? item.fileUrl : ""
+            if (u && list.indexOf(u) === -1) list.push(u)
+        }
+    }
+    var pUrl = (tabsModel && tabsModel.count > primaryTabIndex && primaryTabIndex >= 0) ? tabsModel.get(primaryTabIndex).fileUrl : ""
+    var sUrl = (isSplit && tabsModel && tabsModel.count > secondaryTabIndex && secondaryTabIndex >= 0) ? tabsModel.get(secondaryTabIndex).fileUrl : ""
+    if (pUrl && list.indexOf(pUrl) === -1) list.push(pUrl)
+    if (sUrl && list.indexOf(sUrl) === -1) list.push(sUrl)
+    return list
+}
+
+// =========================================================================
+// Синхронизация текста и панелей (Split View & Model Sync)
+// =========================================================================
+function syncCurrentPaneText(root) {
+    if (!root || !root.splitLayout || !root.tabsModel) return
+
+    if (root.primaryTabIndex >= 0 && root.primaryTabIndex < root.tabsModel.count) {
+        root.tabsModel.setProperty(root.primaryTabIndex, "content", root.splitLayout.primaryBar.text)
+    }
+    if (root.isSplit && root.secondaryTabIndex >= 0 && root.secondaryTabIndex < root.tabsModel.count) {
+        root.tabsModel.setProperty(root.secondaryTabIndex, "content", root.splitLayout.secondaryBar.text)
+    }
+}
+
+function syncEditorsFromModel(root) {
+    if (!root || !root.splitLayout || !root.tabsModel) return
+
+    if (root.primaryTabIndex >= 0 && root.primaryTabIndex < root.tabsModel.count) {
+        var pTab = root.tabsModel.get(root.primaryTabIndex)
+        if (root.splitLayout.primaryBar && root.splitLayout.primaryBar.text !== pTab.content) {
+            root.splitLayout.primaryBar.text = pTab.content
+        }
+        root.primaryFileName = stripExt(pTab.title || "Без названия")
+    } else {
+        root.primaryFileName = ""
+        if (root.splitLayout.primaryBar) root.splitLayout.primaryBar.text = ""
+    }
+
+    if (root.isSplit && root.secondaryTabIndex >= 0 && root.secondaryTabIndex < root.tabsModel.count) {
+        var sTab = root.tabsModel.get(root.secondaryTabIndex)
+        if (root.splitLayout.secondaryBar && root.splitLayout.secondaryBar.text !== sTab.content) {
+            root.splitLayout.secondaryBar.text = sTab.content
+        }
+        root.secondaryFileName = stripExt(sTab.title || "Без названия")
+    } else {
+        root.secondaryFileName = ""
+        if (root.splitLayout.secondaryBar) root.splitLayout.secondaryBar.text = ""
+    }
+
+    var activeIdx = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
+    if (activeIdx >= 0 && activeIdx < root.tabsModel.count) {
+        var aTab = root.tabsModel.get(activeIdx)
+        root.currentFileName = stripExt(aTab.title || "")
+        root.currentFileUrl = aTab.fileUrl || ""
+        root.currentTabIndex = activeIdx
+    } else {
+        root.currentFileName = ""
+        root.currentFileUrl = ""
+        root.currentTabIndex = -1
+    }
+}
+
+function setActivePane(root, paneIndex) {
+    if (!root) return
+    root.activePane = paneIndex
+    var targetIndex = (paneIndex === 1) ? root.secondaryTabIndex : root.primaryTabIndex
+    root.currentTabIndex = targetIndex
+    if (root.tabsModel && targetIndex >= 0 && targetIndex < root.tabsModel.count) {
+        var tab = root.tabsModel.get(targetIndex)
+        root.currentFileName = stripExt(tab.title || "")
+        root.currentFileUrl = tab.fileUrl || ""
+    } else {
+        root.currentFileName = ""
+        root.currentFileUrl = ""
+    }
+}
+
+function swapPanes(root) {
+    if (!root || !root.isSplit) return
+    var temp = root.primaryTabIndex
+    root.primaryTabIndex = root.secondaryTabIndex
+    root.secondaryTabIndex = temp
+    syncEditorsFromModel(root)
+    setActivePane(root, root.activePane === 0 ? 1 : 0)
+}
+
+function switchToTab(root, index) {
+    if (!root || !root.tabsModel || index < 0 || index >= root.tabsModel.count) return
+    root.closeGraph()
+    syncCurrentPaneText(root)
+
+    if (root.isSplit) {
+        if (root.activePane === 0) {
+            if (index === root.secondaryTabIndex) {
+                swapPanes(root)
+                return
+            }
+            root.primaryTabIndex = index
+        } else {
+            if (index === root.primaryTabIndex) {
+                swapPanes(root)
+                return
+            }
+            root.secondaryTabIndex = index
+        }
+    } else {
+        root.primaryTabIndex = index
+        root.secondaryTabIndex = -1
+        root.activePane = 0
+    }
+
+    root.currentTabIndex = index
+    syncEditorsFromModel(root)
+}
+
+function createNewTab(root, isShift) {
+    if (!root) return
+    root.closeGraph()
+    syncCurrentPaneText(root)
+
+    var folderUrl = root.currentFolderUrl
+    if (!folderUrl && typeof backend !== "undefined" && backend && typeof backend.get_default_folder === "function") {
+        folderUrl = backend.get_default_folder()
+        root.currentFolderUrl = folderUrl
+        if (typeof backend.get_folder_name === "function") {
+            root.currentFolderName = backend.get_folder_name(folderUrl)
+        }
+    }
+
+    var fileUrl = ""
+    var fileName = "Новый документ"
+
+    if (typeof backend !== "undefined" && backend && folderUrl) {
+        var res = backend.create_file_in_folder(folderUrl, "Новый документ")
+        if (res && res.success) {
+            fileUrl = res.fileUrl
+            fileName = res.fileName
+        }
+    }
+
+    var cleanName = stripExt(fileName)
+
+    if (root.tabsModel.count === 0 || root.primaryTabIndex < 0) {
+        root.tabsModel.clear()
+        root.tabsModel.append({
+            title: cleanName,
+            fileUrl: fileUrl,
+            content: "",
+            isDetached: false
+        })
+        root.primaryTabIndex = 0
+        root.secondaryTabIndex = -1
+        root.isSplit = false
+        root.activePane = 0
+        syncEditorsFromModel(root)
+        setActivePane(root, 0)
+        root.reloadFolderFiles()
+        return
+    }
+
+    if (!isShift && root.tabsModel.count === 1) {
+        var first = root.tabsModel.get(0)
+        var curText = (root.splitLayout && root.splitLayout.primaryBar) ? root.splitLayout.primaryBar.text : ""
+        if ((!first.fileUrl || first.fileUrl === "") && (!curText || curText.trim() === "")) {
+            root.tabsModel.setProperty(0, "title", cleanName)
+            root.tabsModel.setProperty(0, "fileUrl", fileUrl)
+            root.tabsModel.setProperty(0, "content", "")
+            root.currentFileName = cleanName
+            root.currentFileUrl = fileUrl
+            root.primaryFileName = cleanName
+            syncEditorsFromModel(root)
+            setActivePane(root, 0)
+            root.reloadFolderFiles()
+            return
+        }
+    }
+
+    root.tabsModel.append({
+        title: cleanName,
+        fileUrl: fileUrl,
+        content: "",
+        isDetached: false
+    })
+    var newIdx = root.tabsModel.count - 1
+
+    if (isShift) {
+        root.secondaryTabIndex = newIdx
+        root.isSplit = true
+        root.activePane = 1
+        root.currentTabIndex = newIdx
+        syncEditorsFromModel(root)
+        setActivePane(root, 1)
+    } else if (root.isSplit) {
+        if (root.activePane === 1) {
+            root.secondaryTabIndex = newIdx
+        } else {
+            root.primaryTabIndex = newIdx
+        }
+        root.currentTabIndex = newIdx
+        syncEditorsFromModel(root)
+        setActivePane(root, root.activePane)
+    } else {
+        switchToTab(root, newIdx)
+    }
+
+    root.reloadFolderFiles()
+}
+
+function closeTab(root, index) {
+    if (!root || !root.tabsModel || index < 0 || index >= root.tabsModel.count) return
+    syncCurrentPaneText(root)
+
+    var isClosingPrimary = (index === root.primaryTabIndex)
+    var isClosingSecondary = (root.isSplit && index === root.secondaryTabIndex)
+
+    root.tabsModel.remove(index)
+
+    if (root.tabsModel.count === 0) {
+        root.primaryTabIndex = -1
+        root.secondaryTabIndex = -1
+        root.currentTabIndex = -1
+        root.isSplit = false
+        root.activePane = 0
+        root.primaryFileName = ""
+        root.secondaryFileName = ""
+        root.currentFileName = ""
+        root.currentFileUrl = ""
+        if (root.splitLayout && root.splitLayout.primaryBar) root.splitLayout.primaryBar.text = ""
+        if (root.splitLayout && root.splitLayout.secondaryBar) root.splitLayout.secondaryBar.text = ""
+        return
+    }
+
+    if (root.isSplit) {
+        if (isClosingSecondary) {
+            root.secondaryTabIndex = -1
+            root.isSplit = false
+            root.activePane = 0
+            if (root.primaryTabIndex > index) root.primaryTabIndex -= 1
+            root.currentTabIndex = root.primaryTabIndex
+            syncEditorsFromModel(root)
+            setActivePane(root, 0)
+            return
+        }
+        if (isClosingPrimary) {
+            root.primaryTabIndex = (root.secondaryTabIndex > index) ? (root.secondaryTabIndex - 1) : root.secondaryTabIndex
+            root.secondaryTabIndex = -1
+            root.isSplit = false
+            root.activePane = 0
+            root.currentTabIndex = root.primaryTabIndex
+            syncEditorsFromModel(root)
+            setActivePane(root, 0)
+            return
+        }
+        if (root.primaryTabIndex > index) root.primaryTabIndex -= 1
+        if (root.secondaryTabIndex > index) root.secondaryTabIndex -= 1
+        syncEditorsFromModel(root)
+        return
+    }
+
+    var nextActive = Math.max(0, index - 1)
+    root.primaryTabIndex = nextActive
+    root.secondaryTabIndex = -1
+    root.currentTabIndex = nextActive
+    root.activePane = 0
+    syncEditorsFromModel(root)
+}
+
+function renameTab(root, index, newTitle) {
+    if (!root || !root.tabsModel || index < 0 || index >= root.tabsModel.count) return
+
+    var finalTitle = stripExt((newTitle || "").trim())
+    if (!finalTitle) finalTitle = "Новый документ"
+
+    var tab = root.tabsModel.get(index)
+    if (tab && tab.fileUrl && typeof backend !== "undefined" && backend) {
+        var res = backend.rename_file(tab.fileUrl, finalTitle)
+        if (res && res.success) {
+            root.tabsModel.setProperty(index, "fileUrl", res.fileUrl)
+            finalTitle = stripExt(res.fileName)
+        }
+    } else if (tab && (!tab.fileUrl || tab.fileUrl === "") && typeof backend !== "undefined" && backend && root.currentFolderUrl) {
+        var resCreate = backend.create_file_in_folder(root.currentFolderUrl, finalTitle)
+        if (resCreate && resCreate.success) {
+            root.tabsModel.setProperty(index, "fileUrl", resCreate.fileUrl)
+            finalTitle = stripExt(resCreate.fileName)
+            root.reloadFolderFiles()
+        }
+    }
+
+    root.tabsModel.setProperty(index, "title", finalTitle)
+
+    var updatedUrl = (root.tabsModel.get(index) && root.tabsModel.get(index).fileUrl) ? root.tabsModel.get(index).fileUrl : ""
+    if (index === root.primaryTabIndex) {
+        root.primaryFileName = finalTitle
+        if (root.activePane === 0) {
+            root.currentFileName = finalTitle
+            root.currentFileUrl = updatedUrl
+        }
+    }
+    if (root.isSplit && index === root.secondaryTabIndex) {
+        root.secondaryFileName = finalTitle
+        if (root.activePane === 1) {
+            root.currentFileName = finalTitle
+            root.currentFileUrl = updatedUrl
+        }
+    }
+}
+
+function closeSplit(root) {
+    if (!root) return
+    syncCurrentPaneText(root)
+    root.isSplit = false
+
+    if (root.activePane === 1 && root.secondaryTabIndex >= 0) {
+        root.primaryTabIndex = root.secondaryTabIndex
+        root.currentTabIndex = root.secondaryTabIndex
+    } else {
+        root.currentTabIndex = root.primaryTabIndex
+    }
+
+    root.secondaryTabIndex = -1
+    root.activePane = 0
+    syncEditorsFromModel(root)
+    setActivePane(root, 0)
+}
+
+function findOtherTabIndex(root, excludeIdx) {
+    for (var i = 0; i < root.tabsModel.count; i++) {
+        if (i !== excludeIdx) return i
+    }
+    var nextNum = root.tabsModel.count + 1
+    root.tabsModel.append({
+        title: "Документ " + nextNum,
+        fileUrl: "",
+        content: "",
+        isDetached: false
+    })
+    return root.tabsModel.count - 1
+}
+
+function toggleSplit(root) {
+    if (!root) return
+    if (root.isSplit) {
+        closeSplit(root)
+    } else {
+        if (root.tabsModel.count === 0) {
+            createNewTab(root, false)
+            return
+        }
+        var curPrimary = root.primaryTabIndex
+        var otherIdx = findOtherTabIndex(root, curPrimary)
+
+        root.isSplit = true
+        root.primaryTabIndex = curPrimary
+        root.secondaryTabIndex = otherIdx
+        root.activePane = 1
+        root.currentTabIndex = otherIdx
+        syncEditorsFromModel(root)
+        setActivePane(root, 1)
+    }
+}
+
+function openFileFromFolder(root, fileUrl, fileName, isShift) {
+    if (!root || typeof backend === "undefined" || !backend || !fileUrl) return
+    root.closeGraph()
+
+    var cleanName = stripExt(fileName)
+    var content = backend.read_file(fileUrl)
+
+    if (root.tabsModel.count === 0 || root.primaryTabIndex < 0) {
+        root.tabsModel.clear()
+        root.tabsModel.append({
+            title: cleanName,
+            fileUrl: fileUrl,
+            content: content,
+            isDetached: false
+        })
+        root.primaryTabIndex = 0
+        root.secondaryTabIndex = -1
+        root.isSplit = false
+        root.activePane = 0
+        syncEditorsFromModel(root)
+        setActivePane(root, 0)
+        return
+    }
+
+    if (isShift) {
+        syncCurrentPaneText(root)
+        if (!root.isSplit) {
+            root.tabsModel.append({
+                title: cleanName,
+                fileUrl: fileUrl,
+                content: content,
+                isDetached: false
+            })
+            root.secondaryTabIndex = root.tabsModel.count - 1
+            root.isSplit = true
+            root.activePane = 1
+        } else {
+            var targetIdx = (root.activePane === 0) ? root.secondaryTabIndex : root.primaryTabIndex
+            if (targetIdx >= 0 && targetIdx < root.tabsModel.count) {
+                root.tabsModel.setProperty(targetIdx, "title", cleanName)
+                root.tabsModel.setProperty(targetIdx, "fileUrl", fileUrl)
+                root.tabsModel.setProperty(targetIdx, "content", content)
+            }
+            root.activePane = (root.activePane === 0) ? 1 : 0
+        }
+        syncEditorsFromModel(root)
+        setActivePane(root, root.activePane)
+        return
+    }
+
+    if (root.primaryTabIndex >= 0 && root.primaryTabIndex < root.tabsModel.count) {
+        var pTab = root.tabsModel.get(root.primaryTabIndex)
+        if (pTab && pTab.fileUrl === fileUrl) {
+            setActivePane(root, 0)
+            return
+        }
+    }
+    if (root.isSplit && root.secondaryTabIndex >= 0 && root.secondaryTabIndex < root.tabsModel.count) {
+        var sTab = root.tabsModel.get(root.secondaryTabIndex)
+        if (sTab && sTab.fileUrl === fileUrl) {
+            setActivePane(root, 1)
+            return
+        }
+    }
+
+    syncCurrentPaneText(root)
+
+    var activeIdx = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
+    if (activeIdx >= 0 && activeIdx < root.tabsModel.count) {
+        root.tabsModel.setProperty(activeIdx, "title", cleanName)
+        root.tabsModel.setProperty(activeIdx, "fileUrl", fileUrl)
+        root.tabsModel.setProperty(activeIdx, "content", content)
+        syncEditorsFromModel(root)
+        setActivePane(root, root.activePane)
+    } else {
+        root.tabsModel.append({
+            title: cleanName,
+            fileUrl: fileUrl,
+            content: content,
+            isDetached: false
+        })
+        switchToTab(root, root.tabsModel.count - 1)
+    }
+}
+
+function replaceBlockInString(text, headingNorm, newContent) {
+    if (!text) return text
+    var headingRegex = /^[ \t]*(#{1,6})\s+(.+)$/gm
+    var match
+    var matches = []
+    while ((match = headingRegex.exec(text)) !== null) {
+        matches.push({
+            start: match.index,
+            end: match.index + match[0].length,
+            title: match[2].trim()
+        })
+    }
+
+    var updatedText = text
+    for (var i = matches.length - 1; i >= 0; i--) {
+        var m = matches[i]
+        if (m.title.toLowerCase() === headingNorm.toLowerCase()) {
+            var contentStart = m.end
+            var contentEnd = (i + 1 < matches.length) ? matches[i + 1].start : text.length
+            var oldContent = text.substring(contentStart, contentEnd)
+            var cleanOld = oldContent.replace(/^\r?\n/, "").replace(/\r?\n$/, "")
+            var cleanNew = newContent.replace(/^\r?\n/, "").replace(/\r?\n$/, "")
+            if (cleanOld === cleanNew) continue
+
+            var formattedNew = "\n" + cleanNew + (i + 1 < matches.length ? "\n\n" : "\n")
+            var before = updatedText.substring(0, contentStart)
+            var after = updatedText.substring(contentEnd)
+            updatedText = before + formattedNew + after
+        }
+    }
+    return updatedText
+}
+
+// =========================================================================
+// Граф связей и поиск
+// =========================================================================
 function toggleGraph(splitLayout) {
     if (splitLayout && typeof splitLayout.toggleGraph === "function") {
         splitLayout.toggleGraph()
@@ -36,6 +528,9 @@ function toggleSearch(splitLayout) {
     }
 }
 
+// =========================================================================
+// Файлы папки и конфигурация
+// =========================================================================
 function reloadFolderFiles(root, backend) {
     if (!backend || !root.currentFolderUrl) return
     var files = backend.get_folder_files(root.currentFolderUrl)
@@ -62,7 +557,7 @@ function applyFolderConfig(root, splitLayout, configJson) {
     }
 }
 
-function handleBlockUpdated(root, splitLayout, Tabs, headingNorm, content, sourceFileUrl) {
+function handleBlockUpdated(root, splitLayout, headingNorm, content, sourceFileUrl) {
     var primarySource = splitLayout && splitLayout.primaryBar ? (splitLayout.primaryBar.fileUrl || ("tab://" + (splitLayout.primaryBar.fileName || "doc"))) : ""
     var secondarySource = (root.isSplit && splitLayout && splitLayout.secondaryBar) ? (splitLayout.secondaryBar.fileUrl || ("tab://" + (splitLayout.secondaryBar.fileName || "doc"))) : ""
 
@@ -78,7 +573,7 @@ function handleBlockUpdated(root, splitLayout, Tabs, headingNorm, content, sourc
         if (tab && tabSource !== sourceFileUrl) {
             var isDisplayed = (i === root.primaryTabIndex || (root.isSplit && i === root.secondaryTabIndex))
             if (!isDisplayed && tab.content) {
-                var replaced = Tabs.replaceBlockInString(tab.content, headingNorm, content)
+                var replaced = replaceBlockInString(tab.content, headingNorm, content)
                 if (replaced !== tab.content) {
                     tab.content = replaced
                 }
@@ -87,10 +582,9 @@ function handleBlockUpdated(root, splitLayout, Tabs, headingNorm, content, sourc
     }
 }
 
-function applyInitialState(root, Tabs) {
+function applyInitialState(root) {
     var appWin = (root && root.appWindow) ? root.appWindow : (root && root.Window ? root.Window.window : null)
     var initUrl = (appWin && appWin.initialFileUrl) ? appWin.initialFileUrl : root.initialFileUrl
-
     var initTitle = (appWin && appWin.initialTitle) ? appWin.initialTitle : root.initialTitle
     var initContent = (appWin && appWin.initialContent) ? appWin.initialContent : root.initialContent
 
@@ -102,20 +596,20 @@ function applyInitialState(root, Tabs) {
         root.currentFileName = cleanInit
         root.currentFileUrl = initUrl || ""
         root.primaryFileName = cleanInit
-        Tabs.syncEditorsFromModel(root)
+        syncEditorsFromModel(root)
         return true
     }
     return false
 }
 
-function initWebRoot(root, backend, Tabs, openDialog, saveDialog) {
+function initWebRoot(root, backend, openDialog, saveDialog) {
     if (!root) return
     reloadAppConfig(root, root.autoSaveTimer, backend)
-    initializeWorkspace(root, backend, Tabs, openDialog, saveDialog)
+    initializeWorkspace(root, backend, openDialog, saveDialog)
 }
 
-function initializeWorkspace(root, backend, Tabs, openDialog, saveDialog) {
-    var hasInitialDoc = applyInitialState(root, Tabs)
+function initializeWorkspace(root, backend, openDialog, saveDialog) {
+    var hasInitialDoc = applyInitialState(root)
 
     if (backend) {
         root.currentFolderUrl = backend.get_default_folder()
@@ -146,7 +640,7 @@ function initializeWorkspace(root, backend, Tabs, openDialog, saveDialog) {
                 root.currentFileName = cleanFirst
                 root.currentFileUrl = firstFile.fileUrl
                 root.primaryFileName = cleanFirst
-                Tabs.syncEditorsFromModel(root)
+                syncEditorsFromModel(root)
             } else {
                 var res = backend.create_file_in_folder(root.currentFolderUrl, "Новый документ")
                 if (res && res.success) {
@@ -164,67 +658,260 @@ function initializeWorkspace(root, backend, Tabs, openDialog, saveDialog) {
     }
 }
 
-function spawnClonedAppWindow(root, fileUrl, title, content, wx, wy, ww, wh) {
-    var comp = Qt.createComponent(root && root.windowComponentUrl ? root.windowComponentUrl : "../../views/window.qml")
-    if (comp.status === 1) {
-        var winW = Math.max(750, ww || 850)
-        var winH = Math.max(550, wh || 600)
-        var appWin = (root && root.appWindow) ? root.appWindow : (root && root.Window ? root.Window.window : null)
-        var newWin = comp.createObject(null, {
-
-            x: wx || (appWin ? (appWin.x + 50) : 100),
-            y: wy || (appWin ? (appWin.y + 50) : 100),
-            width: winW,
-            height: winH,
-            initialFileUrl: fileUrl || "",
-            initialTitle: title || "Документ",
-            initialContent: content || ""
-        })
-        if (newWin && fileUrl) {
-            registerExternalFile(root, fileUrl, newWin)
-        }
-        return newWin
-    } else {
-        console.log("[QML] Ошибка создания нового окна приложения:", comp.errorString())
-        return null
-    }
-}
-
-function registerExternalFile(root, fUrl, win) {
-    if (!fUrl) return
-    var list = (root.externalWindowFiles || []).slice()
-    if (list.indexOf(fUrl) === -1) {
-        list.push(fUrl)
-        root.externalWindowFiles = list
-    }
-    if (win && win.closing) {
-        win.closing.connect(function() {
-            unregisterExternalFile(root, fUrl)
-        })
-    }
-}
-
-function unregisterExternalFile(root, fUrl) {
-    var list = (root.externalWindowFiles || []).slice()
-    var idx = list.indexOf(fUrl)
-    if (idx !== -1) {
-        list.splice(idx, 1)
-        root.externalWindowFiles = list
-    }
-}
-
+// =========================================================================
+// Диспетчеризация действий (Actions) и сохранение
+// =========================================================================
 function closeActiveTab(root) {
-    Dispatcher.closeActiveTab(root)
+    if (root && root.isGraphVisible) {
+        if (typeof root.closeGraph === "function") {
+            root.closeGraph()
+        }
+        return
+    }
+    if (!root || !root.tabsModel || root.tabsModel.count === 0) return
+    var targetIdx = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
+    if (targetIdx >= 0 && targetIdx < root.tabsModel.count) {
+        root.closeTab(targetIdx)
+    } else if (root.currentTabIndex >= 0 && root.currentTabIndex < root.tabsModel.count) {
+        root.closeTab(root.currentTabIndex)
+    } else {
+        root.closeTab(root.tabsModel.count - 1)
+    }
 }
 
 function saveFile(root, saveDialog, backend) {
-    Dispatcher.saveFile(root, saveDialog, backend)
+    if (!root) return
+    var targetIndex = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
+    var tab = (root.tabsModel && targetIndex >= 0 && targetIndex < root.tabsModel.count) ? root.tabsModel.get(targetIndex) : null
+    var fileUrl = tab ? (tab.fileUrl || "") : (root.currentFileUrl || "")
+
+    if (!fileUrl) {
+        if (saveDialog && typeof saveDialog.open === "function") {
+            saveDialog.open()
+        }
+    } else {
+        var text = (root.editorArea ? root.editorArea.text : "")
+        if (backend) {
+            backend.save_file(fileUrl, text)
+        }
+        if (tab) {
+            tab.content = text
+        }
+    }
 }
 
-function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Markdown, Tabs, action) {
-    Dispatcher.dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Markdown, Tabs, action)
+function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Markdown, action) {
+    switch (action) {
+        case "toggle_header_footer":
+            if (splitLayout && splitLayout.primaryBar && typeof splitLayout.primaryBar.toggleHeaderFooter === "function") {
+                splitLayout.primaryBar.toggleHeaderFooter()
+            }
+            if (splitLayout && splitLayout.isSplit && splitLayout.secondaryBar && typeof splitLayout.secondaryBar.toggleHeaderFooter === "function") {
+                splitLayout.secondaryBar.toggleHeaderFooter()
+            }
+            break
+        case "toggle_footer":
+            if (splitLayout && splitLayout.primaryBar && typeof splitLayout.primaryBar.toggleFooterOnly === "function") {
+                splitLayout.primaryBar.toggleFooterOnly()
+            }
+            if (splitLayout && splitLayout.isSplit && splitLayout.secondaryBar && typeof splitLayout.secondaryBar.toggleFooterOnly === "function") {
+                splitLayout.secondaryBar.toggleFooterOnly()
+            }
+            break
+        case "toggle_header":
+            if (splitLayout && splitLayout.primaryBar && typeof splitLayout.primaryBar.toggleHeaderOnly === "function") {
+                splitLayout.primaryBar.toggleHeaderOnly()
+            }
+            if (splitLayout && splitLayout.isSplit && splitLayout.secondaryBar && typeof splitLayout.secondaryBar.toggleHeaderOnly === "function") {
+                splitLayout.secondaryBar.toggleHeaderOnly()
+            }
+            break
+        case "toggle_search":
+            if (root && typeof root.toggleSearch === "function") {
+                root.toggleSearch()
+            } else if (splitLayout && typeof splitLayout.toggleSearch === "function") {
+                splitLayout.toggleSearch()
+            }
+            break
+        case "toggle_split":
+            if (root && typeof root.toggleSplit === "function") {
+                root.toggleSplit()
+            }
+            break
+        case "toggle_centered_mode":
+            if (splitLayout && splitLayout.primaryBar) {
+                if (typeof splitLayout.primaryBar.toggleCenteredMode === "function") {
+                    splitLayout.primaryBar.toggleCenteredMode()
+                } else {
+                    splitLayout.primaryBar.isCenteredMode = !splitLayout.primaryBar.isCenteredMode
+                }
+            }
+            if (splitLayout && splitLayout.isSplit && splitLayout.secondaryBar && splitLayout.primaryBar) {
+                if (typeof splitLayout.secondaryBar.toggleCenteredMode === "function") {
+                    splitLayout.secondaryBar.isCenteredMode = splitLayout.primaryBar.isCenteredMode
+                } else {
+                    splitLayout.secondaryBar.isCenteredMode = splitLayout.primaryBar.isCenteredMode
+                }
+            }
+            break
+        case "close_tab":
+            closeActiveTab(root)
+            break
+        case "new_tab":
+            if (root && typeof root.createNewTab === "function") {
+                root.createNewTab(false)
+            }
+            break
+        case "new_tab_split":
+            if (root && typeof root.createNewTab === "function") {
+                root.createNewTab(true)
+            }
+            break
+        case "open_file":
+            if (root) root.openFileInSplit = false
+            if (openDialog && typeof openDialog.open === "function") {
+                openDialog.open()
+            }
+            break
+        case "open_file_split":
+            if (root) root.openFileInSplit = true
+            if (openDialog && typeof openDialog.open === "function") {
+                openDialog.open()
+            }
+            break
+        case "save_file":
+            saveFile(root, saveDialog, backend)
+            break
+        case "toggle_bold":
+            if (splitLayout && splitLayout.activeEditorArea && Markdown) {
+                Markdown.toggleBold(splitLayout.activeEditorArea)
+            }
+            break
+        case "toggle_italic":
+            if (splitLayout && splitLayout.activeEditorArea && Markdown) {
+                Markdown.toggleItalic(splitLayout.activeEditorArea)
+            }
+            break
+        case "toggle_graph":
+            if (root && typeof root.toggleGraph === "function") {
+                root.toggleGraph()
+            }
+            break
+        case "toggle_local_graph":
+            if (splitLayout) {
+                var activeBarG = (splitLayout.isSplit && splitLayout.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
+                if (activeBarG) {
+                    activeBarG.isOutlineMode = false
+                }
+            }
+            if (root && typeof root.toggleLocalGraph === "function") {
+                root.toggleLocalGraph()
+            }
+            break
+        case "show_text_mode":
+            if (root && typeof root.closeGraph === "function") {
+                root.closeGraph()
+            }
+            if (splitLayout) {
+                var targetBarText = (splitLayout.isSplit && splitLayout.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
+                if (targetBarText) {
+                    targetBarText.isOutlineMode = false
+                    if (typeof targetBarText.showTextMode === "function") {
+                        targetBarText.showTextMode()
+                    }
+                }
+            }
+            break
+        case "toggle_outline":
+            if (root && typeof root.closeGraph === "function") {
+                root.closeGraph()
+            }
+            if (splitLayout) {
+                var targetBar = (splitLayout.isSplit && splitLayout.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
+                if (targetBar && typeof targetBar.toggleOutlineMode === "function") {
+                    targetBar.toggleOutlineMode()
+                }
+            }
+            break
+        case "toggle_live_preview":
+            if (backend && typeof backend.toggle_live_preview === "function") {
+                var activeArea = splitLayout ? splitLayout.activeEditorArea : null
+                backend.toggle_live_preview(activeArea)
+            }
+            break
+        case "open_structure":
+            if (root && typeof root.toggleProjectStructure === "function") {
+                root.toggleProjectStructure()
+            }
+            break
+        case "toggle_history":
+            if (splitLayout) {
+                var targetBarH = (splitLayout.isSplit && splitLayout.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
+                if (targetBarH && typeof targetBarH.toggleHistoryMode === "function") {
+                    targetBarH.toggleHistoryMode()
+                }
+            }
+            break
+        case "toggle_history_playback":
+            if (splitLayout) {
+                var targetBarP = (splitLayout.isSplit && splitLayout.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
+                if (targetBarP && typeof targetBarP.toggleHistoryPlayback === "function") {
+                    targetBarP.toggleHistoryPlayback(false)
+                }
+            }
+            break
+        case "play_history_from_start":
+            if (splitLayout) {
+                var targetBarS = (splitLayout.isSplit && splitLayout.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
+                if (targetBarS && typeof targetBarS.toggleHistoryPlayback === "function") {
+                    targetBarS.toggleHistoryPlayback(true)
+                }
+            }
+            break
+        case "navigate_pane_left":
+            if (splitLayout && typeof splitLayout.navigateLeft === "function") {
+                splitLayout.navigateLeft()
+            } else if (root && root.isSplit) {
+                root.activePane = 0
+            }
+            break
+        case "navigate_pane_right":
+            if (splitLayout && typeof splitLayout.navigateRight === "function") {
+                splitLayout.navigateRight()
+            } else if (root && root.isSplit) {
+                root.activePane = 1
+            }
+            break
+        case "show_source_view":
+            if (splitLayout) {
+                var targetBarSrc = (splitLayout.isSplit && root && root.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
+                if (targetBarSrc && typeof targetBarSrc.showTextMode === "function") {
+                    targetBarSrc.showTextMode()
+                }
+            }
+            break
+        case "show_hierarchy_view":
+            if (splitLayout) {
+                var targetBarHier = (splitLayout.isSplit && root && root.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
+                if (targetBarHier && typeof targetBarHier.showHierarchyMode === "function") {
+                    targetBarHier.showHierarchyMode()
+                }
+            }
+            break
+        case "show_graph_view":
+            if (splitLayout) {
+                var targetBarGView = (splitLayout.isSplit && root && root.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
+                if (targetBarGView && typeof targetBarGView.showGraphMode === "function") {
+                    targetBarGView.showGraphMode()
+                }
+            }
+            break
+    }
 }
 
+// =========================================================================
+// Автосохранение и обработчики диалогов
+// =========================================================================
 function handleAutoSave(root, splitLayout, backend) {
     if (!backend || !root || !root.tabsModel) return
     if (root.primaryTabIndex >= 0 && root.primaryTabIndex < root.tabsModel.count) {
@@ -252,7 +939,7 @@ function handleFolderAccepted(root, backend, folderUrl) {
     reloadFolderFiles(root, backend)
 }
 
-function handleFileOpenAccepted(root, backend, Tabs, selectedFile) {
+function handleFileOpenAccepted(root, backend, selectedFile) {
     if (!root || !backend) return
     var content = backend.read_file(selectedFile)
     var name = backend.get_filename(selectedFile)
@@ -272,8 +959,8 @@ function handleFileOpenAccepted(root, backend, Tabs, selectedFile) {
             root.secondaryTabIndex = -1
             root.isSplit = false
             root.activePane = 0
-            Tabs.syncEditorsFromModel(root)
-            Tabs.setActivePane(root, 0)
+            syncEditorsFromModel(root)
+            setActivePane(root, 0)
             return
         }
 
@@ -287,8 +974,8 @@ function handleFileOpenAccepted(root, backend, Tabs, selectedFile) {
         root.isSplit = true
         root.activePane = 1
         root.currentTabIndex = root.secondaryTabIndex
-        Tabs.syncEditorsFromModel(root)
-        Tabs.setActivePane(root, 1)
+        syncEditorsFromModel(root)
+        setActivePane(root, 1)
         return
     }
 
@@ -299,7 +986,7 @@ function handleFileOpenAccepted(root, backend, Tabs, selectedFile) {
         root.tabsModel.setProperty(targetIndex, "title", cleanName)
         root.tabsModel.setProperty(targetIndex, "fileUrl", selectedFile)
         root.tabsModel.setProperty(targetIndex, "content", content)
-        Tabs.syncEditorsFromModel(root)
+        syncEditorsFromModel(root)
     } else {
         root.tabsModel.append({
             title: cleanName,
@@ -307,11 +994,11 @@ function handleFileOpenAccepted(root, backend, Tabs, selectedFile) {
             content: content,
             isDetached: false
         })
-        root.switchToTab(root.tabsModel.count - 1)
+        switchToTab(root, root.tabsModel.count - 1)
     }
 }
 
-function handleFileSaveAccepted(root, backend, Tabs, selectedFile) {
+function handleFileSaveAccepted(root, backend, selectedFile) {
     if (!root || !backend) return
     var targetIndex = (root.isSplit && root.activePane === 1) ? root.secondaryTabIndex : root.primaryTabIndex
     var text = (root.editorArea ? root.editorArea.text : "")
@@ -322,7 +1009,7 @@ function handleFileSaveAccepted(root, backend, Tabs, selectedFile) {
         root.tabsModel.setProperty(targetIndex, "title", root.currentFileName)
         root.tabsModel.setProperty(targetIndex, "fileUrl", root.currentFileUrl)
         root.tabsModel.setProperty(targetIndex, "content", text)
-        Tabs.syncEditorsFromModel(root)
+        syncEditorsFromModel(root)
     }
 }
 
@@ -330,7 +1017,7 @@ function handleFileDeleteRequested(root, backend, fUrl) {
     if (!root || !root.tabsModel) return
     for (var i = root.tabsModel.count - 1; i >= 0; i--) {
         if (root.tabsModel.get(i).fileUrl === fUrl) {
-            root.closeTab(i)
+            closeTab(root, i)
         }
     }
     if (backend && typeof backend.delete_file === "function") {
@@ -357,30 +1044,6 @@ function handleFileRenameRequested(root, backend, fUrl, newName) {
     }
 }
 
-function handleTabDragStarted(root, dragTrackerTimer, url, name, gx, gy) {
-    root.isFileDragging = true
-    root.draggingFileUrl = url
-    root.draggingFileName = name
-    root.draggingPaneIndex = -1
-    if (dragTrackerTimer) dragTrackerTimer.running = true
-}
-
-function getOpenFileUrls(tabsModel, primaryTabIndex, secondaryTabIndex, isSplit) {
-    var list = []
-    if (tabsModel) {
-        for (var i = 0; i < tabsModel.count; i++) {
-            var item = tabsModel.get(i)
-            var u = item ? item.fileUrl : ""
-            if (u && list.indexOf(u) === -1) list.push(u)
-        }
-    }
-    var pUrl = (tabsModel && tabsModel.count > primaryTabIndex && primaryTabIndex >= 0) ? tabsModel.get(primaryTabIndex).fileUrl : ""
-    var sUrl = (isSplit && tabsModel && tabsModel.count > secondaryTabIndex && secondaryTabIndex >= 0) ? tabsModel.get(secondaryTabIndex).fileUrl : ""
-    if (pUrl && list.indexOf(pUrl) === -1) list.push(pUrl)
-    if (sUrl && list.indexOf(sUrl) === -1) list.push(sUrl)
-    return list
-}
-
 function reloadAppConfig(root, autoSaveTimer, backend) {
     if (!backend || typeof backend.get_app_config !== "function") return
     try {
@@ -394,7 +1057,7 @@ function reloadAppConfig(root, autoSaveTimer, backend) {
     } catch(e) {}
 }
 
-function toggleProjectStructure(root, splitLayout, backend, Tabs) {
+function toggleProjectStructure(root, splitLayout, backend) {
     if (!root || !backend) return
 
     var activeBar = (root.isSplit && root.activePane === 1) ? splitLayout.secondaryBar : splitLayout.primaryBar
@@ -411,12 +1074,12 @@ function toggleProjectStructure(root, splitLayout, backend, Tabs) {
             activeBar.isOutlineMode = false
         }
         if (root.previousFileUrlBeforeStructure) {
-            root.openFileFromFolder(root.previousFileUrlBeforeStructure, root.previousFileNameBeforeStructure, false)
+            openFileFromFolder(root, root.previousFileUrlBeforeStructure, root.previousFileNameBeforeStructure, false)
         } else if (root.tabsModel.count > 1) {
             for (var t = 0; t < root.tabsModel.count; t++) {
                 var tabItem = root.tabsModel.get(t)
                 if (tabItem && tabItem.fileUrl && tabItem.fileUrl !== curUrl) {
-                    root.openFileFromFolder(tabItem.fileUrl, tabItem.title, false)
+                    openFileFromFolder(root, tabItem.fileUrl, tabItem.title, false)
                     break
                 }
             }
@@ -424,9 +1087,7 @@ function toggleProjectStructure(root, splitLayout, backend, Tabs) {
         return
     }
 
-    if (Tabs && typeof Tabs.syncCurrentPaneText === "function") {
-        Tabs.syncCurrentPaneText(root)
-    }
+    syncCurrentPaneText(root)
 
     root.previousFileUrlBeforeStructure = curUrl
     root.previousFileNameBeforeStructure = curName
@@ -434,7 +1095,7 @@ function toggleProjectStructure(root, splitLayout, backend, Tabs) {
 
     var info = backend.sync_project_structure_file(root.currentFolderUrl)
     if (info && info.fileUrl) {
-        root.openFileFromFolder(info.fileUrl, info.fileName, false)
+        openFileFromFolder(root, info.fileUrl, info.fileName, false)
     }
 }
 
@@ -477,12 +1138,12 @@ function handleGlobalKeyEvent(root, splitLayout, hotkeyManager, backend, event) 
         }
         var isStructEsc = (backend && typeof backend.is_project_structure_file === "function") && backend.is_project_structure_file(curName)
         if (isStructEsc) {
-            root.toggleProjectStructure()
+            toggleProjectStructure(root, splitLayout, backend)
             event.accepted = true
             return true
         }
         if (root.isGraphVisible) {
-            root.closeGraph()
+            closeGraph(splitLayout)
             event.accepted = true
             return true
         }
@@ -501,39 +1162,5 @@ function handleNodeSelected(root, splitLayout, fUrl, lbl) {
     if (targetBar) {
         targetBar.isOutlineMode = false
     }
-    root.openFileFromFolder(fUrl, lbl, false)
+    openFileFromFolder(root, fUrl, lbl, false)
 }
-
-function handleFileDragStarted(root, dragTrackerTimer, paneIdx, url, name, gx, gy) {
-    if (!root) return
-    root.isFileDragging = true
-    root.draggingFileUrl = url
-    root.draggingFileName = name
-    root.draggingPaneIndex = paneIdx
-    if (dragTrackerTimer) dragTrackerTimer.running = true
-}
-
-function openFileFromFolder(root, Tabs, fileUrl, fileName, isShift) {
-    if (!root) return
-    root.closeGraph()
-    if (Tabs && typeof Tabs.openFileFromFolder === "function") {
-        Tabs.openFileFromFolder(root, fileUrl, fileName, isShift)
-    }
-}
-
-function createNewTab(root, Tabs, isShift) {
-    if (!root) return
-    root.closeGraph()
-    if (Tabs && typeof Tabs.createNewTab === "function") {
-        Tabs.createNewTab(root, isShift)
-    }
-}
-
-function switchToTab(root, Tabs, index) {
-    if (!root) return
-    root.closeGraph()
-    if (Tabs && typeof Tabs.switchToTab === "function") {
-        Tabs.switchToTab(root, index)
-    }
-}
-
