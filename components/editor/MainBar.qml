@@ -253,10 +253,11 @@ Item {
             width: editorScroll.availableWidth
             readonly property real singleLineHeight: (editorArea && editorArea.cursorRectangle.height > 0) ? editorArea.cursorRectangle.height : 24
             readonly property real headerOffset: (mainBar.showHeader && mainBar.isHeaderPinned) ? 70 : 0
+            readonly property real footerOffset: (mainBar.showFooter && !mainBar.isFooterPinned) ? 86 : 0
             readonly property real lastLineTop: editorArea ? (paperSheet.editorCanvas.y + editorArea.topPadding + editorArea.contentHeight - singleLineHeight) : 0
             height: mainBar.isGraphMode ? mainBar.height : Math.max(mainBar.height, (editorArea && editorArea.lineCount > 1 && editorArea.contentHeight > 60)
-                ? Math.max(mainBar.height, lastLineTop - (headerOffset + 16) + editorScroll.availableHeight)
-                : mainBar.height)
+                ? Math.max(mainBar.height, lastLineTop - (headerOffset + 16) + editorScroll.availableHeight + footerOffset)
+                : (paperSheet.editorCanvas.y + (editorArea ? editorArea.contentHeight : 0) + footerOffset + 40))
 
             // Перетаскивание окна по пустому пространству вокруг документа (фона)
             MouseArea {

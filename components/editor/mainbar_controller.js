@@ -271,23 +271,23 @@ function calculateFooterY(mainBar, docFooter, editorCanvas, editorScroll) {
     if (mainBar.isGraphMode) {
         return docFooter.parent.height - docFooter.height
     }
-    var naturalY = editorCanvas.y + editorCanvas.height + 4
+    var naturalY = editorCanvas.y + editorCanvas.height + 12
     if (!editorScroll || !editorScroll.contentItem) {
         return naturalY
     }
     var curScrollY = editorScroll.contentItem.contentY
-    var viewportH = editorScroll.availableHeight
+    var viewportH = editorScroll.height
     var screenBottomY = curScrollY + viewportH - docFooter.height
 
-    // Если футер всегда зафиксирован (isFooterPinned = true)
+    // 1. Если футер зафиксирован (isFooterPinned = true):
+    // Примагничен к нижнему краю видимой области экрана
     if (mainBar.isFooterPinned) {
-        return screenBottomY
+        return Math.max(0, screenBottomY)
     }
 
-    // Если футер не зафиксирован:
-    // Он находится сразу под текстом (naturalY), но как только пользователь
-    // прокручивает ниже конца документа (overscroll), футер мягко прилипает к нижней кромке экрана
-    return Math.max(naturalY, screenBottomY)
+    // 2. Если футер откреплен (isFooterPinned = false):
+    // Находится строго под текстом документа как обычный блок контента
+    return naturalY
 }
 
 function initMainBar(mainBar, editorArea, backend) {
