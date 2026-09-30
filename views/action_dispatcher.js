@@ -77,6 +77,11 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Mark
                 root.toggleSplit()
             }
             break
+        case "toggle_sidebar":
+            if (root && typeof root.toggleSidebar === "function") {
+                root.toggleSidebar()
+            }
+            break
         case "toggle_centered_mode":
             if (splitLayout && splitLayout.primaryBar) {
                 if (typeof splitLayout.primaryBar.toggleCenteredMode === "function") {

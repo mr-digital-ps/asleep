@@ -49,12 +49,11 @@ class HotkeyMatcher:
                     chars.update(['G', 'U', 'П', 'Г'])
 
                 # Для toggle_local_graph (Alt+G): физическая клавиша G (русская 'П', scan 34, VK 0x47)
-                # и мнемоническая буква 'Г' для "Граф" (физическая клавиша U, scan 22, VK 0x55)
                 if action == "toggle_local_graph":
-                    vks.update([0x47, 0x55])
-                    scan_codes.update([34, 22])
-                    qt_keys.update([71, 85, 1055, 1087, 1043, 1075])
-                    chars.update(['G', 'U', 'П', 'Г'])
+                    vks.add(0x47)
+                    scan_codes.add(34)
+                    qt_keys.update([71, 1055, 1087])
+                    chars.update(['G', 'П'])
 
 
                 # Для show_text_mode (Alt+T): физическая клавиша T (русская 'Е', scan 20, VK 0x54)

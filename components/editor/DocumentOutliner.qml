@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "../theme"
-import "./outliner"
 import "../../js/editor/outliner_controller.js" as OutlinerCtrl
 
 Item {

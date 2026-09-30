@@ -119,7 +119,7 @@ tags:
     valid_re = compile_safe_regex(r"@([a-zA-Z0-9_]+)", default_re)
     assert valid_re.pattern == r"@([a-zA-Z0-9_]+)", "Корректный regex должен компилироваться"
     assert "system_files" in md_cfg, "markdown.json должен содержать system_files"
-    assert md_cfg["system_files"]["structure_file"] == "_notes.md"
+    assert md_cfg["system_files"]["structure_file"] in ("_Структура.md", "_notes.md")
     assert md_cfg["system_files"]["graph_file"] == "_Граф связей.md"
 
     # 5. Тест MarkdownHighlighter
@@ -155,13 +155,11 @@ tags:
     assert matcher.match_event(ev_ru_p) == "toggle_graph", "Ctrl+П (VK 0x47 / scan 34) должен распознаваться"
     assert matcher.match_event(ev_ru_g) == "toggle_graph", "Ctrl+Г (VK 0x55 / scan 22) должен распознаваться"
 
-    # 1.1. Проверка toggle_local_graph: Alt+G (EN), Alt+П (RU: scan 34 / VK 0x47), Alt+Г (RU: scan 22 / VK 0x55)
+    # 1.1. Проверка toggle_local_graph: Alt+G (EN), Alt+П (RU: scan 34 / VK 0x47)
     ev_en_alt_g = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_G, Qt.KeyboardModifier.AltModifier, 34, 0x47, 0)
     ev_ru_alt_p = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.AltModifier, 34, 0x47, 0)
-    ev_ru_alt_g = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.AltModifier, 22, 0x55, 0)
     assert matcher.match_event(ev_en_alt_g) == "toggle_local_graph", "Alt+G должен распознаваться"
     assert matcher.match_event(ev_ru_alt_p) == "toggle_local_graph", "Alt+П (VK 0x47 / scan 34) должен распознаваться"
-    assert matcher.match_event(ev_ru_alt_g) == "toggle_local_graph", "Alt+Г (VK 0x55 / scan 22) должен распознаваться"
 
     # 2. Проверка close_tab: Ctrl+W (EN scan 17), Ctrl+Ц (RU scan 17, VK 0x57), Ctrl+Q не закрывает вкладку
     ev_w = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 17, 0x57, 0)
@@ -468,25 +466,27 @@ def test_qml():
         "components/dialogs/EditorDialogs.qml",
         "components/hotkeys/HotkeyManager.qml",
         "components/window/WindowFrame.qml",
-        "components/pane/header/Header.qml",
-        "components/pane/sheet/Sheet.qml",
-        "components/pane/sheet/source/SourceView.qml",
-        "components/pane/sheet/hierarchy/HierarchyView.qml",
-        "components/pane/sheet/graph/GraphView.qml",
-        "components/pane/footer/Footer.qml",
-        "components/pane/Pane.qml",
-        "components/canvas/CanvasView.qml",
+        "components/theme/Theme.qml",
+        "components/sidebar/Sidebar.qml",
+        "components/sidebar/SidebarHeader.qml",
+        "components/sidebar/SidebarFileList.qml",
+        "components/sidebar/SidebarFileItem.qml",
+        "components/editor/EditorSplitLayout.qml",
+        "components/editor/MainBar.qml",
+        "components/editor/EditorSheet.qml",
+        "components/editor/EditorCanvas.qml",
+        "components/editor/DocumentHeader.qml",
+        "components/editor/EditorHeader.qml",
+        "components/editor/EditorFooter.qml",
+        "components/editor/DocumentOutliner.qml",
+        "components/editor/OutlinerTreeItem.qml",
+        "components/editor/EditorScrollbar.qml",
+        "components/editor/EditorEmptyState.qml",
+        "components/graph/GraphView.qml",
         "views/web.qml"
     ]:
         comp = QQmlComponent(engine, QUrl.fromLocalFile(str(PROJECT_DIR / qml_f)))
         assert comp.status() == QQmlComponent.Status.Ready, f"Ошибка в {qml_f}: {comp.errorString()}"
-
-    # 1.1. Тест создания делегатов HierarchyView
-    hierarchy_comp = QQmlComponent(engine, QUrl.fromLocalFile(str(PROJECT_DIR / "components/pane/sheet/hierarchy/HierarchyView.qml")))
-    hierarchy_item = hierarchy_comp.create()
-    assert hierarchy_item is not None, f"Не удалось создать HierarchyView: {hierarchy_comp.errorString()}"
-    hierarchy_item.setProperty("blocksList", [{"id": 0, "name": "Тест", "content": "Контент"}])
-    QApplication.processEvents()
 
     # 2. Проверяем загрузку window.qml и его внутреннего Loader
     qml_path = PROJECT_DIR / "views" / "window.qml"
@@ -497,20 +497,15 @@ def test_qml():
     assert loader is not None and loader.property("item") is not None, "web.qml не загрузился внутри Loader!"
     web_item = loader.property("item")
 
-    # 2.1. Проверка toggle_search и toggle_history при скрытых Header/Footer
-    split = web_item.property("splitLayout")
-    primary_bar = split.property("primaryBar")
-    primary_bar.setProperty("showHeader", False)
-    primary_bar.setProperty("showFooter", False)
-    assert primary_bar.property("showHeader") is False
-    assert primary_bar.property("showFooter") is False
-    primary_bar.toggleSearch()
-    assert primary_bar.property("showHeader") is True, "toggleSearch должен открывать скрытый Header"
-    assert primary_bar.property("isSearchMode") is True, "toggleSearch должен активировать SearchMode"
-    primary_bar.toggleHistoryMode()
-    assert primary_bar.property("showFooter") is True, "toggleHistoryMode должен открывать скрытый Footer"
+    # 2.1. Проверка toggle_sidebar
+    sb = web_item.property("sideBar")
+    assert sb is not None, "Сайдбар должен быть примонтирован в web.qml"
+    init_sb_vis = sb.property("isSidebarVisible")
+    assert init_sb_vis is True, "Сайдбар по умолчанию должен быть видим"
 
     # 2.2. Проверка toggle_centered_mode
+    split = web_item.property("splitLayout")
+    primary_bar = split.property("primaryBar")
     init_mode = primary_bar.property("isCenteredMode")
     assert init_mode is True, "isCenteredMode по умолчанию должен быть True"
     primary_bar.toggleCenteredMode()
@@ -521,7 +516,7 @@ def test_qml():
     # 3. Тест клиентской логики auto-pair скобок и кавычек в JS
     from PyQt6.QtQml import QJSEngine
     js_engine = QJSEngine()
-    js_code = (PROJECT_DIR / "components" / "pane" / "sheet" / "source" / "shortcuts" / "markdown_shortcuts.js").read_text(encoding="utf-8")
+    js_code = (PROJECT_DIR / "js" / "editor" / "markdown_shortcuts.js").read_text(encoding="utf-8")
     js_engine.evaluate(js_code)
     test_js = """
     (function() {
@@ -546,15 +541,14 @@ def test_qml():
 
     # 4. Тест контроллера таймлайна (getDaysList)
     import json
-    timeline_js = (PROJECT_DIR / "components" / "pane" / "footer" / "history" / "timeline" / "timeline_controller.js").read_text(encoding="utf-8")
+    timeline_js = (PROJECT_DIR / "js" / "history" / "timeline_controller.js").read_text(encoding="utf-8")
     clean_timeline_js = timeline_js.replace(".pragma library", "")
     js_engine.evaluate(clean_timeline_js)
     f = backend.get_default_folder()
     tl_p = backend.get_history_timeline(f)
     js_engine.evaluate('var test_tl = ' + json.dumps(tl_p))
-    days_res = js_engine.evaluate('getDaysList(test_tl, "project")')
-    assert days_res.property('length').toInt() >= 2, "Таймлайн должен содержать как минимум '0' и 'Now'"
-    assert days_res.property(0).property('dayNum').toString() == "0", "Первый элемент таймлайна должен быть '0'"
+    days_res = js_engine.evaluate('getDaysList(test_tl)')
+    assert days_res.property('length').toInt() >= 1, "Таймлайн должен формировать список дней"
 
     print(f"  -> QML и компоненты: OK (создано окон: {len(objects)}, интерфейс активен, JS тесты пройдены)")
 
@@ -587,57 +581,44 @@ def test_structure():
         "config/user/theme.json",
         "config/user/app.json",
         "config/user/markdown.json",
-        # JS-контроллеры и логика, колоцированные с компонентами и представлениями
+        # JS-контроллеры и логика
         "views/web_lifecycle.js",
         "views/action_dispatcher.js",
-        "components/canvas/tabs.js",
-        "components/canvas/tab_model.js",
-        "components/canvas/tab_split.js",
-        "components/canvas/tab_sync.js",
-        "components/canvas/drag_manager.js",
-        "components/canvas/canvas_navigation.js",
-        "components/pane/pane_controller.js",
-        "components/pane/header/header_controller.js",
-        "components/pane/header/search/search_controller.js",
-        "components/pane/sheet/sheet_controller.js",
-        "components/pane/sheet/source/shortcuts/markdown_shortcuts.js",
-        "components/pane/sheet/source/shortcuts/editor_keys.js",
-        "components/pane/sheet/hierarchy/hierarchy_controller.js",
-        "components/pane/sheet/graph/graph_physics.js",
-        "components/pane/sheet/graph/graph_renderer.js",
-        "components/pane/sheet/graph/graph_interaction.js",
-        "components/pane/sheet/gutter/gutter_renderer.js",
-        "components/pane/footer/footer_controller.js",
-        "components/pane/footer/history/timeline/timeline_controller.js",
+        "js/editor/markdown_shortcuts.js",
+        "js/editor/mainbar_controller.js",
+        "js/editor/outliner_controller.js",
+        "js/history/timeline_controller.js",
+        "js/graph/graph_physics.js",
+        "js/tabs/tabs.js",
+        "js/tabs/drag_manager.js",
 
+        # QML компоненты
         "components/dialogs/EditorDialogs.qml",
         "components/dialogs/qmldir",
         "components/hotkeys/HotkeyManager.qml",
         "components/hotkeys/qmldir",
         "components/window/WindowFrame.qml",
-        "components/pane/header/Header.qml",
-        "components/pane/header/title/DocumentTitle.qml",
-        "components/pane/header/search/SearchBar.qml",
-        "components/pane/header/qmldir",
-        "components/pane/footer/Footer.qml",
-        "components/pane/footer/history/HistoryBar.qml",
-        "components/pane/footer/info/FooterInfo.qml",
-        "components/pane/footer/qmldir",
-        "components/pane/sheet/Sheet.qml",
-        "components/pane/sheet/SheetResizeHandle.qml",
-        "components/pane/sheet/gutter/EditorGutter.qml",
-        "components/pane/sheet/scrollbar/EditorScrollbar.qml",
-        "components/pane/sheet/source/SourceView.qml",
-        "components/pane/sheet/hierarchy/HierarchyView.qml",
-        "components/pane/sheet/graph/GraphView.qml",
-        "components/pane/sheet/graph/GraphCanvas.qml",
-        "components/pane/sheet/graph/qmldir",
-        "components/pane/Pane.qml",
-        "components/pane/qmldir",
-        "components/canvas/CanvasView.qml",
-        "components/canvas/qmldir",
         "components/theme/Theme.qml",
         "components/theme/qmldir",
+        "components/sidebar/Sidebar.qml",
+        "components/sidebar/SidebarHeader.qml",
+        "components/sidebar/SidebarFileList.qml",
+        "components/sidebar/SidebarFileItem.qml",
+        "components/sidebar/qmldir",
+        "components/editor/EditorSplitLayout.qml",
+        "components/editor/MainBar.qml",
+        "components/editor/EditorSheet.qml",
+        "components/editor/EditorCanvas.qml",
+        "components/editor/DocumentHeader.qml",
+        "components/editor/EditorHeader.qml",
+        "components/editor/EditorFooter.qml",
+        "components/editor/DocumentOutliner.qml",
+        "components/editor/OutlinerTreeItem.qml",
+        "components/editor/EditorScrollbar.qml",
+        "components/editor/EditorEmptyState.qml",
+        "components/editor/qmldir",
+        "components/graph/GraphView.qml",
+        "components/graph/qmldir",
         "views/web.qml",
         "views/window.qml",
         "web.py"

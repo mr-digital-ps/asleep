@@ -52,6 +52,10 @@ Item {
         Controller.toggleHeaderOnly(mainBar, (typeof backend !== "undefined" ? backend : null))
     }
 
+    function toggleCenteredMode() {
+        mainBar.isCenteredMode = !mainBar.isCenteredMode
+    }
+
     // Режим локального графа заметки
     property bool isLocalGraphMode: false
 

@@ -14,3 +14,4 @@ EditorGutter 1.0 EditorGutter.qml
 EditorScrollbar 1.0 EditorScrollbar.qml
 SheetResizeHandle 1.0 SheetResizeHandle.qml
 SyncNotice 1.0 SyncNotice.qml
+OutlinerTreeItem 1.0 OutlinerTreeItem.qml
