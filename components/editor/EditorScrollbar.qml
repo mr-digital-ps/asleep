@@ -17,8 +17,8 @@ Item {
     property real topMargin: (hasHeader && isHeaderPinned) ? 76 : 16
     property real bottomMargin: 16
 
-    anchors.top: parent ? parent.top : undefined
-    anchors.topMargin: topMargin
+    anchors.top: editorScroll ? editorScroll.top : (parent ? parent.top : undefined)
+    anchors.topMargin: 16
     anchors.bottom: editorScroll ? editorScroll.bottom : (parent ? parent.bottom : undefined)
     anchors.bottomMargin: 16
     x: paperSheet ? Math.round(paperSheet.x + paperSheet.width - barSize) : 0

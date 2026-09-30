@@ -48,8 +48,8 @@ RowLayout {
         }
     }
 
-    Layout.preferredHeight: Math.max(availableHeight - ((canvasRoot.hasHeader ? 70 : 16) + (canvasRoot.hasFooter ? 70 : 16)), editorArea.implicitHeight)
-    height: Math.max(availableHeight - ((canvasRoot.hasHeader ? 70 : 16) + (canvasRoot.hasFooter ? 70 : 16)), editorArea.implicitHeight)
+    Layout.preferredHeight: Math.max(availableHeight, editorArea.implicitHeight)
+    height: Math.max(availableHeight, editorArea.implicitHeight)
 
     // Левая полоса 36px для нумерации строк и фокуса
     EditorGutter {

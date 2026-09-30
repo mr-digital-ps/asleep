@@ -34,12 +34,10 @@ Item {
         return name.replace(/\.md$/i, "")
     }
 
-    y: isPinned ? Math.max(0, scrollY) : 0
-
     Rectangle {
         anchors.fill: parent
         color: Theme.bgHeader
-        visible: headerRoot.isPinned && (headerRoot.scrollY > 0)
+        visible: headerRoot.isPinned
     }
 
     MouseArea {

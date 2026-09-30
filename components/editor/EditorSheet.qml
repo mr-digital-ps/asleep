@@ -56,19 +56,16 @@ Rectangle {
     property alias editorCanvas: editorCanvas
     property alias editorArea: editorCanvas.editorArea
     property alias text: editorCanvas.text
-    property alias titleField: docHeader.titleField
-    property alias docHeader: docHeader
     property alias sheetGraphView: sheetGraphView
     property alias sheetOutliner: sheetOutliner
     property alias leftHandle: leftHandle
     property alias rightHandle: rightHandle
     readonly property bool isResizingSheet: (leftHandle && (leftHandle.containsMouse || leftHandle.pressed)) || (rightHandle && (rightHandle.containsMouse || rightHandle.pressed))
 
-    // Чистый модульный расчет полной естественной высоты листа (Header + Content)
+    // Чистый модульный расчет полной естественной высоты листа (только текст)
     readonly property real contentNaturalHeight: {
-        var hHeader = showHeader ? 70 : 16
         var hContent = (editorArea && editorArea.contentHeight > 0) ? editorArea.contentHeight : 0
-        return hHeader + hContent + 40
+        return hContent + 40
     }
 
     // Сигналы
@@ -123,42 +120,12 @@ Rectangle {
         focusMode: sheetRoot.focusMode
     }
 
-    // 1. Верхний контейнер заголовка (с поддержкой закрепления Sticky Header)
-    EditorHeader {
-        id: docHeader
-        barSize: sheetRoot.barSize
-        anchors.left: parent.left
-        anchors.right: parent.right
-        fileName: sheetRoot.fileName
-        fileUrl: sheetRoot.fileUrl
-        isSplitMode: sheetRoot.isSplitMode
-        isActivePane: sheetRoot.isActivePane
-        isEmpty: sheetRoot.isEmpty
-        isPinned: sheetRoot.isHeaderPinned
-        isGraphMode: sheetRoot.isGraphMode
-        isLocalGraphMode: sheetRoot.isLocalGraphMode
-        isOutlineMode: sheetRoot.isOutlineMode
-        scrollY: sheetRoot.scrollY
-        contentLeftPadding: editorArea.leftPadding
-        contentRightPadding: editorArea.rightPadding
-        visible: sheetRoot.showHeader && (!sheetRoot.isEmpty || sheetRoot.isGraphMode)
-
-        onTitleCommitted: (newTitle) => sheetRoot.titleChangedByUser(newTitle)
-        onPaneActivated: sheetRoot.paneActivated()
-        onPinToggled: {
-            sheetRoot.isHeaderPinned = !sheetRoot.isHeaderPinned
-            sheetRoot.headerPinToggled(sheetRoot.isHeaderPinned)
-        }
-        onToggleOutlineRequested: sheetRoot.outlineModeToggled()
-        onOpenStructureRequested: sheetRoot.openStructureRequested()
-    }
-
     // 2. Рабочая область документа (Gutter + TextArea + шорткаты)
     EditorCanvas {
         id: editorCanvas
         visible: !sheetRoot.isGraphMode && !sheetRoot.isEmpty && !sheetRoot.isOutlineMode
         anchors.top: parent.top
-        anchors.topMargin: sheetRoot.showHeader ? 70 : 16
+        anchors.topMargin: 16
         anchors.left: parent.left
         anchors.right: parent.right
         availableHeight: sheetRoot.availableHeight

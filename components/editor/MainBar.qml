@@ -69,7 +69,7 @@ Item {
     property bool isOutlineMode: false
     property alias sheetOutliner: paperSheet.sheetOutliner
     property alias sheetGraphView: paperSheet.sheetGraphView
-    property alias docHeader: paperSheet.docHeader
+    property alias docHeader: docHeader
     property alias docFooter: docFooter
     property alias paperSheet: paperSheet
 
@@ -117,7 +117,7 @@ Item {
     property alias editorArea: paperSheet.editorArea
     property alias editorScroll: editorScroll
     property alias text: paperSheet.text
-    property alias titleField: paperSheet.titleField
+    property alias titleField: docHeader.titleField
     readonly property real scrollY: (editorScroll && editorScroll.contentItem) ? editorScroll.contentItem.contentY : 0
 
     // Сигналы
@@ -216,11 +216,43 @@ Item {
     }
 
     // =========================================================================
-    // ХОЛСТ РЕДАКТОРА
+    // 1. ВЕРХНИЙ КОНТЕЙНЕР (EditorHeader)
+    // =========================================================================
+    EditorHeader {
+        id: docHeader
+        barSize: mainBar.barSize
+        anchors.top: parent.top
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: paperSheet ? paperSheet.width : parent.width
+        fileName: mainBar.fileName
+        fileUrl: mainBar.fileUrl
+        isSplitMode: mainBar.isSplitMode
+        isActivePane: mainBar.isActivePane
+        isEmpty: mainBar.isEmpty
+        isPinned: mainBar.isHeaderPinned
+        isGraphMode: mainBar.isGraphMode
+        isLocalGraphMode: mainBar.isLocalGraphMode
+        isOutlineMode: mainBar.isOutlineMode
+        contentLeftPadding: editorArea ? editorArea.leftPadding : 0
+        contentRightPadding: editorArea ? editorArea.rightPadding : 0
+        visible: mainBar.showHeader && (!mainBar.isEmpty || mainBar.isGraphMode)
+
+        onTitleCommitted: (newTitle) => mainBar.titleChangedByUser(newTitle)
+        onPaneActivated: mainBar.paneActivated()
+        onPinToggled: {
+            mainBar.isHeaderPinned = !mainBar.isHeaderPinned
+            mainBar.saveHeaderPinnedState(mainBar.isHeaderPinned)
+        }
+        onToggleOutlineRequested: mainBar.toggleOutlineMode()
+        onOpenStructureRequested: mainBar.openStructureRequested()
+    }
+
+    // =========================================================================
+    // 2. РАБОЧАЯ ОБЛАСТЬ / ХОЛСТ РЕДАКТОРА (ScrollView)
     // =========================================================================
     ScrollView {
         id: editorScroll
-        anchors.top: parent.top
+        anchors.top: (mainBar.showHeader && (!mainBar.isEmpty || mainBar.isGraphMode)) ? docHeader.bottom : parent.top
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: (mainBar.showFooter && (!mainBar.isEmpty || mainBar.isGraphMode)) ? docFooter.top : parent.bottom
