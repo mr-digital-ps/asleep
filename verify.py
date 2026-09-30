@@ -511,6 +511,15 @@ def test_qml():
     web_item.toggleSplit()
     assert split.property("isSplit") is False, "toggleSplit должен выключать режим двух панелей"
 
+    # 2.3. Проверка интерактивного графа связей (Фаза 5)
+    assert web_item.property("isGraphVisible") is False, "Граф по умолчанию скрыт"
+    web_item.toggleGraph()
+    assert web_item.property("isGraphVisible") is True, "toggleGraph должен активировать отображение графа связей"
+    assert primary_bar.property("isGraphMode") is True, "primaryBar должен переключиться в isGraphMode"
+    web_item.closeGraph()
+    assert web_item.property("isGraphVisible") is False, "closeGraph должен закрывать граф связей"
+    assert primary_bar.property("isGraphMode") is False, "primaryBar должен вернуться из isGraphMode в режим текста"
+
     # 3. Тест клиентской логики auto-pair скобок и кавычек в JS
     from PyQt6.QtQml import QJSEngine
     js_engine = QJSEngine()

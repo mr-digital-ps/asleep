@@ -1,1 +1,2 @@
+module components.graph
 GraphView 1.0 GraphView.qml
