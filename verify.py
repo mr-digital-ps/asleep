@@ -598,7 +598,7 @@ def test_structure():
         "components/graph/graph_physics.js",
         "components/graph/graph_renderer.js",
         "components/graph/graph_interaction.js",
-        "js/tabs/tabs.js",
+        "views/tabs/tabs.js",
 
         # QML компоненты
         "components/dialogs/EditorDialogs.qml",

@@ -6,7 +6,7 @@ import "../components/dialogs"
 import "../components/hotkeys"
 import "../components/theme"
 import "./web_lifecycle.js" as WebLifecycle
-import "../js/tabs/tabs.js" as Tabs
+import "./tabs/tabs.js" as Tabs
 import "../components/editor/markdown_shortcuts.js" as Markdown
 
 Rectangle {
