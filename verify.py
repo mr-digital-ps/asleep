@@ -467,10 +467,6 @@ def test_qml():
         "components/hotkeys/HotkeyManager.qml",
         "components/window/WindowFrame.qml",
         "components/theme/Theme.qml",
-        "components/sidebar/Sidebar.qml",
-        "components/sidebar/SidebarHeader.qml",
-        "components/sidebar/SidebarFileList.qml",
-        "components/sidebar/SidebarFileItem.qml",
         "components/editor/EditorSplitLayout.qml",
         "components/editor/MainBar.qml",
         "components/editor/EditorSheet.qml",
@@ -497,13 +493,7 @@ def test_qml():
     assert loader is not None and loader.property("item") is not None, "web.qml не загрузился внутри Loader!"
     web_item = loader.property("item")
 
-    # 2.1. Проверка toggle_sidebar
-    sb = web_item.property("sideBar")
-    assert sb is not None, "Сайдбар должен быть примонтирован в web.qml"
-    init_sb_vis = sb.property("isSidebarVisible")
-    assert init_sb_vis is True, "Сайдбар по умолчанию должен быть видим"
-
-    # 2.2. Проверка toggle_centered_mode
+    # 2.1. Проверка toggle_centered_mode
     split = web_item.property("splitLayout")
     primary_bar = split.property("primaryBar")
     init_mode = primary_bar.property("isCenteredMode")
@@ -600,11 +590,6 @@ def test_structure():
         "components/window/WindowFrame.qml",
         "components/theme/Theme.qml",
         "components/theme/qmldir",
-        "components/sidebar/Sidebar.qml",
-        "components/sidebar/SidebarHeader.qml",
-        "components/sidebar/SidebarFileList.qml",
-        "components/sidebar/SidebarFileItem.qml",
-        "components/sidebar/qmldir",
         "components/editor/EditorSplitLayout.qml",
         "components/editor/MainBar.qml",
         "components/editor/EditorSheet.qml",
