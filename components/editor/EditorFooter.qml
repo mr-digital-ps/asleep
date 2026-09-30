@@ -80,62 +80,60 @@ Item {
         }
     }
 
-    ColumnLayout {
-        anchors.fill: parent
-        spacing: 0
+    // Разделительная линия
+    Item {
+        id: footerDividerArea
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.leftMargin: footerRoot.barSize
+        anchors.rightMargin: footerRoot.barSize
+        height: 14
 
-        // Разделительная линия
-        Item {
-            id: footerDividerArea
-            Layout.fillWidth: true
-            Layout.preferredHeight: 14
-            Layout.maximumHeight: 14
-            Layout.leftMargin: footerRoot.barSize
-            Layout.rightMargin: footerRoot.barSize
-
-            Rectangle {
-                id: footerDividerLine
-                anchors.centerIn: parent
-                width: parent.width
-                height: 2
-                radius: 1
-                color: (footerRoot.isPinned || footerRoot.isGraphMode)
-                    ? (footerDividerMouse.containsMouse ? Theme.textPrimary : Theme.textSecondary)
-                    : (footerDividerMouse.containsMouse ? Theme.borderFocus : Theme.borderColor)
-                opacity: (footerRoot.isPinned || footerRoot.isGraphMode) ? 0.9 : 0.6
-                Behavior on color { ColorAnimation { duration: 150 } }
-                Behavior on opacity { NumberAnimation { duration: 150 } }
-            }
-
-            MouseArea {
-                id: footerDividerMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    footerRoot.pinToggled()
-                    footerRoot.activated()
-                }
-            }
+        Rectangle {
+            id: footerDividerLine
+            anchors.centerIn: parent
+            width: parent.width
+            height: 2
+            radius: 1
+            color: (footerRoot.isPinned || footerRoot.isGraphMode)
+                ? (footerDividerMouse.containsMouse ? Theme.textPrimary : Theme.textSecondary)
+                : (footerDividerMouse.containsMouse ? Theme.borderFocus : Theme.borderColor)
+            opacity: (footerRoot.isPinned || footerRoot.isGraphMode) ? 0.9 : 0.6
+            Behavior on color { ColorAnimation { duration: 150 } }
+            Behavior on opacity { NumberAnimation { duration: 150 } }
         }
 
-        // Шкала истории (всегда активна: для графа, структуры или заметки)
-        HistoryTimelineBar {
-            id: historyBar
-            visible: true
-            folderUrl: footerRoot.folderUrl
-            fileUrl: footerRoot.fileUrl
-            mode: footerRoot.timelineMode
-            statsText: footerRoot.statsText
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.leftMargin: footerRoot.barSize
-            Layout.rightMargin: footerRoot.barSize
-            Layout.bottomMargin: 10
-
-            onActivated: footerRoot.activated()
-            onSnapshotSelected: (snapshotId) => footerRoot.snapshotSelected(snapshotId)
-            onLiveRequested: footerRoot.liveRequested()
+        MouseArea {
+            id: footerDividerMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+                footerRoot.pinToggled()
+                footerRoot.activated()
+            }
         }
+    }
+
+    // Шкала истории (всегда активна: для графа, структуры или заметки)
+    HistoryTimelineBar {
+        id: historyBar
+        visible: true
+        folderUrl: footerRoot.folderUrl
+        fileUrl: footerRoot.fileUrl
+        mode: footerRoot.timelineMode
+        statsText: footerRoot.statsText
+        anchors.top: footerDividerArea.bottom
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 6
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.leftMargin: footerRoot.barSize
+        anchors.rightMargin: footerRoot.barSize
+
+        onActivated: footerRoot.activated()
+        onSnapshotSelected: (snapshotId) => footerRoot.snapshotSelected(snapshotId)
+        onLiveRequested: footerRoot.liveRequested()
     }
 }
