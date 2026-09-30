@@ -1,5 +1,0 @@
-module components.editor.chrome
-SheetResizeHandle 1.0 SheetResizeHandle.qml
-EditorScrollbar 1.0 EditorScrollbar.qml
-EditorEmptyState 1.0 EditorEmptyState.qml
-SyncNotice 1.0 SyncNotice.qml

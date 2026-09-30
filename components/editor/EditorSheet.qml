@@ -4,8 +4,6 @@ import QtQuick.Layouts
 import "../../js/editor/mainbar_controller.js" as Controller
 import "../graph"
 import "../theme"
-import "canvas"
-import "chrome"
 
 Rectangle {
     id: sheetRoot

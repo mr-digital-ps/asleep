@@ -7,10 +7,10 @@ EditorHeader 1.0 EditorHeader.qml
 EditorFooter 1.0 EditorFooter.qml
 EditorCanvas 1.0 EditorCanvas.qml
 DocumentOutliner 1.0 DocumentOutliner.qml
-BracketHighlightOverlay 1.0 canvas/BracketHighlightOverlay.qml
-EditorFocusDimmer 1.0 canvas/EditorFocusDimmer.qml
-EditorEmptyState 1.0 chrome/EditorEmptyState.qml
-EditorGutter 1.0 canvas/EditorGutter.qml
-EditorScrollbar 1.0 chrome/EditorScrollbar.qml
-SheetResizeHandle 1.0 chrome/SheetResizeHandle.qml
-SyncNotice 1.0 chrome/SyncNotice.qml
+BracketHighlightOverlay 1.0 BracketHighlightOverlay.qml
+EditorFocusDimmer 1.0 EditorFocusDimmer.qml
+EditorEmptyState 1.0 EditorEmptyState.qml
+EditorGutter 1.0 EditorGutter.qml
+EditorScrollbar 1.0 EditorScrollbar.qml
+SheetResizeHandle 1.0 SheetResizeHandle.qml
+SyncNotice 1.0 SyncNotice.qml

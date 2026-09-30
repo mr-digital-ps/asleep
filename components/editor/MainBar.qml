@@ -3,7 +3,6 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "../../js/editor/block_sync.js" as BlockSync
 import "../../js/editor/mainbar_controller.js" as Controller
-import "chrome"
 import "../theme"
 
 Item {

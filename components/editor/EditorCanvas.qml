@@ -4,7 +4,6 @@ import QtQuick.Layouts
 import "../../js/editor/markdown_shortcuts.js" as Markdown
 import "../../js/editor/editor_keys.js" as EditorKeys
 import "../theme"
-import "canvas"
 
 
 RowLayout {

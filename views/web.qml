@@ -31,7 +31,7 @@ Rectangle {
     // Переменные текущего активного файла
     property string currentFileUrl: ""
     property string currentFileName: "Новый документ"
-    property int barSize: Theme.barSize
+    property int barSize: (Theme && typeof Theme.barSize === "number") ? Theme.barSize : 36
 
     // Текущая рабочая папка
     property string currentFolderUrl: (typeof backend !== "undefined" && backend) ? backend.get_default_folder() : ""

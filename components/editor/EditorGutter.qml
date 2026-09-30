@@ -1,8 +1,8 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "../../../js/editor/gutter_renderer.js" as GutterRenderer
-import "../../theme"
+import "../../js/editor/gutter_renderer.js" as GutterRenderer
+import "../theme"
 
 Item {
     id: gutterItem

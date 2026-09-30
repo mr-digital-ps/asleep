@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Controls
-import "../../theme"
+import "../theme"
 
 Item {
     id: scrollbarOverlay
