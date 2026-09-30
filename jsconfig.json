@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "checkJs": false,
+    "target": "es2020",
+    "allowJs": true
+  },
+  "exclude": [
+    "node_modules",
+    "**/*.js"
+  ]
+}

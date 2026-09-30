@@ -2,16 +2,17 @@ import QtQuick
 import QtQuick.Controls
 import "../components/window"
 import "../components/theme"
+import "./window_controller.js" as WindowCtrl
 
 ApplicationWindow {
     id: root
 
     flags: Qt.FramelessWindowHint | Qt.Window
     visible: true
-    width: 900
-    height: 650
-    minimumWidth: 600
-    minimumHeight: 400
+    width: (typeof backend !== "undefined" && backend && backend.get_app_config().window_default_width) ? backend.get_app_config().window_default_width : 900
+    height: (typeof backend !== "undefined" && backend && backend.get_app_config().window_default_height) ? backend.get_app_config().window_default_height : 650
+    minimumWidth: (typeof backend !== "undefined" && backend && backend.get_app_config().window_min_width) ? backend.get_app_config().window_min_width : 600
+    minimumHeight: (typeof backend !== "undefined" && backend && backend.get_app_config().window_min_height) ? backend.get_app_config().window_min_height : 400
     color: Theme.bgApp
 
     // Начальные параметры для окна (передаются при клонировании)
@@ -27,17 +28,7 @@ ApplicationWindow {
         focus: true
         Keys.forwardTo: (item ? [item] : [])
         source: "web.qml"
-        onLoaded: {
-            if (item) {
-                item.appWindow = root
-                if (typeof item.applyInitialState === "function") {
-                    item.applyInitialState()
-                }
-            }
-            if (typeof backend !== "undefined" && backend && typeof backend.register_window === "function") {
-                backend.register_window(root, item)
-            }
-        }
+        onLoaded: WindowCtrl.handleLoaderLoaded(root, item, (typeof backend !== "undefined" ? backend : null))
     }
 
     // Рамка приложения и интерактивное изменение размера окна
@@ -47,37 +38,15 @@ ApplicationWindow {
 
     Timer {
         id: saveGeomTimer
-        interval: 600
+        interval: (typeof backend !== "undefined" && backend && backend.get_app_config().window_save_geometry_delay_ms) ? backend.get_app_config().window_save_geometry_delay_ms : 600
         repeat: false
-        onTriggered: {
-            if (root.visibility !== Window.Maximized && typeof backend !== "undefined" && backend && typeof backend.save_window_geometry === "function") {
-                backend.save_window_geometry(root.x, root.y, root.width, root.height)
-            }
-        }
+        onTriggered: WindowCtrl.saveWindowGeometry(root, (typeof backend !== "undefined" ? backend : null))
     }
 
     onWidthChanged: saveGeomTimer.restart()
     onHeightChanged: saveGeomTimer.restart()
 
-    Component.onCompleted: {
-        if (typeof backend !== "undefined" && backend && typeof backend.get_session_config === "function") {
-            try {
-                let sess = backend.get_session_config()
-                if (sess) {
-                    if (typeof sess.win_width === "number" && sess.win_width >= root.minimumWidth) {
-                        root.width = sess.win_width
-                    }
-                    if (typeof sess.win_height === "number" && sess.win_height >= root.minimumHeight) {
-                        root.height = sess.win_height
-                    }
-                }
-            } catch(e) {}
-        }
-    }
+    Component.onCompleted: WindowCtrl.initWindow(root, (typeof backend !== "undefined" ? backend : null))
 
-    onClosing: {
-        if (typeof backend !== "undefined" && backend && typeof backend.unregister_window === "function") {
-            backend.unregister_window(root)
-        }
-    }
+    onClosing: WindowCtrl.handleWindowClosing(root, (typeof backend !== "undefined" ? backend : null))
 }

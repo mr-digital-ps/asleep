@@ -84,7 +84,7 @@ class BlockEngine:
     def get_heading_regex(self) -> re.Pattern:
         """Безопасно возвращает регулярное выражение для заголовков блоков из конфигурации"""
         if self.config_service:
-            from services.config_service import compile_safe_regex
+            from services.storage.config_service import compile_safe_regex
             cfg = self.config_service.get_markdown_config() or {}
             pat = cfg.get("blocks", {}).get("heading_pattern")
             return compile_safe_regex(pat, DEFAULT_BLOCK_HEADING_REGEX, re.MULTILINE)

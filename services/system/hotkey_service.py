@@ -3,8 +3,9 @@ import copy
 from pathlib import Path
 from PyQt6.QtCore import QObject, pyqtSignal, QFileSystemWatcher, QTimer, Qt, QEvent
 from PyQt6.QtGui import QKeyEvent
-from services.config_service import parse_json_with_comments
-from services.key_mapper import (
+
+from services.storage.config_service import parse_json_with_comments
+from services.system.key_mapper import (
     KEY_MAPPINGS,
     RU_CHAR_TO_MAPPING,
     VK_SPECIAL,
@@ -46,6 +47,37 @@ class HotkeyMatcher:
                     scan_codes.add(22)
                     qt_keys.update([71, 85, 1055, 1087, 1043, 1075])
                     chars.update(['G', 'U', 'П', 'Г'])
+
+                # Для toggle_local_graph (Alt+G): физическая клавиша G (русская 'П', scan 34, VK 0x47)
+                # и мнемоническая буква 'Г' для "Граф" (физическая клавиша U, scan 22, VK 0x55)
+                if action == "toggle_local_graph":
+                    vks.update([0x47, 0x55])
+                    scan_codes.update([34, 22])
+                    qt_keys.update([71, 85, 1055, 1087, 1043, 1075])
+                    chars.update(['G', 'U', 'П', 'Г'])
+
+
+                # Для show_text_mode (Alt+T): физическая клавиша T (русская 'Е', scan 20, VK 0x54)
+                if action == "show_text_mode":
+                    vks.add(0x54)
+                    scan_codes.add(20)
+                    qt_keys.update([84, 1045, 1077])
+                    chars.update(['T', 'Е'])
+
+                # Для toggle_outline (Alt+E): физическая клавиша E (русская 'У', scan 18, VK 0x45)
+                if action == "toggle_outline":
+                    vks.add(0x45)
+                    scan_codes.add(18)
+                    qt_keys.update([69, 1059, 1091])
+                    chars.update(['E', 'У'])
+
+                # Для open_structure (Ctrl+T / Ctrl+E): физическая клавиша T (русская 'Е', scan 20, VK 0x54) и E (русская 'У', scan 18)
+                if action == "open_structure":
+                    vks.update([0x54, 0x45])
+                    scan_codes.update([20, 18])
+                    qt_keys.update([84, 1045, 1077, 69, 1059, 1091])
+                    chars.update(['T', 'Е', 'E', 'У'])
+
 
                 # Для toggle_split гарантируем скан-коды и виртуальные клавиши для слэша
                 if action == "toggle_split" and ctrl and not shift and not alt:
@@ -120,25 +152,54 @@ class GlobalHotkeyFilter(QObject):
         self.backend = backend
         self.matcher = HotkeyMatcher(self.hotkey_service.get_hotkeys())
         self.hotkey_service.hotkeys_changed.connect(self._on_hotkeys_changed)
+        self._consumed_alt = False
 
     def _on_hotkeys_changed(self, hotkeys: dict):
         self.matcher = HotkeyMatcher(hotkeys)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
-        if event.type() == QEvent.Type.KeyPress:
+        evt_type = event.type()
+        if evt_type == QEvent.Type.KeyPress:
+            # Пропускаем нажатия самих клавиш-модификаторов (Ctrl, Alt, Shift, Meta) без символа
+            if event.key() in (Qt.Key.Key_Control, Qt.Key.Key_Shift, Qt.Key.Key_Alt, Qt.Key.Key_Meta):
+                return super().eventFilter(watched, event)
+
             action = self.matcher.match_event(event)
             if action:
+                mods = event.modifiers()
+                has_ctrl = bool(mods & Qt.KeyboardModifier.ControlModifier)
+                has_alt = bool(mods & Qt.KeyboardModifier.AltModifier)
+                if action in ("toggle_history_playback", "play_history_from_start") and not (has_alt or has_ctrl):
+                    return super().eventFilter(watched, event)
+
+                if has_alt:
+                    self._consumed_alt = True
+
+                print(f"[Hotkey] Действие: {action}")
                 if hasattr(self.backend, "actionRequested"):
                     self.backend.actionRequested.emit(action)
                 event.accept()
                 return True
+
+        elif evt_type == QEvent.Type.KeyRelease:
+            if event.key() == Qt.Key.Key_Alt and self._consumed_alt:
+                self._consumed_alt = False
+                event.accept()
+                return True
+            if not (event.modifiers() & Qt.KeyboardModifier.AltModifier):
+                self._consumed_alt = False
+
         return super().eventFilter(watched, event)
 
 
 def load_default_hotkeys(project_root: Path | None = None) -> dict:
     """Динамически загружает эталонные дефолты горячих клавиш из config/default/hotkeys.json."""
     if project_root is None:
-        project_root = Path(__file__).parent.parent.resolve()
+        this_p = Path(__file__).resolve()
+        if (this_p.parent.parent / "config").exists():
+            project_root = this_p.parent.parent
+        else:
+            project_root = this_p.parent.parent.parent
     f = project_root / "config" / "default" / "hotkeys.json"
     if f.exists():
         try:
@@ -163,7 +224,11 @@ class HotkeyService(QObject):
 
     def __init__(self, config_file: Path | None = None, parent=None):
         super().__init__(parent)
-        self.project_root = Path(__file__).parent.parent.resolve()
+        this_p = Path(__file__).resolve()
+        if (this_p.parent.parent / "config").exists():
+            self.project_root = this_p.parent.parent
+        else:
+            self.project_root = this_p.parent.parent.parent
         self.config_dir = self.project_root / "config"
         self.user_hotkeys_path = self.config_dir / "user" / "hotkeys.json"
         self.default_hotkeys_path = self.config_dir / "default" / "hotkeys.json"

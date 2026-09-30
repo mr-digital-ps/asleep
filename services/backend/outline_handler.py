@@ -7,48 +7,96 @@ class OutlineHandlerMixin:
     """Миксин для парсинга и манипуляции структурой документа и иерархией проекта."""
 
     @pyqtSlot(str, result="QVariantList")
-    def get_document_outline(self, text: str) -> list:
+    @pyqtSlot(str, str, result="QVariantList")
+    def get_document_outline(self, text: str, filename: str = "") -> list:
         """Разбирает markdown-текст на плоский список иерархических блоков"""
         try:
             h_regex = None
             if hasattr(self, "block_engine") and self.block_engine:
                 h_regex = self.block_engine.get_heading_regex()
-            return self.outline_service.parse_document(text, heading_regex=h_regex)
+            is_proj = False
+            if filename and hasattr(self, "is_project_structure_file"):
+                is_proj = self.is_project_structure_file(filename)
+            return self.outline_service.parse_document(text, heading_regex=h_regex, parse_list_items=is_proj)
         except Exception as e:
             safe_print(f"[Backend] Ошибка парсинга аутлайна: {e}")
             return []
 
+    @pyqtSlot(result=str)
+    @pyqtSlot(str, result=str)
+    def get_project_structure_filename(self, folder_url: str = "") -> str:
+        """Возвращает настроенное имя файла структуры проекта из конфигурации (user -> default: _notes.md)."""
+        folder = self.file_service.to_path(folder_url) if folder_url else self._current_folder
+        md_cfg = self.config_service.get_markdown_config(folder) or {}
+        struct_file = md_cfg.get("system_files", {}).get("structure_file", "_notes.md")
+        if not struct_file.endswith(".md"):
+            struct_file += ".md"
+        return struct_file
+
     @pyqtSlot(str, result=bool)
-    def is_project_structure_file(self, filename: str) -> bool:
-        """Проверяет, является ли файл файлом структуры проекта по конфигурации диалекта"""
+    @pyqtSlot(str, str, result=bool)
+    def is_project_structure_file(self, filename: str, folder_url: str = "") -> bool:
+        """Проверяет, является ли файл файлом структуры проекта по конфигурации пользователя"""
         if not filename:
             return False
-        try:
-            md_cfg = self.config_service.get_markdown_config(self._current_folder) or {}
-            struct_file = md_cfg.get("system_files", {}).get("structure_file", "_Структура.md")
-            from pathlib import Path
-            fn = Path(filename).name.lower()
-            return fn == struct_file.lower() or "_структура" in fn or "структура" in fn
-        except Exception:
-            return "_структура" in filename.lower()
+        from pathlib import Path
+        fn = Path(filename).name.lower()
+        configured_name = self.get_project_structure_filename(folder_url).lower()
+        
+        # Точное совпадение с настроенным именем (например _notes.md) или stem (_notes)
+        if fn == configured_name or Path(fn).stem == Path(configured_name).stem:
+            return True
+            
+        # Обратная совместимость с легаси-именем
+        if fn in ("_структура.md", "_структура", "структура.md", "структура"):
+            return True
+            
+        return False
 
     @pyqtSlot(str, int, int, str, result=str)
-    def reorder_document_outline(self, text: str, source_idx: int, target_idx: int, position: str = "before") -> str:
+    @pyqtSlot(str, int, int, str, str, result=str)
+    def reorder_document_outline(self, text: str, source_idx: int, target_idx: int, position: str = "before", filename: str = "") -> str:
         """Перемещает блок и его подразделы до или после другого блока"""
         try:
-            return self.outline_service.reorder_blocks(text, source_idx, target_idx, position)
+            is_proj = bool(filename and hasattr(self, "is_project_structure_file") and self.is_project_structure_file(filename))
+            return self.outline_service.reorder_blocks(text, source_idx, target_idx, position, parse_list_items=is_proj)
         except Exception as e:
             safe_print(f"[Backend] Ошибка перестановки блоков: {e}")
             return text
 
     @pyqtSlot(str, int, int, result=str)
-    def change_outline_level(self, text: str, block_idx: int, delta: int) -> str:
+    @pyqtSlot(str, int, int, str, result=str)
+    def change_outline_level(self, text: str, block_idx: int, delta: int, filename: str = "") -> str:
         """Изменяет уровень заголовка блока (например H2 -> H3)"""
         try:
-            return self.outline_service.change_block_level(text, block_idx, delta)
+            is_proj = bool(filename and hasattr(self, "is_project_structure_file") and self.is_project_structure_file(filename))
+            return self.outline_service.change_block_level(text, block_idx, delta, parse_list_items=is_proj)
         except Exception as e:
             safe_print(f"[Backend] Ошибка изменения уровня заголовка: {e}")
             return text
+
+    @pyqtSlot(str, int, str, result=str)
+    @pyqtSlot(str, int, str, str, result=str)
+    def update_outline_block_heading(self, text: str, block_idx: int, new_heading: str, filename: str = "") -> str:
+        """Обновляет заголовок или текст списочного элемента блока в документе и возвращает обновленный текст документа"""
+        try:
+            is_proj = bool(filename and hasattr(self, "is_project_structure_file") and self.is_project_structure_file(filename))
+            return self.outline_service.update_block_heading(text, block_idx, new_heading, parse_list_items=is_proj)
+        except Exception as e:
+            safe_print(f"[Backend] Ошибка update_outline_block_heading: {e}")
+            return text
+
+    @pyqtSlot(str, int, str, result=str)
+    @pyqtSlot(str, int, str, str, result=str)
+    def update_outline_block_content(self, text: str, block_idx: int, new_content: str, filename: str = "") -> str:
+        """Обновляет текст блока в документе и возвращает обновленный текст документа"""
+        try:
+            is_proj = bool(filename and hasattr(self, "is_project_structure_file") and self.is_project_structure_file(filename))
+            return self.outline_service.update_block_content(text, block_idx, new_content, parse_list_items=is_proj)
+        except Exception as e:
+            safe_print(f"[Backend] Ошибка update_outline_block_content: {e}")
+            return text
+
 
     @pyqtSlot(str, result="QVariantMap")
     @pyqtSlot(result="QVariantMap")
@@ -58,9 +106,9 @@ class OutlineHandlerMixin:
         if not folder or not folder.exists() or not folder.is_dir():
             return {}
         try:
+            struct_file = self.get_project_structure_filename(folder_url)
             md_cfg = self.config_service.get_markdown_config(folder) or {}
             sys_cfg = md_cfg.get("system_files", {})
-            struct_file = sys_cfg.get("structure_file", "_Структура.md")
             ignore_pfx = tuple(sys_cfg.get("ignore_prefixes", [".", "_"]))
             files = [p.name for p in folder.iterdir() if p.is_file() and not p.name.startswith(ignore_pfx)]
             fpath = self.outline_service.sync_project_structure_file(folder, files, structure_filename=struct_file, ignore_prefixes=ignore_pfx)
@@ -81,14 +129,13 @@ class OutlineHandlerMixin:
         folder = self.file_service.to_path(folder_url) if folder_url else self._current_folder
         if not folder or not folder.exists() or not folder.is_dir():
             return []
-        md_cfg = self.config_service.get_markdown_config(folder) or {}
-        struct_file = md_cfg.get("system_files", {}).get("structure_file", "_Структура.md")
+        struct_file = self.get_project_structure_filename(folder_url)
         fpath = folder / struct_file
         if not fpath.exists():
             return []
         try:
             text = fpath.read_text(encoding="utf-8")
-            return self.outline_service.parse_project_tree(text)
+            return self.outline_service.parse_document(text, parse_list_items=True)
         except Exception as e:
             safe_print(f"[Backend] Ошибка чтения дерева проекта: {e}")
             return []
@@ -130,3 +177,59 @@ class OutlineHandlerMixin:
         except Exception as e:
             safe_print(f"[Backend] Ошибка add_project_tree_item: {e}")
             return text
+
+    # --- Сквозной Single Source of Truth, Undo/Redo и Проекция курсора ---
+
+    def _get_document_session(self, file_url: str = ""):
+        if not hasattr(self, "_doc_sessions"):
+            self._doc_sessions = {}
+        key = file_url or "default"
+        if key not in self._doc_sessions:
+            from services.core.document_session import DocumentSession
+            self._doc_sessions[key] = DocumentSession()
+        return self._doc_sessions[key]
+
+    @pyqtSlot(str, int, result=int)
+    def get_block_offset(self, text: str, block_idx: int) -> int:
+        """Возвращает символьное смещение начала блока в тексте (Hierarchy -> Source)"""
+        from services.core.document_session import DocumentSession
+        sess = DocumentSession(text)
+        return sess.get_block_offset(block_idx)
+
+    @pyqtSlot(str, int, result=int)
+    def get_block_at_offset(self, text: str, char_offset: int) -> int:
+        """Возвращает индекс блока под курсором (Source -> Hierarchy)"""
+        from services.core.document_session import DocumentSession
+        sess = DocumentSession(text)
+        return sess.get_block_at_offset(char_offset)
+
+    @pyqtSlot(str, str)
+    def record_document_state(self, file_url: str, text: str):
+        """Записывает изменение текста документа в единый стек отмены"""
+        sess = self._get_document_session(file_url)
+        sess.set_text(text, record_undo=True)
+
+    @pyqtSlot(str, result=str)
+    def undo_document(self, file_url: str) -> str:
+        """Откатывает последнее изменение в документе"""
+        sess = self._get_document_session(file_url)
+        res = sess.undo()
+        return res if res is not None else sess.text
+
+    @pyqtSlot(str, result=str)
+    def redo_document(self, file_url: str) -> str:
+        """Повторяет отмененное изменение в документе"""
+        sess = self._get_document_session(file_url)
+        res = sess.redo()
+        return res if res is not None else sess.text
+
+    @pyqtSlot(str, result=bool)
+    def can_undo_document(self, file_url: str) -> bool:
+        sess = self._get_document_session(file_url)
+        return bool(sess.can_undo)
+
+    @pyqtSlot(str, result=bool)
+    def can_redo_document(self, file_url: str) -> bool:
+        sess = self._get_document_session(file_url)
+        return bool(sess.can_redo)
+

@@ -91,6 +91,8 @@ class GraphHistoryHandlerMixin:
             folder = self.file_service.to_path(arg1) if arg1 else self._current_folder
         if not folder or not folder.exists() or not folder.is_dir():
             return {}
+        if snap_id == 0:
+            return {"nodes": [], "links": []}
         return self.history_service.get_snapshot_graph(folder, snap_id)
 
     @pyqtSlot(int, str, result=str)

@@ -15,7 +15,9 @@ def _safe_print(*args, **kwargs):
     except Exception:
         pass
 
-CONFIG_FILE = Path(__file__).parent.parent.resolve() / ".session_config.json"
+_this_p = Path(__file__).resolve()
+_root = _this_p.parent.parent if (_this_p.parent.parent / "config").exists() else _this_p.parent.parent.parent
+CONFIG_FILE = _root / ".session_config.json"
 
 def load_session_config() -> dict:
     try:

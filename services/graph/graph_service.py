@@ -2,7 +2,7 @@ import copy
 import re
 from pathlib import Path
 from PyQt6.QtCore import QUrl
-from services.config_service import parse_json_with_comments, compile_safe_regex, ConfigService
+from services.storage.config_service import parse_json_with_comments, compile_safe_regex, ConfigService
 
 DEFAULT_WIKILINK_REGEX = re.compile(r'\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]')
 DEFAULT_MD_LINK_REGEX = re.compile(r'\[([^\]]+)\]\(([^)]+\.(?:md|markdown|txt))\)', re.IGNORECASE)
@@ -17,7 +17,11 @@ H1_REGEX = DEFAULT_H1_REGEX
 def load_default_graph_config(project_root: Path | None = None) -> dict:
     """Динамически загружает эталонные дефолты из config/default/graph.json."""
     if project_root is None:
-        project_root = Path(__file__).resolve().parent.parent
+        this_p = Path(__file__).resolve()
+        if (this_p.parent.parent / "config").exists():
+            project_root = this_p.parent.parent
+        else:
+            project_root = this_p.parent.parent.parent
     f = project_root / "config" / "default" / "graph.json"
     if f.exists():
         try:
@@ -50,7 +54,11 @@ class GraphService:
         self.block_engine = block_engine
         self.file_service = file_service
         self.config_service = config_service
-        self.project_root = Path(__file__).resolve().parent.parent
+        this_p = Path(__file__).resolve()
+        if (this_p.parent.parent / "config").exists():
+            self.project_root = this_p.parent.parent
+        else:
+            self.project_root = this_p.parent.parent.parent
         self._graph_cache = {}
         self._config_cache = {}
         self._node_positions = {}

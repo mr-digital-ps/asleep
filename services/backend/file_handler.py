@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 from PyQt6.QtCore import pyqtSlot, QUrl
-from services.file_service import save_session_config
+from services.storage.file_service import save_session_config
 from services.backend.app_initializer import safe_print
 
 
@@ -19,7 +19,14 @@ class FileHandlerMixin:
             if existing:
                 self.folder_watcher.removePaths(existing)
             if folder.exists() and folder.is_dir():
-                self.folder_watcher.addPath(str(folder.resolve()))
+                dirs_to_watch = [str(folder.resolve())]
+                try:
+                    for p in folder.rglob("*"):
+                        if p.is_dir() and not any(part.startswith((".", "_")) for part in p.relative_to(folder).parts):
+                            dirs_to_watch.append(str(p.resolve()))
+                except Exception:
+                    pass
+                self.folder_watcher.addPaths(dirs_to_watch)
                 self.block_engine.reindex_folder(folder)
                 self.config_service.load_folder_config(folder)
                 cfg_path = self.config_service.get_config_file_path(folder)
@@ -27,14 +34,13 @@ class FileHandlerMixin:
                     self._last_config_mtime = cfg_path.stat().st_mtime_ns
                 self.configUpdated.emit(json.dumps(self.config_service.current_config))
 
-                # Первичная генерация _Граф связей.md при открытии каталога
-                try:
-                    self._is_syncing_files = True
-                    self.graph_service.sync_graph_markdown_file(folder)
-                except Exception as e:
-                    safe_print(f"[Backend] Ошибка создания _Граф связей.md: {e}")
-                finally:
-                    self._is_syncing_files = False
+                # Автоматическая синхронизация файла структуры проекта (_notes.md)
+                if hasattr(self, "sync_project_structure_file"):
+                    try:
+                        self.sync_project_structure_file(folder_url)
+                    except Exception as e:
+                        safe_print(f"[Backend] Ошибка синхронизации структуры при watch_folder: {e}")
+
                 self._last_user_files_snapshot = self._get_user_files_snapshot()
 
                 # Первичный снимок состояния сессии в историю проекта
@@ -56,6 +62,11 @@ class FileHandlerMixin:
     def delete_file(self, file_url: str) -> bool:
         success = self.file_service.delete_file(file_url)
         if success:
+            if hasattr(self, "sync_project_structure_file"):
+                try:
+                    self.sync_project_structure_file()
+                except Exception:
+                    pass
             self.folderFilesChanged.emit()
         return success
 
@@ -66,7 +77,8 @@ class FileHandlerMixin:
     @pyqtSlot(str, str, result=bool)
     def save_file(self, file_url: str, text: str) -> bool:
         path = self.file_service.to_path(file_url)
-        if path.exists():
+        is_new_file = not path.exists()
+        if not is_new_file:
             try:
                 if path.read_text(encoding="utf-8") == text:
                     return True
@@ -97,6 +109,13 @@ class FileHandlerMixin:
             elif "app" in fn:
                 self.appConfigChanged.emit()
 
+            # Если создан новый файл — обновляем структуру проекта
+            if is_new_file and hasattr(self, "sync_project_structure_file"):
+                try:
+                    self.sync_project_structure_file()
+                except Exception:
+                    pass
+
             # Фоновая фиксация снимка истории проекта при сохранении файла
             target_folder = self._current_folder or path.parent
             if target_folder and target_folder.is_dir():
@@ -115,6 +134,11 @@ class FileHandlerMixin:
     def create_file_in_folder(self, folder_url: str, base_name: str = "Новый документ") -> dict:
         res = self.file_service.create_file_in_folder(folder_url, base_name)
         if res.get("success"):
+            if hasattr(self, "sync_project_structure_file"):
+                try:
+                    self.sync_project_structure_file(folder_url)
+                except Exception:
+                    pass
             self.folderFilesChanged.emit()
         return res
 
@@ -122,6 +146,11 @@ class FileHandlerMixin:
     def rename_file(self, file_url: str, new_name: str) -> dict:
         res = self.file_service.rename_file(file_url, new_name)
         if res.get("success"):
+            if hasattr(self, "sync_project_structure_file"):
+                try:
+                    self.sync_project_structure_file()
+                except Exception:
+                    pass
             self.folderFilesChanged.emit()
         return res
 

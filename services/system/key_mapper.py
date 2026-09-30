@@ -49,6 +49,7 @@ VK_SPECIAL = {
     'RETURN': 0x0D, 'ENTER': 0x0D,
     'BACKSLASH': 0xDC, '\\': 0xDC,
     'SLASH': 0xBF, '/': 0xBF,
+    'SPACE': 0x20, ' ': 0x20,
 }
 for _i in range(1, 13):
     VK_SPECIAL[f'F{_i}'] = 0x70 + (_i - 1)
@@ -59,6 +60,7 @@ SCAN_SPECIAL = {
     'RETURN': {28}, 'ENTER': {28},
     'BACKSLASH': {43, 86}, '\\': {43, 86},
     'SLASH': {53}, '/': {53},
+    'SPACE': {57}, ' ': {57},
 }
 for _i in range(1, 13):
     if _i <= 10:
@@ -74,6 +76,7 @@ QT_KEY_SPECIAL = {
     'RETURN': Qt.Key.Key_Return, 'ENTER': Qt.Key.Key_Return,
     'BACKSLASH': Qt.Key.Key_Backslash, '\\': Qt.Key.Key_Backslash,
     'SLASH': Qt.Key.Key_Slash, '/': Qt.Key.Key_Slash,
+    'SPACE': Qt.Key.Key_Space, ' ': Qt.Key.Key_Space,
 }
 for _i in range(1, 13):
     QT_KEY_SPECIAL[f'F{_i}'] = getattr(Qt.Key, f'Key_F{_i}')

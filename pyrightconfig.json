@@ -1,0 +1,19 @@
+{
+  "include": [
+    "services",
+    "views",
+    "web.py",
+    "verify.py"
+  ],
+  "exclude": [
+    "**/scratch/**",
+    "**/.venv/**",
+    "**/brain/**",
+    "**/.gemini/**"
+  ],
+  "venvPath": ".",
+  "venv": ".venv",
+  "extraPaths": [
+    "."
+  ]
+}

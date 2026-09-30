@@ -4,8 +4,8 @@ from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import QObject, pyqtSlot, QUrl
 from PyQt6.QtGui import QTextCursor, QTextOption
 from PyQt6.QtQuick import QQuickTextDocument
-from services.file_service import save_session_config, load_session_config
-from services.syntax_highlighter import MarkdownHighlighter
+from services.storage.file_service import save_session_config, load_session_config
+from services.content.syntax_highlighter import MarkdownHighlighter
 from services.backend.app_initializer import safe_print
 
 
@@ -38,7 +38,8 @@ class ConfigHandlerMixin:
 
     @pyqtSlot(QObject, float)
     @pyqtSlot(QObject)
-    def set_editor_line_height(self, editor_area_item: QObject, percent: float = 100.0):
+    @pyqtSlot(QObject, float)
+    def set_editor_line_height(self, editor_area_item: QObject, percent: float = 135.0):
         """Устанавливает высоту строки пропорционально размеру шрифта (ProportionalHeight)"""
         try:
             if not editor_area_item:
@@ -53,10 +54,24 @@ class ConfigHandlerMixin:
                 bf.setLineHeight(target_percent, 1)
                 cursor.setBlockFormat(bf)
                 opt = qtdoc.defaultTextOption()
-                opt.setFlags(opt.flags() | QTextOption.Flag.AddSpaceForLineAndParagraphSeparators)
-                qtdoc.setDefaultTextOption(opt)
+                if opt.flags() & QTextOption.Flag.AddSpaceForLineAndParagraphSeparators:
+                    opt.setFlags(opt.flags() & ~QTextOption.Flag.AddSpaceForLineAndParagraphSeparators)
+                    qtdoc.setDefaultTextOption(opt)
         except Exception as e:
             safe_print(f"[Backend] Ошибка установки line_height: {e}")
+
+    def _get_highlighters(self):
+        if not hasattr(self, "_highlighters"):
+            self._highlighters = []
+        valid = []
+        for h in self._highlighters:
+            try:
+                if h and h.document() is not None:
+                    valid.append(h)
+            except RuntimeError:
+                pass
+        self._highlighters = valid
+        return self._highlighters
 
     @pyqtSlot(QObject)
     def attach_highlighter(self, editor_area_item: QObject):
@@ -68,10 +83,50 @@ class ConfigHandlerMixin:
             if isinstance(doc_wrapper, QQuickTextDocument):
                 qtdoc = doc_wrapper.textDocument()
                 if not hasattr(qtdoc, "_highlighter") or qtdoc._highlighter is None:
-                    qtdoc._highlighter = MarkdownHighlighter(qtdoc)
-                    safe_print("[Backend] MarkdownHighlighter успешно подключен")
+                    hl = MarkdownHighlighter(qtdoc)
+                    qtdoc._highlighter = hl
+                    highlighters = self._get_highlighters()
+                    highlighters.append(hl)
+                    cur_pos = editor_area_item.property("cursorPosition") or 0
+                    hl.set_cursor_position(cur_pos)
+                    safe_print("[Backend] MarkdownHighlighter успешно подключен (Live Preview активен)")
         except Exception as e:
             safe_print(f"[Backend] Ошибка подключения MarkdownHighlighter: {e}")
+
+    @pyqtSlot(QObject, int)
+    def update_highlighter_cursor(self, editor_area_item: QObject, pos: int):
+        """Обновляет номер активной строки у подсветчика для мгновенного Live Preview"""
+        try:
+            if not editor_area_item:
+                return
+            doc_wrapper = editor_area_item.property("textDocument")
+            if isinstance(doc_wrapper, QQuickTextDocument):
+                qtdoc = doc_wrapper.textDocument()
+                if hasattr(qtdoc, "_highlighter") and qtdoc._highlighter is not None:
+                    qtdoc._highlighter.set_cursor_position(pos)
+        except Exception as e:
+            pass
+
+    @pyqtSlot(result=bool)
+    @pyqtSlot(QObject, result=bool)
+    def toggle_live_preview(self, editor_area_item: QObject = None) -> bool:
+        """Переключает режим Live Preview ⟷ Source Mode"""
+        try:
+            if editor_area_item:
+                doc_wrapper = editor_area_item.property("textDocument")
+                if isinstance(doc_wrapper, QQuickTextDocument):
+                    qtdoc = doc_wrapper.textDocument()
+                    if hasattr(qtdoc, "_highlighter") and qtdoc._highlighter is not None:
+                        return qtdoc._highlighter.toggle_live_preview()
+            highlighters = self._get_highlighters()
+            new_state = True
+            for hl in highlighters:
+                new_state = hl.toggle_live_preview()
+            safe_print(f"[Backend] Live Preview переключен: {'ВКЛ' if new_state else 'ВЫКЛ (Source Mode)'}")
+            return new_state
+        except Exception as e:
+            safe_print(f"[Backend] Ошибка toggle_live_preview: {e}")
+            return False
 
     @pyqtSlot(float)
     def update_sheet_width(self, width: float):

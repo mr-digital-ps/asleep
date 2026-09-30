@@ -44,7 +44,11 @@ def load_default_base_config() -> dict:
         "tags": [],
         "pinned": [],
     }
-    config_dir = Path(__file__).resolve().parent.parent / "config" / "default"
+    this_p = Path(__file__).resolve()
+    if (this_p.parent.parent / "config" / "default").exists():
+        config_dir = this_p.parent.parent / "config" / "default"
+    else:
+        config_dir = this_p.parent.parent.parent / "config" / "default"
     ed_f = config_dir / "editor.json"
     if ed_f.exists():
         try:
@@ -189,7 +193,11 @@ class ConfigService:
     Отвечает за чтение Markdown Frontmatter, модульных JSON-конфигов, слияние с эталоном и генерацию шаблонов.
     """
     def __init__(self):
-        self.project_root = Path(__file__).resolve().parent.parent
+        this_p = Path(__file__).resolve()
+        if (this_p.parent.parent / "config").exists():
+            self.project_root = this_p.parent.parent
+        else:
+            self.project_root = this_p.parent.parent.parent
         self.config_dir = self.project_root / "config"
         self._current_folder: Path | None = None
         self._current_config: dict = copy.deepcopy(DEFAULT_CONFIG)

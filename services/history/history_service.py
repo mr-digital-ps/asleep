@@ -266,6 +266,10 @@ class HistoryService:
             rel_str = str(file_path).replace("\\", "/")
 
         file_name = Path(rel_str).name
+        name_with_md = file_name if file_name.lower().endswith(".md") else f"{file_name}.md"
+        name_no_md = file_name[:-3] if file_name.lower().endswith(".md") else file_name
+        rel_with_md = rel_str if rel_str.lower().endswith(".md") else f"{rel_str}.md"
+        rel_no_md = rel_str[:-3] if rel_str.lower().endswith(".md") else rel_str
 
         conn = None
         try:
@@ -276,9 +280,10 @@ class HistoryService:
                        fs.content_hash, LENGTH(fs.content_blob)
                 FROM file_snapshots fs
                 JOIN snapshots s ON s.id = fs.snapshot_id
-                WHERE fs.file_path = ? OR fs.file_name = ?
+                WHERE fs.file_path IN (?, ?, ?, ?) OR fs.file_name IN (?, ?, ?, ?)
                 ORDER BY s.timestamp ASC
-            """, (rel_str, file_name))
+            """, (rel_with_md, rel_no_md, rel_str, file_name,
+                  name_with_md, name_no_md, rel_str, file_name))
             rows = cursor.fetchall()
 
             result = []
@@ -342,6 +347,12 @@ class HistoryService:
             return ""
 
         norm_path = file_path.replace("\\", "/").strip()
+        p = Path(norm_path)
+        name_with_md = p.name if p.name.lower().endswith(".md") else f"{p.name}.md"
+        name_no_md = p.name[:-3] if p.name.lower().endswith(".md") else p.name
+        rel_with_md = norm_path if norm_path.lower().endswith(".md") else f"{norm_path}.md"
+        rel_no_md = norm_path[:-3] if norm_path.lower().endswith(".md") else norm_path
+
         conn = None
 
         try:
@@ -349,8 +360,11 @@ class HistoryService:
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT content_blob FROM file_snapshots
-                WHERE snapshot_id = ? AND (file_path = ? OR file_name = ?)
-            """, (snapshot_id, norm_path, Path(norm_path).name))
+                WHERE snapshot_id = ? AND (
+                    file_path IN (?, ?, ?, ?) OR file_name IN (?, ?, ?, ?)
+                )
+            """, (snapshot_id, rel_with_md, rel_no_md, norm_path, p.name,
+                  name_with_md, name_no_md, norm_path, p.name))
             row = cursor.fetchone()
             if row and row[0]:
                 return zlib.decompress(row[0]).decode("utf-8")

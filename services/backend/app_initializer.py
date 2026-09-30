@@ -2,7 +2,7 @@
 import sys
 from pathlib import Path
 from PyQt6.QtGui import QFontDatabase, QSurfaceFormat
-from services.config_service import ConfigService
+from services.storage.config_service import ConfigService
 
 
 def safe_print(*args, **kwargs):

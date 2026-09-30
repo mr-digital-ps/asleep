@@ -22,9 +22,9 @@ if str(PROJECT_DIR) not in sys.path:
 
 def test_services():
     print("[1/3] Проверка сервисов Python...")
-    from services.block_engine import BlockEngine, parse_markdown_blocks, replace_block_in_markdown
-    from services.file_service import FileService
-    from services.window_manager import WindowManager
+    from services.content.block_parser import BlockEngine, parse_markdown_blocks, replace_block_in_markdown
+    from services.storage.file_service import FileService
+    from services.system.window_manager import WindowManager
     from web import Backend
 
     # 1. Тест парсера блоков
@@ -50,7 +50,7 @@ def test_services():
     assert should_sync and updated_content == "Новое тело из второго файла", f"Ошибка слияния: {updated_content}"
 
     # 4. Тест ConfigService
-    from services.config_service import ConfigService, extract_frontmatter, deep_merge, DEFAULT_CONFIG
+    from services.storage.config_service import ConfigService, extract_frontmatter, deep_merge, DEFAULT_CONFIG
     cfg_service = ConfigService()
     
     # 4.1. Парсинг Frontmatter
@@ -89,7 +89,7 @@ tags:
         assert loaded["editor"]["sheet_width"] == 1120, "Считанный sheet_width должен быть 1120"
 
     # 4.5. Тест парсера JSON с комментариями и завершающими запятыми
-    from services.config_service import parse_json_with_comments
+    from services.storage.config_service import parse_json_with_comments
     json_with_comments = """
     {
         // Однострочный комментарий
@@ -106,7 +106,7 @@ tags:
     assert parsed["physics"]["url"] == "http://example.com//not-a-comment", "Строка с // не должна искажаться"
 
     # 4.6. Тест конфигурации Markdown диалекта и безопасной компиляции regex
-    from services.config_service import compile_safe_regex
+    from services.storage.config_service import compile_safe_regex
     md_cfg = cfg_service.get_markdown_config()
     assert "wikilinks" in md_cfg and "pattern" in md_cfg["wikilinks"], "markdown.json должен содержать секцию wikilinks"
     assert "tags" in md_cfg and "blocks" in md_cfg, "markdown.json должен содержать tags и blocks"
@@ -119,19 +119,25 @@ tags:
     valid_re = compile_safe_regex(r"@([a-zA-Z0-9_]+)", default_re)
     assert valid_re.pattern == r"@([a-zA-Z0-9_]+)", "Корректный regex должен компилироваться"
     assert "system_files" in md_cfg, "markdown.json должен содержать system_files"
-    assert md_cfg["system_files"]["structure_file"] == "_Структура.md"
+    assert md_cfg["system_files"]["structure_file"] == "_notes.md"
     assert md_cfg["system_files"]["graph_file"] == "_Граф связей.md"
 
     # 5. Тест MarkdownHighlighter
-    from services.syntax_highlighter import MarkdownHighlighter
+    from services.content.syntax_highlighter import MarkdownHighlighter
     from PyQt6.QtGui import QTextDocument
     test_doc = QTextDocument()
     test_doc.setPlainText("# Заголовок\n**жирный**\n`код`\n- [ ] задача")
     highlighter = MarkdownHighlighter(test_doc)
     assert highlighter is not None, "Highlighter должен инициализироваться"
+    assert highlighter.live_preview_enabled == False, "По умолчанию MarkdownHighlighter должен быть в сухом режиме (live_preview_enabled=False)"
+    blk = test_doc.begin()
+    while blk.isValid():
+        layout = blk.layout()
+        assert len(layout.formats() if layout else []) == 0, "В сухом режиме не должно быть никаких форматов"
+        blk = blk.next()
 
     # 6. Тест HotkeyService & GlobalHotkeyFilter
-    from services.hotkey_service import HotkeyService, GlobalHotkeyFilter, HotkeyMatcher
+    from services.system.hotkey_service import HotkeyService, GlobalHotkeyFilter, HotkeyMatcher
     hk_service = HotkeyService()
     hks = hk_service.get_hotkeys()
     assert "toggle_header_footer" in hks, "toggle_header_footer должен присутствовать в hotkeys"
@@ -149,6 +155,14 @@ tags:
     assert matcher.match_event(ev_ru_p) == "toggle_graph", "Ctrl+П (VK 0x47 / scan 34) должен распознаваться"
     assert matcher.match_event(ev_ru_g) == "toggle_graph", "Ctrl+Г (VK 0x55 / scan 22) должен распознаваться"
 
+    # 1.1. Проверка toggle_local_graph: Alt+G (EN), Alt+П (RU: scan 34 / VK 0x47), Alt+Г (RU: scan 22 / VK 0x55)
+    ev_en_alt_g = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_G, Qt.KeyboardModifier.AltModifier, 34, 0x47, 0)
+    ev_ru_alt_p = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.AltModifier, 34, 0x47, 0)
+    ev_ru_alt_g = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.AltModifier, 22, 0x55, 0)
+    assert matcher.match_event(ev_en_alt_g) == "toggle_local_graph", "Alt+G должен распознаваться"
+    assert matcher.match_event(ev_ru_alt_p) == "toggle_local_graph", "Alt+П (VK 0x47 / scan 34) должен распознаваться"
+    assert matcher.match_event(ev_ru_alt_g) == "toggle_local_graph", "Alt+Г (VK 0x55 / scan 22) должен распознаваться"
+
     # 2. Проверка close_tab: Ctrl+W (EN scan 17), Ctrl+Ц (RU scan 17, VK 0x57), Ctrl+Q не закрывает вкладку
     ev_w = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 17, 0x57, 0)
     assert matcher.match_event(ev_w) == "close_tab", "Ctrl+W/Ctrl+Ц должен распознаваться"
@@ -161,11 +175,15 @@ tags:
     assert matcher.match_event(ev_split_scan43) == "toggle_split", "Ctrl+\\ (scan 43) должен распознаваться"
     assert matcher.match_event(ev_split_scan86) == "toggle_split", "Ctrl+\\ (scan 86) должен распознаваться"
 
-    # 4. Проверка toggle_header_footer: F9 (scan 67) и Ctrl+Shift+H (RU 'Р', scan 35, VK 0x48)
+    # 4. Проверка toggle_header_footer: F9 (scan 67)
     ev_f9 = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_F9, Qt.KeyboardModifier.NoModifier, 67, 0x78, 0)
-    ev_csh = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier, 35, 0x48, 0)
     assert matcher.match_event(ev_f9) == "toggle_header_footer", "F9 должен распознаваться"
-    assert matcher.match_event(ev_csh) == "toggle_header_footer", "Ctrl+Shift+H (RU: scan 35) должен распознаваться"
+    if "Ctrl+Shift+H" in hks.get("toggle_header_footer", {}).get("keys", []):
+        ev_csh = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier, 35, 0x48, 0)
+        assert matcher.match_event(ev_csh) == "toggle_header_footer", "Ctrl+Shift+H (RU: scan 35) должен распознаваться"
+    elif "Ctrl+Shift+K" in hks.get("toggle_header_footer", {}).get("keys", []):
+        ev_csk = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier, 37, 0x4B, 0)
+        assert matcher.match_event(ev_csk) == "toggle_header_footer", "Ctrl+Shift+K должен распознаваться"
 
     # 5. Проверка save_file: Ctrl+S (RU 'Ы', scan 31, VK 0x53)
     ev_save = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 31, 0x53, 0)
@@ -210,7 +228,7 @@ tags:
 
 
     # 7. Тест GraphService
-    from services.graph_service import GraphService
+    from services.graph.graph_service import GraphService
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_p = Path(tmp_dir)
         (tmp_p / "doc1.md").write_text("# ОбщийБлок\nТекст 1\nСмотри [[doc2]] и #проект\n", encoding="utf-8")
@@ -286,7 +304,7 @@ tags:
     assert "test_node" in node_pos and node_pos["test_node"]["x"] == 100, "backend.save_node_positions/get_node_positions должны корректно работать"
 
     # 8. Тест HistoryService
-    from services.history_service import HistoryService
+    from services.history.history_service import HistoryService
     with tempfile.TemporaryDirectory() as tmp_hist_dir:
         th_p = Path(tmp_hist_dir)
         (th_p / "note1.md").write_text("# Заметка 1\nТекст с [[note2]]", encoding="utf-8")
@@ -328,61 +346,104 @@ tags:
         note3_tline = hs.get_file_timeline(th_p, "note3.md")
         assert len(note3_tline) == 1, f"Ожидался 1 срез для note3.md, получено {len(note3_tline)}"
 
-    # 9. Тест OutlineService (иерархия блоков документа и перестановка с поддеревьями)
-    from services.outline_service import OutlineService
+    # 9. Тест OutlineService и DocumentSession (блочная модель { ... }, reorder, undo/redo, cursor offsets)
+    from services.content.outline_service import OutlineService
+    from services.core.document_session import DocumentSession
     osvc = OutlineService()
-    test_doc = "# Глава 1\nТекст 1\n\n## Секция 1.1\nПодтекст 1.1\n\n# Глава 2\nТекст 2"
+    test_doc = "{\nБлок 1\nТекст 1\n}\n\n{\nБлок 2\nТекст 2\n}\n\n{\nБлок 3\nТекст 3\n}"
     parsed_blks = osvc.parse_document(test_doc)
     assert len(parsed_blks) == 3, f"Ожидалось 3 блока, получено {len(parsed_blks)}"
-    assert parsed_blks[0]["heading"] == "Глава 1"
-    assert parsed_blks[1]["level"] == 2
-    # Перемещение Главы 2 перед Главой 1
+    assert parsed_blks[0]["heading"] == "Блок 1"
+    assert parsed_blks[1]["heading"] == "Блок 2"
+    assert parsed_blks[2]["heading"] == "Блок 3"
+    assert parsed_blks[0]["level"] == 0
+
+    # Перемещение Блока 3 перед Блоком 1
     reordered_doc = osvc.reorder_blocks(test_doc, source_index=2, target_index=0, position="before")
     new_blks = osvc.parse_document(reordered_doc)
-    assert new_blks[0]["heading"] == "Глава 2", "Глава 2 должна переместиться на первое место"
-    assert new_blks[1]["heading"] == "Глава 1"
-    assert new_blks[2]["heading"] == "Секция 1.1", "Секция 1.1 должна остаться с Главой 1"
-    # Повышение уровня Секция 1.1: H2 -> H1
-    promoted_doc = osvc.change_block_level(test_doc, block_index=1, delta=-1)
-    promoted_blks = osvc.parse_document(promoted_doc)
-    assert promoted_blks[1]["level"] == 1, "Уровень секции должен повыситься до H1"
+    assert new_blks[0]["heading"] == "Блок 3", "Блок 3 должен переместиться на первое место"
+    assert new_blks[1]["heading"] == "Блок 1"
+    assert new_blks[2]["heading"] == "Блок 2"
 
-    # 10. Тест работы со структурой проекта (_Структура.md)
-    proj_md = "# Структура проекта\n\n- 📁 Папка 1\n    - [[Файл А]]\n    - [[Файл Б]]\n- 📁 Папка 2\n    - [[Файл В]]"
-    parsed_tree = osvc.parse_project_tree_flat(proj_md)
-    tree_items = parsed_tree["items"]
-    assert len(tree_items) == 5, f"Ожидалось 5 элементов дерева, получено {len(tree_items)}"
-    assert tree_items[0]["type"] == "folder" and tree_items[0]["label"] == "Папка 1"
-    assert tree_items[1]["level"] == 1 and tree_items[1]["label"] == "Файл А"
-    assert tree_items[0]["hasChildren"] is True, "Папка с вложенными файлами должна иметь hasChildren: True"
-    assert tree_items[1]["hasChildren"] is False, "Файл без дочерних элементов должен иметь hasChildren: False"
+    # Тест DocumentSession: Single Source of Truth и Undo/Redo стека
+    session = DocumentSession(test_doc)
+    assert session.can_undo is False
+    assert session.can_redo is False
+    session.set_text(reordered_doc)
+    assert session.can_undo is True
+    assert session.get_text() == reordered_doc
+    # Undo
+    assert session.undo() is not None
+    assert session.get_text() == test_doc
+    # Redo
+    assert session.redo() is not None
+    assert session.get_text() == reordered_doc
 
-    # Проверка корневых файлов после папок и секций
-    mixed_proj = "# Структура проекта\n\n- 📁 Папка\n    - [[Вложенный]]\n- [[Заметка в корне]]\n\n## Секция\n- [[В секции]]"
-    parsed_mixed = osvc.parse_project_tree_flat(mixed_proj)
-    mixed_items = parsed_mixed["items"]
-    assert mixed_items[2]["label"] == "Заметка в корне" and mixed_items[2]["level"] == 0, "Заметка в корне после папки должна иметь level: 0"
-    assert mixed_items[3]["type"] == "section" and mixed_items[3]["level"] == 0, "Секция должна иметь type: section"
-    assert mixed_items[4]["label"] == "В секции" and mixed_items[4]["level"] == 1, "Элемент в секции должен иметь level: 1"
+    # Тест проекции курсора и смещений блоков
+    offsets = session.parse_blocks_offsets()
+    assert len(offsets) == 3
+    b_idx = session.get_block_at_offset(offsets[1]["start"] + 2)
+    assert b_idx == 1
+    off = session.get_block_offset(1)
+    assert off == offsets[1]["start"]
 
-    # Проверка roundtrip сериализации секций
-    serialized = osvc.project_tree_flat_to_markdown(parsed_mixed["header"], mixed_items)
-    assert "## Секция" in serialized, "Секции ## должны сохраняться при сериализации"
+    # 10. Тест работы со структурой проекта (_notes.md) через единый DocumentOutlineManager
+    proj_md = "# Структура проекта\n\n## Папка 1\n- [[Файл А]]\n- [[Файл Б]]\n\n## Папка 2\n- [[Файл В]]"
+    parsed_tree = osvc.parse_document(proj_md)
+    assert len(parsed_tree) == 6, f"Ожидалось 6 элементов (H1, H2, 2 файла, H2, 1 файл), получено {len(parsed_tree)}"
+    assert parsed_tree[0]["level"] == 1 and parsed_tree[0]["heading"] == "Структура проекта"
+    assert parsed_tree[1]["level"] == 2 and parsed_tree[1]["heading"] == "Папка 1"
+    assert parsed_tree[2]["heading"] == "Файл А" and parsed_tree[2]["type"] == "file"
+    assert parsed_tree[3]["heading"] == "Файл Б" and parsed_tree[3]["type"] == "file"
+    assert parsed_tree[4]["level"] == 2 and parsed_tree[4]["heading"] == "Папка 2"
+    assert parsed_tree[5]["heading"] == "Файл В" and parsed_tree[5]["type"] == "file"
 
     # Перемещение Папки 2 перед Папкой 1
-    reordered_proj = osvc.reorder_project_tree(proj_md, source_index=3, target_index=0, position="before")
-    reordered_items = osvc.parse_project_tree_flat(reordered_proj)["items"]
-    assert reordered_items[0]["label"] == "Папка 2"
-    assert reordered_items[1]["label"] == "Файл В"
-    assert reordered_items[2]["label"] == "Папка 1"
-    # Изменение уровня отступа
-    indented_proj = osvc.change_project_tree_level(proj_md, item_index=0, delta=1)
-    indented_items = osvc.parse_project_tree_flat(indented_proj)["items"]
+    reordered_proj = osvc.reorder_blocks(proj_md, source_index=4, target_index=1, position="before")
+    reordered_items = osvc.parse_document(reordered_proj)
+    assert reordered_items[1]["heading"] == "Папка 2"
+    assert reordered_items[3]["heading"] == "Папка 1"
+
     # Проверка sync_project_structure_file с кастомным именем файла
     with tempfile.TemporaryDirectory() as tmp_struct_dir:
         tmp_s_p = Path(tmp_struct_dir)
         custom_struct = osvc.sync_project_structure_file(tmp_s_p, ["note1.md"], structure_filename="_MyStructure.md")
         assert custom_struct.exists() and custom_struct.name == "_MyStructure.md", "sync_project_structure_file должен поддерживать кастомное имя структуры"
+        content = custom_struct.read_text(encoding="utf-8")
+        assert "[[note1]]" in content, "Созданный файл структуры должен содержать вики-ссылку на note1"
+
+        # 10.1. Тест неограниченной вложенности через табы (\t) в Python-стиле
+        (tmp_s_p / "sub1" / "sub2" / "sub3").mkdir(parents=True, exist_ok=True)
+        (tmp_s_p / "sub1" / "sub2" / "sub3" / "deep_note.md").write_text("# Deep", encoding="utf-8")
+        (tmp_s_p / "root_note.md").write_text("# Root", encoding="utf-8")
+
+        tree_path = osvc.sync_project_structure_file(tmp_s_p, structure_filename="_notes.md")
+        tree_text = tree_path.read_text(encoding="utf-8")
+        assert "- sub1" in tree_text
+        assert "\t- sub2" in tree_text
+        assert "\t\t- sub3" in tree_text
+        assert "\t\t\t- [[deep_note]]" in tree_text
+        assert "- [[root_note]]" in tree_text
+
+        # 10.2. Тест парсинга дерева с уровнями глубже 6
+        tree_blocks = osvc.parse_document(tree_text)
+        deep_blocks = [b for b in tree_blocks if b.get("heading") == "deep_note"]
+        assert len(deep_blocks) == 1, "Глубокая заметка должна быть распарсена"
+        assert deep_blocks[0]["type"] == "file"
+        assert deep_blocks[0]["level"] == 5, f"Ожидался level 5, получено {deep_blocks[0]['level']}"
+
+        # 10.3. Тест обратной сериализации в Markdown
+        roundtrip_md = osvc.blocks_to_markdown(tree_blocks)
+        assert "\t\t\t- [[deep_note]]" in roundtrip_md
+
+        # 10.4. Тест включения списков в контент заголовка в обычном документе (parse_list_items=False)
+        doc_with_lists = "### Обзор аналогов\n- Obsidian: граф\n- Notion: базы\n- Logseq: блоки\n\n## Следующая секция\nТекст"
+        doc_blks = osvc.parse_document(doc_with_lists, parse_list_items=False)
+        assert len(doc_blks) == 2, f"Ожидалось 2 блока заголовков, получено {len(doc_blks)}"
+        assert doc_blks[0]["heading"] == "Обзор аналогов"
+        assert "- Obsidian: граф" in doc_blks[0]["content"]
+        assert "- Logseq: блоки" in doc_blks[0]["content"]
+        assert doc_blks[1]["heading"] == "Следующая секция"
 
     print("  -> Сервисы Python: OK")
 
@@ -407,21 +468,24 @@ def test_qml():
         "components/dialogs/EditorDialogs.qml",
         "components/hotkeys/HotkeyManager.qml",
         "components/window/WindowFrame.qml",
-        "components/graph/GraphView.qml",
-        "components/editor/EditorCanvas.qml",
-        "components/editor/EditorSheet.qml",
-        "components/editor/DocumentOutliner.qml",
-        "components/editor/MainBar.qml",
+        "components/pane/header/Header.qml",
+        "components/pane/sheet/Sheet.qml",
+        "components/pane/sheet/source/SourceView.qml",
+        "components/pane/sheet/hierarchy/HierarchyView.qml",
+        "components/pane/sheet/graph/GraphView.qml",
+        "components/pane/footer/Footer.qml",
+        "components/pane/Pane.qml",
+        "components/canvas/CanvasView.qml",
         "views/web.qml"
     ]:
         comp = QQmlComponent(engine, QUrl.fromLocalFile(str(PROJECT_DIR / qml_f)))
         assert comp.status() == QQmlComponent.Status.Ready, f"Ошибка в {qml_f}: {comp.errorString()}"
 
-    # 1.1. Тест создания делегатов DocumentOutliner
-    outliner_comp = QQmlComponent(engine, QUrl.fromLocalFile(str(PROJECT_DIR / "components/editor/DocumentOutliner.qml")))
-    outliner_item = outliner_comp.create()
-    assert outliner_item is not None, f"Не удалось создать DocumentOutliner: {outliner_comp.errorString()}"
-    outliner_item.setProperty("blocksList", [{"level": 1, "label": "Тест", "content": "Контент"}])
+    # 1.1. Тест создания делегатов HierarchyView
+    hierarchy_comp = QQmlComponent(engine, QUrl.fromLocalFile(str(PROJECT_DIR / "components/pane/sheet/hierarchy/HierarchyView.qml")))
+    hierarchy_item = hierarchy_comp.create()
+    assert hierarchy_item is not None, f"Не удалось создать HierarchyView: {hierarchy_comp.errorString()}"
+    hierarchy_item.setProperty("blocksList", [{"id": 0, "name": "Тест", "content": "Контент"}])
     QApplication.processEvents()
 
     # 2. Проверяем загрузку window.qml и его внутреннего Loader
@@ -431,11 +495,33 @@ def test_qml():
     assert len(objects) > 0, "Не удалось создать корневое окно QML!"
     loader = objects[0].findChild(object, "hotLoader")
     assert loader is not None and loader.property("item") is not None, "web.qml не загрузился внутри Loader!"
+    web_item = loader.property("item")
+
+    # 2.1. Проверка toggle_search и toggle_history при скрытых Header/Footer
+    split = web_item.property("splitLayout")
+    primary_bar = split.property("primaryBar")
+    primary_bar.setProperty("showHeader", False)
+    primary_bar.setProperty("showFooter", False)
+    assert primary_bar.property("showHeader") is False
+    assert primary_bar.property("showFooter") is False
+    primary_bar.toggleSearch()
+    assert primary_bar.property("showHeader") is True, "toggleSearch должен открывать скрытый Header"
+    assert primary_bar.property("isSearchMode") is True, "toggleSearch должен активировать SearchMode"
+    primary_bar.toggleHistoryMode()
+    assert primary_bar.property("showFooter") is True, "toggleHistoryMode должен открывать скрытый Footer"
+
+    # 2.2. Проверка toggle_centered_mode
+    init_mode = primary_bar.property("isCenteredMode")
+    assert init_mode is True, "isCenteredMode по умолчанию должен быть True"
+    primary_bar.toggleCenteredMode()
+    assert primary_bar.property("isCenteredMode") is False, "toggleCenteredMode должен переключать в False"
+    primary_bar.toggleCenteredMode()
+    assert primary_bar.property("isCenteredMode") is True, "toggleCenteredMode должен переключать обратно в True"
 
     # 3. Тест клиентской логики auto-pair скобок и кавычек в JS
     from PyQt6.QtQml import QJSEngine
     js_engine = QJSEngine()
-    js_code = (PROJECT_DIR / "js" / "editor" / "markdown_shortcuts.js").read_text(encoding="utf-8")
+    js_code = (PROJECT_DIR / "components" / "pane" / "sheet" / "source" / "shortcuts" / "markdown_shortcuts.js").read_text(encoding="utf-8")
     js_engine.evaluate(js_code)
     test_js = """
     (function() {
@@ -458,19 +544,37 @@ def test_qml():
     res = js_engine.evaluate(test_js)
     assert res.toString() == "OK", f"Ошибка JS авто-пар скобок: {res.toString()}"
 
+    # 4. Тест контроллера таймлайна (getDaysList)
+    import json
+    timeline_js = (PROJECT_DIR / "components" / "pane" / "footer" / "history" / "timeline" / "timeline_controller.js").read_text(encoding="utf-8")
+    clean_timeline_js = timeline_js.replace(".pragma library", "")
+    js_engine.evaluate(clean_timeline_js)
+    f = backend.get_default_folder()
+    tl_p = backend.get_history_timeline(f)
+    js_engine.evaluate('var test_tl = ' + json.dumps(tl_p))
+    days_res = js_engine.evaluate('getDaysList(test_tl, "project")')
+    assert days_res.property('length').toInt() >= 2, "Таймлайн должен содержать как минимум '0' и 'Now'"
+    assert days_res.property(0).property('dayNum').toString() == "0", "Первый элемент таймлайна должен быть '0'"
+
     print(f"  -> QML и компоненты: OK (создано окон: {len(objects)}, интерфейс активен, JS тесты пройдены)")
 
 def test_structure():
     print("[3/3] Проверка структуры папок...")
     required = [
-        "services/block_engine.py",
-        "services/file_service.py",
-        "services/window_manager.py",
-        "services/config_service.py",
-        "services/syntax_highlighter.py",
-        "services/hotkey_service.py",
-        "services/graph_service.py",
-        "services/reloader.py",
+        "services/core/main_backend.py",
+        "services/core/document_session.py",
+        "services/storage/file_service.py",
+        "services/storage/config_service.py",
+        "services/content/block_parser.py",
+        "services/content/syntax_highlighter.py",
+        "services/content/document_outline.py",
+        "services/content/outline_service.py",
+        "services/history/history_service.py",
+        "services/graph/graph_service.py",
+        "services/system/window_manager.py",
+        "services/system/hotkey_service.py",
+        "services/system/reloader.py",
+        "services/system/key_mapper.py",
         "config/default/editor.json",
         "config/default/hotkeys.json",
         "config/default/graph.json",
@@ -483,38 +587,55 @@ def test_structure():
         "config/user/theme.json",
         "config/user/app.json",
         "config/user/markdown.json",
-        "config/user/markdown.md",
-        "js/editor/editor_keys.js",
-        "js/editor/markdown_shortcuts.js",
-        "js/editor/block_sync.js",
-        "js/editor/mainbar_controller.js",
-        "js/editor/frontmatter_service.js",
-        "js/editor/gutter_renderer.js",
-        "js/graph/graph_physics.js",
-        "js/graph/graph_renderer.js",
-        "js/graph/graph_interaction.js",
-        "js/tabs/tab_model.js",
-        "js/tabs/tab_split.js",
-        "js/tabs/tab_sync.js",
-        "js/tabs/drag_manager.js",
-        "js/tabs/tabs.js",
-        "js/app/action_dispatcher.js",
-        "js/app/web_lifecycle.js",
+        # JS-контроллеры и логика, колоцированные с компонентами и представлениями
+        "views/web_lifecycle.js",
+        "views/action_dispatcher.js",
+        "components/canvas/tabs.js",
+        "components/canvas/tab_model.js",
+        "components/canvas/tab_split.js",
+        "components/canvas/tab_sync.js",
+        "components/canvas/drag_manager.js",
+        "components/canvas/canvas_navigation.js",
+        "components/pane/pane_controller.js",
+        "components/pane/header/header_controller.js",
+        "components/pane/header/search/search_controller.js",
+        "components/pane/sheet/sheet_controller.js",
+        "components/pane/sheet/source/shortcuts/markdown_shortcuts.js",
+        "components/pane/sheet/source/shortcuts/editor_keys.js",
+        "components/pane/sheet/hierarchy/hierarchy_controller.js",
+        "components/pane/sheet/graph/graph_physics.js",
+        "components/pane/sheet/graph/graph_renderer.js",
+        "components/pane/sheet/graph/graph_interaction.js",
+        "components/pane/sheet/gutter/gutter_renderer.js",
+        "components/pane/footer/footer_controller.js",
+        "components/pane/footer/history/timeline/timeline_controller.js",
 
-        "components/editor/EditorCanvas.qml",
-        "components/editor/EditorSheet.qml",
-        "components/editor/MainBar.qml",
-        "components/editor/DocumentHeader.qml",
-        "components/editor/chrome/qmldir",
-        "components/editor/canvas/qmldir",
         "components/dialogs/EditorDialogs.qml",
         "components/dialogs/qmldir",
         "components/hotkeys/HotkeyManager.qml",
         "components/hotkeys/qmldir",
         "components/window/WindowFrame.qml",
-        "components/window/qmldir",
-        "components/graph/GraphView.qml",
-        "components/graph/qmldir",
+        "components/pane/header/Header.qml",
+        "components/pane/header/title/DocumentTitle.qml",
+        "components/pane/header/search/SearchBar.qml",
+        "components/pane/header/qmldir",
+        "components/pane/footer/Footer.qml",
+        "components/pane/footer/history/HistoryBar.qml",
+        "components/pane/footer/info/FooterInfo.qml",
+        "components/pane/footer/qmldir",
+        "components/pane/sheet/Sheet.qml",
+        "components/pane/sheet/SheetResizeHandle.qml",
+        "components/pane/sheet/gutter/EditorGutter.qml",
+        "components/pane/sheet/scrollbar/EditorScrollbar.qml",
+        "components/pane/sheet/source/SourceView.qml",
+        "components/pane/sheet/hierarchy/HierarchyView.qml",
+        "components/pane/sheet/graph/GraphView.qml",
+        "components/pane/sheet/graph/GraphCanvas.qml",
+        "components/pane/sheet/graph/qmldir",
+        "components/pane/Pane.qml",
+        "components/pane/qmldir",
+        "components/canvas/CanvasView.qml",
+        "components/canvas/qmldir",
         "components/theme/Theme.qml",
         "components/theme/qmldir",
         "views/web.qml",

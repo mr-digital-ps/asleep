@@ -3,14 +3,15 @@ import json
 from pathlib import Path
 from PyQt6.QtCore import QObject, pyqtSlot, pyqtSignal, QFileSystemWatcher, QCoreApplication
 
-from services.block_engine import BlockEngine, replace_block_in_markdown
-from services.window_manager import WindowManager
-from services.file_service import FileService
-from services.config_service import ConfigService
-from services.hotkey_service import HotkeyService, GlobalHotkeyFilter
-from services.graph_service import GraphService
-from services.history_service import HistoryService
-from services.outline_service import OutlineService
+from services.content.block_parser import BlockEngine, replace_block_in_markdown
+from services.system.window_manager import WindowManager
+from services.storage.file_service import FileService
+from services.storage.config_service import ConfigService
+from services.system.hotkey_service import HotkeyService, GlobalHotkeyFilter
+from services.graph.graph_service import GraphService
+from services.history.history_service import HistoryService
+from services.content.outline_service import OutlineService
+from services.core.document_session import DocumentSession
 
 from services.backend.app_initializer import safe_print
 from services.backend.file_handler import FileHandlerMixin
@@ -85,11 +86,14 @@ class Backend(
             md_cfg = self.config_service.get_markdown_config(self._current_folder) or {}
             sys_cfg = md_cfg.get("system_files", {})
             graph_file = sys_cfg.get("graph_file", "_Граф связей.md")
+            struct_file = sys_cfg.get("structure_file", "_notes.md")
             ignore_pfx = tuple(sys_cfg.get("ignore_prefixes", [".", "_"]))
             snap = {}
-            for p in self._current_folder.iterdir():
-                if p.is_file() and p.suffix.lower() in exts and not p.name.startswith(ignore_pfx) and p.name != graph_file:
-                    snap[p.name] = p.stat().st_mtime_ns
+            for p in self._current_folder.rglob("*"):
+                if p.is_file() and p.suffix.lower() in exts:
+                    rel_parts = p.relative_to(self._current_folder).parts
+                    if not any(part.startswith(ignore_pfx) for part in rel_parts) and p.name != graph_file and p.name != struct_file:
+                        snap[str(p.relative_to(self._current_folder))] = p.stat().st_mtime_ns
             return snap
         except Exception:
             return {}
@@ -149,14 +153,11 @@ class Backend(
         exts = self.file_service.get_supported_extensions(self._current_folder)
         self.block_engine.reindex_folder(self._current_folder, exts)
 
-        # Фоновая проекция структуры связей в _Граф связей.md
+        # Синхронизация структуры проекта при обнаружении изменений в файлах
         try:
-            self._is_syncing_files = True
-            self.graph_service.sync_graph_markdown_file(self._current_folder)
+            self.sync_project_structure_file()
         except Exception as e:
-            safe_print(f"[Backend] Ошибка синхронизации графа связей: {e}")
-        finally:
-            self._is_syncing_files = False
+            safe_print(f"[Backend] Ошибка sync_project_structure_file в _on_directory_changed: {e}")
 
         self.folderFilesChanged.emit()
         self.graphDataChanged.emit()
@@ -165,6 +166,10 @@ class Backend(
     @pyqtSlot(QObject, QObject)
     def register_window(self, win: QObject, root_item: QObject):
         self.window_manager.register_window(win, root_item)
+
+    @pyqtSlot(result=int)
+    def get_window_count(self) -> int:
+        return len(self.window_manager.get_windows())
 
     @pyqtSlot(QObject)
     def unregister_window(self, win: QObject):
