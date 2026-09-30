@@ -96,8 +96,8 @@ Item {
             width: parent.width
             height: 2
             radius: 1
-            color: Theme.borderColor
-            opacity: 0.6
+            color: Theme.textSecondary
+            opacity: 0.9
         }
     }
 

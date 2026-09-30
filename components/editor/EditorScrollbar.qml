@@ -13,15 +13,9 @@ Item {
 
     width: barSize
     property bool hasHeader: true
-    property bool hasFooter: true
     property bool isHeaderPinned: false
-    property bool isFooterPinned: true
-
-    // Когда хедер закреплён — скроллбар начинается под хедером (76px).
-    // Когда хедер откреплён — контент и скроллбар занимают всё пространство с самого верха (16px),
-    // так как хедер скроллится вместе с контентом как нулевая строка.
     property real topMargin: (hasHeader && isHeaderPinned) ? 76 : 16
-    property real bottomMargin: (hasFooter && isFooterPinned) ? 76 : 16
+    property real bottomMargin: 16
 
     anchors.top: parent ? parent.top : undefined
     anchors.topMargin: topMargin

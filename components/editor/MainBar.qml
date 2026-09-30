@@ -369,7 +369,7 @@ Item {
         }
     }
 
-    // Нижняя панель (EditorFooter) закреплена внизу окна MainBar
+    // Нижняя панель (EditorFooter) закреплена внизу окна MainBar и выровнена по ширине листа
     EditorFooter {
         id: docFooter
         barSize: mainBar.barSize
@@ -377,8 +377,8 @@ Item {
         fileUrl: mainBar.fileUrl
         isProjectTree: mainBar.isProjectTree
         anchors.bottom: parent.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: paperSheet ? paperSheet.width : parent.width
         height: 70
         z: 20
         isPinned: true
@@ -402,9 +402,7 @@ Item {
         paperSheet: paperSheet
         isEmpty: mainBar.isEmpty || mainBar.isGraphMode
         hasHeader: mainBar.showHeader
-        hasFooter: false
         isHeaderPinned: mainBar.isHeaderPinned
-        isFooterPinned: true
         barSize: mainBar.barSize
         onActivated: mainBar.paneActivated()
     }
