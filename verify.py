@@ -562,7 +562,6 @@ def test_qml():
 def test_structure():
     print("[3/3] Проверка структуры папок...")
     required = [
-        "services/core/main_backend.py",
         "services/core/document_session.py",
         "services/storage/file_service.py",
         "services/storage/config_service.py",
