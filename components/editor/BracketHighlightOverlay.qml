@@ -1,5 +1,5 @@
 import QtQuick
-import "../../js/editor/markdown_shortcuts.js" as Markdown
+import "./markdown_shortcuts.js" as Markdown
 import "../theme"
 
 Item {

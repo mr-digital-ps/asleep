@@ -523,7 +523,7 @@ def test_qml():
     # 3. Тест клиентской логики auto-pair скобок и кавычек в JS
     from PyQt6.QtQml import QJSEngine
     js_engine = QJSEngine()
-    js_code = (PROJECT_DIR / "js" / "editor" / "markdown_shortcuts.js").read_text(encoding="utf-8")
+    js_code = (PROJECT_DIR / "components" / "editor" / "markdown_shortcuts.js").read_text(encoding="utf-8")
     js_engine.evaluate(js_code)
     test_js = """
     (function() {
@@ -548,7 +548,7 @@ def test_qml():
 
     # 4. Тест контроллера таймлайна (getDaysList)
     import json
-    timeline_js = (PROJECT_DIR / "js" / "history" / "timeline_controller.js").read_text(encoding="utf-8")
+    timeline_js = (PROJECT_DIR / "components" / "history" / "timeline_controller.js").read_text(encoding="utf-8")
     clean_timeline_js = timeline_js.replace(".pragma library", "")
     js_engine.evaluate(clean_timeline_js)
     f = backend.get_default_folder()
@@ -588,14 +588,16 @@ def test_structure():
         "config/user/theme.json",
         "config/user/app.json",
         "config/user/markdown.json",
-        # JS-контроллеры и логика
+        # JS-контроллеры и логика фич (Feature-based)
         "views/web_lifecycle.js",
         "views/action_dispatcher.js",
-        "js/editor/markdown_shortcuts.js",
-        "js/editor/mainbar_controller.js",
-        "js/editor/outliner_controller.js",
-        "js/history/timeline_controller.js",
-        "js/graph/graph_physics.js",
+        "components/editor/markdown_shortcuts.js",
+        "components/editor/mainbar_controller.js",
+        "components/editor/outliner_controller.js",
+        "components/history/timeline_controller.js",
+        "components/graph/graph_physics.js",
+        "components/graph/graph_renderer.js",
+        "components/graph/graph_interaction.js",
         "js/tabs/tabs.js",
 
         # QML компоненты

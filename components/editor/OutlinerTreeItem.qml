@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "../theme"
-import "../../js/editor/outliner_controller.js" as OutlinerCtrl
+import "./outliner_controller.js" as OutlinerCtrl
 
 Item {
     id: itemRoot

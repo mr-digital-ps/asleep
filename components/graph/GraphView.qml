@@ -1,8 +1,8 @@
 import QtQuick
 import QtQuick.Controls
-import "../../js/graph/graph_physics.js" as Physics
-import "../../js/graph/graph_renderer.js" as Renderer
-import "../../js/graph/graph_interaction.js" as Interaction
+import "./graph_physics.js" as Physics
+import "./graph_renderer.js" as Renderer
+import "./graph_interaction.js" as Interaction
 import "../theme"
 
 Rectangle {

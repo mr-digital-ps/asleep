@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "../theme"
-import "../../js/history/timeline_controller.js" as TimelineCtrl
+import "./timeline_controller.js" as TimelineCtrl
 
 RowLayout {
     id: historyBarRoot

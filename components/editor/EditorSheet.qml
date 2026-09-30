@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "../../js/editor/mainbar_controller.js" as Controller
+import "./mainbar_controller.js" as Controller
 import "../graph"
 import "../theme"
 

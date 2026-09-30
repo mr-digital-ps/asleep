@@ -1,8 +1,8 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "../../js/editor/block_sync.js" as BlockSync
-import "../../js/editor/mainbar_controller.js" as Controller
+import "./block_sync.js" as BlockSync
+import "./mainbar_controller.js" as Controller
 import "../theme"
 
 Item {

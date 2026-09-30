@@ -1,8 +1,8 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "../../js/editor/markdown_shortcuts.js" as Markdown
-import "../../js/editor/editor_keys.js" as EditorKeys
+import "./markdown_shortcuts.js" as Markdown
+import "./editor_keys.js" as EditorKeys
 import "../theme"
 
 

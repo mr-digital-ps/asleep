@@ -7,7 +7,7 @@ import "../components/hotkeys"
 import "../components/theme"
 import "./web_lifecycle.js" as WebLifecycle
 import "../js/tabs/tabs.js" as Tabs
-import "../js/editor/markdown_shortcuts.js" as Markdown
+import "../components/editor/markdown_shortcuts.js" as Markdown
 
 Rectangle {
     id: root
