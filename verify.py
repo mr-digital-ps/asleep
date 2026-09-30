@@ -503,6 +503,14 @@ def test_qml():
     primary_bar.toggleCenteredMode()
     assert primary_bar.property("isCenteredMode") is True, "toggleCenteredMode должен переключать обратно в True"
 
+    # 2.2. Проверка toggleSplit (Фаза 4)
+    assert split.property("isSplit") is False, "Сплит по умолчанию должен быть выключен"
+    web_item.toggleSplit()
+    assert split.property("isSplit") is True, "toggleSplit должен включать режим двух панелей"
+    assert split.property("secondaryBar").property("visible") is True, "secondaryBar должна быть видима при включенном сплите"
+    web_item.toggleSplit()
+    assert split.property("isSplit") is False, "toggleSplit должен выключать режим двух панелей"
+
     # 3. Тест клиентской логики auto-pair скобок и кавычек в JS
     from PyQt6.QtQml import QJSEngine
     js_engine = QJSEngine()
