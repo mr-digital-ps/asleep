@@ -1,5 +1,6 @@
 # services/backend/file_handler.py — Обработчик файловых операций и заметок
 import json
+from datetime import datetime
 from pathlib import Path
 from PyQt6.QtCore import pyqtSlot, QUrl
 from services.storage.file_service import save_session_config
@@ -218,3 +219,31 @@ class FileHandlerMixin:
         except Exception as e:
             safe_print(f"[Backend] Ошибка создания заметки '{clean}': {e}")
             return ""
+
+    @pyqtSlot(str, result="QVariantMap")
+    @pyqtSlot(str, str, result="QVariantMap")
+    def get_file_created_time(self, file_url_or_path: str, folder_url: str = "") -> dict:
+        """Возвращает дату и время создания файла"""
+        folder = self.file_service.to_path(folder_url) if folder_url else self._current_folder
+        fpath = self.file_service.to_path(file_url_or_path)
+        if not fpath or not fpath.exists():
+            if folder and folder.is_dir():
+                cand = folder / file_url_or_path
+                if cand.exists():
+                    fpath = cand
+        if not fpath or not fpath.exists():
+            return {}
+        try:
+            st = fpath.stat()
+            # На Windows st_ctime — время создания файла
+            ctime = getattr(st, "st_ctime", st.st_mtime)
+            dt = datetime.fromtimestamp(ctime)
+            return {
+                "timestamp": ctime,
+                "createdAt": dt.strftime("%d.%m.%Y, %H:%M:%S"),
+                "iso": dt.isoformat(),
+                "fileName": fpath.name
+            }
+        except Exception as e:
+            safe_print(f"[Backend] Ошибка чтения времени создания файла: {e}")
+            return {}

@@ -148,7 +148,7 @@ class HistoryService:
                 description = f"Сохранение • {files_count} заметок, {links_count} связей"
 
         now = custom_timestamp if custom_timestamp is not None else time.time()
-        created_at_str = custom_created_at if custom_created_at is not None else datetime.fromtimestamp(now).strftime("%d.%m.%Y, %H:%M")
+        created_at_str = custom_created_at if custom_created_at is not None else datetime.fromtimestamp(now).strftime("%d.%m.%Y, %H:%M:%S")
 
         graph_blob = zlib.compress(json.dumps(graph_data).encode("utf-8"), level=6)
 

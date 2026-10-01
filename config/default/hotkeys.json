@@ -6,41 +6,41 @@
 
   // Полное скрытие/показ шапки (Header)
   "toggle_header": {
-    "keys": ["F9", "Ctrl+Shift+H", "Alt+H", "Ctrl+Shift+U", "Alt+U"],
+    "keys": ["F9", "Alt+U"],
     "description": "Показать / скрыть верхнюю панель управления (Header HUD)"
   },
   "toggle_header_footer": {
-    "keys": ["F9", "Ctrl+Shift+H", "Alt+H"],
+    "keys": ["F9"],
     "description": "Показать / скрыть заголовок (совместимость)"
   },
 
-  // 1. История изменений (Git Graph таймлайн)
+  // 1. История изменений (Git Graph таймлайн) — Alt+H или Ctrl+H
   "toggle_history": {
-    "keys": ["Ctrl+H", "Ctrl+Shift+G", "Alt+H"],
+    "keys": ["Alt+H", "Ctrl+H"],
     "description": "Показать / скрыть историю изменений (Git Graph таймлайн)"
   },
 
-  // 2. Информация и статистика (слов, символов, байт)
+  // 2. Информация и статистика (слов, символов, байт) — строго Alt+I
   "toggle_info": {
-    "keys": ["Alt+I", "Ctrl+Shift+I"],
+    "keys": ["Alt+I"],
     "description": "Показать / скрыть информацию и статистику документа"
   },
 
-  // 3. Поиск по документу (Search bar)
+  // 3. Поиск по документу (Search bar) — строго Ctrl+F
   "toggle_search": {
     "keys": ["Ctrl+F"],
     "description": "Показать / скрыть панель поиска (Search Bar)"
   },
 
-  // 4. Переключение отображения имени / полного пути к файлу
+  // 4. Переключение отображения имени / полного пути к файлу — строго Alt+P
   "toggle_path": {
-    "keys": ["Ctrl+Alt+P", "Alt+Shift+P"],
+    "keys": ["Alt+P"],
     "description": "Показать / скрыть путь к файлу (Path / Name)"
   },
 
-  // 5. Переключение панели вкладок (Tab bar)
+  // 5. Переключение панели вкладок (Tab bar) — строго Alt+T
   "toggle_tabs": {
-    "keys": ["Ctrl+T", "Alt+T"],
+    "keys": ["Alt+T"],
     "description": "Показать / скрыть панель вкладок (Tab Bar)"
   },
 
@@ -130,13 +130,13 @@
 
   // Переключение режима локальной иерархии блоков документа (Outliner)
   "toggle_outline": {
-    "keys": ["Alt+P", "Ctrl+E", "Ctrl+Shift+E"],
+    "keys": ["Ctrl+E"],
     "description": "Переключить режим локальной иерархии блоков (Outliner / Текст)"
   },
 
   // Открытие глобальной структуры проекта (_Структура.md)
   "open_structure": {
-    "keys": ["Ctrl+P", "Ctrl+Shift+P"],
+    "keys": ["Ctrl+P"],
     "description": "Открыть глобальную структуру проекта (_Структура.md)"
   }
 }

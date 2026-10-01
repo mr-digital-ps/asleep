@@ -76,7 +76,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         color: Theme.bgHeader
-        visible: headerRoot.isPinned || (headerRoot.headerMode !== "title") || headerRoot.isGraphMode
+        visible: headerRoot.isPinned || headerRoot.isGraphMode
     }
 
     MouseArea {
@@ -181,6 +181,23 @@ Item {
                 activeFocusOnTab: false
                 background: null
 
+                Connections {
+                    target: headerRoot
+                    function onShowPathChanged() {
+                        titleField.text = headerRoot.showPath && headerRoot.fileUrl ? headerRoot.fileUrl.replace(/^file:\/\/\/?/, "") : headerRoot.stripExt(headerRoot.fileName)
+                    }
+                    function onFileNameChanged() {
+                        if (!titleField.activeFocus) {
+                            titleField.text = headerRoot.showPath && headerRoot.fileUrl ? headerRoot.fileUrl.replace(/^file:\/\/\/?/, "") : headerRoot.stripExt(headerRoot.fileName)
+                        }
+                    }
+                    function onFileUrlChanged() {
+                        if (!titleField.activeFocus) {
+                            titleField.text = headerRoot.showPath && headerRoot.fileUrl ? headerRoot.fileUrl.replace(/^file:\/\/\/?/, "") : headerRoot.stripExt(headerRoot.fileName)
+                        }
+                    }
+                }
+
                 property string originalText: ""
 
                 Timer {
@@ -192,13 +209,6 @@ Item {
 
                 onTextEdited: {
                     titleDebounceTimer.restart()
-                }
-
-                Binding {
-                    target: titleField
-                    property: "text"
-                    value: headerRoot.showPath && headerRoot.fileUrl ? headerRoot.fileUrl.replace(/^file:\/\/\/?/, "") : headerRoot.stripExt(headerRoot.fileName)
-                    when: !titleField.activeFocus
                 }
 
                 function commitTitle() {

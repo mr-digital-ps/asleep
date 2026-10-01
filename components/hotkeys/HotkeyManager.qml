@@ -79,6 +79,11 @@ Item {
         return event.key === Qt.Key_I || event.nativeScanCode === 23 || event.text === 'i' || event.text === 'I' || event.text === 'ш' || event.text === 'Ш' || event.key === 1080 || event.key === 1048 || event.key === 1096 || event.key === 1064
     }
 
+    function isKeyT(event) {
+        // T (scan 20, Russian 'е')
+        return event.key === Qt.Key_T || event.nativeScanCode === 20 || event.text === 't' || event.text === 'T' || event.text === 'е' || event.text === 'Е' || event.key === 1077 || event.key === 1045
+    }
+
     function handleKeyEvent(event) {
         if (isCloseKey(event)) {
             hotkeyRoot.closeActiveTabRequested()
@@ -87,25 +92,25 @@ Item {
         }
 
         // Локальные комбинации с Alt:
-        // Alt + G: локальный граф
-        // Alt + P: аутлайнер
-        // Alt + U: заголовок (Header)
         // Alt + H: история изменений (History)
+        // Alt + P: имя / полный путь к файлу (Path / Name)
         // Alt + I: информация и статистика (Information)
         // Alt + T: вкладки (Tabs)
-        if (event.modifiers & Qt.AltModifier) {
+        // Alt + U: заголовок (Header)
+        // Alt + G: локальный граф
+        if ((event.modifiers & Qt.AltModifier) && !(event.modifiers & Qt.ControlModifier)) {
+            if (isKeyH(event)) {
+                hotkeyRoot.actionTriggered("toggle_history")
+                event.accepted = true
+                return true
+            }
             if (isKeyG(event)) {
                 hotkeyRoot.actionTriggered("toggle_local_graph")
                 event.accepted = true
                 return true
             }
             if (isKeyP(event)) {
-                if (event.modifiers & Qt.ControlModifier) {
-                    hotkeyRoot.actionTriggered("toggle_path")
-                    event.accepted = true
-                    return true
-                }
-                hotkeyRoot.actionTriggered("toggle_outline")
+                hotkeyRoot.actionTriggered("toggle_path")
                 event.accepted = true
                 return true
             }
@@ -114,13 +119,13 @@ Item {
                 event.accepted = true
                 return true
             }
-            if (isKeyH(event)) {
-                hotkeyRoot.actionTriggered("toggle_history")
+            if (isKeyI(event)) {
+                hotkeyRoot.actionTriggered("toggle_info")
                 event.accepted = true
                 return true
             }
-            if (isKeyI(event)) {
-                hotkeyRoot.actionTriggered("toggle_info")
+            if (isKeyT(event)) {
+                hotkeyRoot.actionTriggered("toggle_tabs")
                 event.accepted = true
                 return true
             }
@@ -128,25 +133,16 @@ Item {
 
         // Глобальные комбинации с Ctrl:
         // Ctrl + H: история изменений (History)
-        // Ctrl + I: информация и статистика (Information)
         // Ctrl + F: поиск (Search)
-        // Ctrl + T: вкладки (Tabs)
+        // Ctrl + E: оглавление / аутлайнер (Outline)
+        // Ctrl + P: палитра / структура проекта (Structure)
         // Ctrl + G: глобальный граф
-        // Ctrl + P: структура проекта
-        if (event.modifiers & Qt.ControlModifier) {
-            // H (35, 'h', 'р')
+        if ((event.modifiers & Qt.ControlModifier) && !(event.modifiers & Qt.AltModifier)) {
             if (isKeyH(event)) {
                 hotkeyRoot.actionTriggered("toggle_history")
                 event.accepted = true
                 return true
             }
-            // I (23, 'i', 'ш')
-            if (isKeyI(event)) {
-                hotkeyRoot.actionTriggered("toggle_info")
-                event.accepted = true
-                return true
-            }
-            // F (33, 'f', 'а')
             if (isKeyF(event) && !(event.modifiers & Qt.ShiftModifier)) {
                 hotkeyRoot.actionTriggered("toggle_search")
                 event.accepted = true

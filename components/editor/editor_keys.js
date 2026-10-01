@@ -86,10 +86,9 @@ function isCenteredModeKey(event) {
 
 function isToggleHeaderFooterKey(event) {
     if (event.key === Qt.Key_F9 || event.nativeScanCode === 67) return true
-    // H (scan 35, 'р')
+    // H (scan 35, 'р') with Ctrl+Shift+H only (Alt+H отдан истории)
     var isH = (event.key === Qt.Key_H || event.nativeScanCode === 35 || event.key === 1056 || event.key === 1088 || event.text === 'h' || event.text === 'H' || event.text === 'р' || event.text === 'Р')
     if ((event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.ShiftModifier) && isH) return true
-    if ((event.modifiers & Qt.AltModifier) && isH) return true
     return false
 }
 
@@ -103,41 +102,40 @@ function isToggleFooterKey(event) {
 }
 
 function isToggleHistoryKey(event) {
-    // H (scan 35, 'р') with Ctrl, or Alt+H
+    // H (scan 35, 'р') с Alt+H или Ctrl+H
     var isH = (event.key === Qt.Key_H || event.nativeScanCode === 35 || event.key === 1056 || event.key === 1088 || event.text === 'h' || event.text === 'H' || event.text === 'р' || event.text === 'Р')
-    if ((event.modifiers & Qt.ControlModifier) && isH) return true
-    if ((event.modifiers & Qt.AltModifier) && isH) return true
+    if (isH) {
+        if ((event.modifiers & Qt.AltModifier) && !(event.modifiers & Qt.ControlModifier)) return true
+        if ((event.modifiers & Qt.ControlModifier) && !(event.modifiers & Qt.AltModifier) && !(event.modifiers & Qt.ShiftModifier)) return true
+    }
     return false
 }
 
 function isToggleInfoKey(event) {
-    // I (scan 23, 'ш') with Ctrl, or Alt+I
+    // I (scan 23, 'ш') with Alt only (1 буква = 1 действие)
     var isI = (event.key === Qt.Key_I || event.nativeScanCode === 23 || event.key === 1080 || event.key === 1048 || event.key === 1096 || event.key === 1064 || event.text === 'i' || event.text === 'I' || event.text === 'ш' || event.text === 'Ш')
-    if ((event.modifiers & Qt.ControlModifier) && isI) return true
-    if ((event.modifiers & Qt.AltModifier) && isI) return true
+    if ((event.modifiers & Qt.AltModifier) && !(event.modifiers & Qt.ControlModifier) && isI) return true
     return false
 }
 
 function isToggleSearchKey(event) {
     // F (scan 33, 'а') with Ctrl
     var isF = (event.key === Qt.Key_F || event.nativeScanCode === 33 || event.key === 1040 || event.key === 1072 || event.text === 'f' || event.text === 'F' || event.text === 'а' || event.text === 'А')
-    if ((event.modifiers & Qt.ControlModifier) && !(event.modifiers & Qt.ShiftModifier) && isF) return true
+    if ((event.modifiers & Qt.ControlModifier) && !(event.modifiers & Qt.ShiftModifier) && !(event.modifiers & Qt.AltModifier) && isF) return true
     return false
 }
 
 function isTogglePathKey(event) {
-    // P (scan 25, 'з') with Ctrl+Alt or Alt+Shift
+    // P (scan 25, 'з') with Alt only (Ctrl+Alt+P удален, теперь просто Alt+P)
     var isP = (event.key === Qt.Key_P || event.nativeScanCode === 25 || event.key === 1047 || event.key === 1079 || event.text === 'p' || event.text === 'P' || event.text === 'з' || event.text === 'З')
-    if ((event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.AltModifier) && isP) return true
-    if ((event.modifiers & Qt.AltModifier) && (event.modifiers & Qt.ShiftModifier) && isP) return true
+    if ((event.modifiers & Qt.AltModifier) && !(event.modifiers & Qt.ControlModifier) && !(event.modifiers & Qt.ShiftModifier) && isP) return true
     return false
 }
 
 function isToggleTabsKey(event) {
-    // T (scan 20, 'е') with Ctrl or Alt
+    // T (scan 20, 'е') with Alt only (Ctrl+T зарезервирован под вкладки браузера/терминала, Alt+T переключает панель вкладок)
     var isT = (event.key === Qt.Key_T || event.nativeScanCode === 20 || event.key === 1045 || event.key === 1077 || event.text === 't' || event.text === 'T' || event.text === 'е' || event.text === 'Е')
-    if ((event.modifiers & Qt.ControlModifier) && isT) return true
-    if ((event.modifiers & Qt.AltModifier) && isT) return true
+    if ((event.modifiers & Qt.AltModifier) && !(event.modifiers & Qt.ControlModifier) && isT) return true
     return false
 }
 

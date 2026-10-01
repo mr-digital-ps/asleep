@@ -22,7 +22,7 @@ Item {
     anchors.bottom: editorScroll ? editorScroll.bottom : (parent ? parent.bottom : undefined)
     anchors.bottomMargin: 16
     x: paperSheet ? Math.round(paperSheet.x + paperSheet.width - barSize) : 0
-    z: 10
+    z: 30
     readonly property real totalHeight: (editorScroll && editorScroll.contentItem) ? editorScroll.contentItem.contentHeight : 0
     readonly property real viewHeight: editorScroll ? editorScroll.availableHeight : 1
     readonly property real scrollY: (editorScroll && editorScroll.contentItem) ? editorScroll.contentItem.contentY : 0

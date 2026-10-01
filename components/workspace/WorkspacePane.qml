@@ -273,9 +273,9 @@ Item {
         statsText: workspacePane.isGraphMode ? workspacePane.graphStatsText : workspacePane.statsString
         visible: workspacePane.showHeader && (!workspacePane.isEmpty || workspacePane.isGraphMode)
 
-        // Закрепление: когда закреплен (isPinned) или в режиме графа/истории — прибит к верху (y = 0).
+        // Закрепление: когда закреплен (isPinned) или в режиме графа — прибит к верху (y = 0).
         // Когда откреплен (!isPinned) — уезжает вверх вместе со скроллом листа (y = -scrollY) и скрывается.
-        y: (workspacePane.isHeaderPinned || workspacePane.isGraphMode || paneHeader.headerMode !== "title")
+        y: (workspacePane.isHeaderPinned || workspacePane.isGraphMode)
             ? 0
             : -Math.min(paneHeader.height, workspacePane.scrollY)
 

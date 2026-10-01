@@ -59,6 +59,8 @@ function formatDateDMY(item) {
 
 function formatSnapshotLabel(item) {
     if (!item) return ""
+    if (item.isLive) return "Live (Сейчас)"
+    if (item.isCreation) return "Создан"
     var str = item.createdAt || ""
     if (!str) return "Срез"
     return formatTime12(item)
@@ -76,7 +78,9 @@ function getDaysList(list) {
             dateStr: formatDateDMY(item),
             snapshotIndex: i,
             snapshotId: item.id,
-            snapshot: item
+            snapshot: item,
+            isLive: !!item.isLive,
+            isCreation: !!item.isCreation
         })
     }
     return daysArr
