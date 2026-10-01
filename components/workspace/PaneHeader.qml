@@ -31,17 +31,8 @@ Item {
     property bool showPath: false
 
     // Безопасные размеры с дефолтными значениями, если Theme еще не инициализирован
-    readonly property int compactHeight: (typeof Theme !== "undefined" && Theme && Theme.headerCompactHeight) ? Theme.headerCompactHeight : 40
-    readonly property int expandedHeight: (typeof Theme !== "undefined" && Theme && Theme.headerExpandedHeight) ? Theme.headerExpandedHeight : 76
-    readonly property int targetHeight: (headerMode === "title") ? compactHeight : expandedHeight
-    property int effectiveHeight: targetHeight
-
-    Behavior on effectiveHeight {
-        NumberAnimation {
-            duration: 180
-            easing.type: Easing.OutCubic
-        }
-    }
+    readonly property int barHeight: (typeof Theme !== "undefined" && Theme && Theme.headerCompactHeight) ? Theme.headerCompactHeight : 40
+    property int effectiveHeight: barHeight
 
     property alias titleField: titleField
 
@@ -121,22 +112,55 @@ Item {
         spacing: 0
 
         // =====================================================================
-        // 1. Верхний ряд: заголовок документа или графа
+        // Единый контентный ряд: заменяет заголовок на Timeline, Info, Path и т.д.
         // =====================================================================
         RowLayout {
             id: mainHeaderRow
             Layout.fillWidth: true
-            Layout.preferredHeight: 38
-            Layout.minimumHeight: 38
-            Layout.maximumHeight: 38
+            Layout.fillHeight: true
             Layout.leftMargin: headerRoot.barSize
             Layout.rightMargin: headerRoot.barSize
             spacing: 8
 
-            // 1.1 Текстовый заголовок документа
+            // 1. РЕЖИМ HISTORY: заменяет название файла таймлайном
+            HistoryTimelineBar {
+                id: headerHistoryBar
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                visible: headerRoot.headerMode === "history"
+                folderUrl: headerRoot.folderUrl
+                fileUrl: headerRoot.fileUrl
+                mode: (headerRoot.isGraphMode || headerRoot.isProjectTree) ? "project" : "note"
+                statsText: headerRoot.statsText
+
+                onActivated: headerRoot.paneActivated()
+                onSnapshotSelected: (snapshotId) => headerRoot.snapshotSelected(snapshotId)
+                onLiveRequested: headerRoot.liveRequested()
+            }
+
+            // 2. РЕЖИМ INFO: заменяет название файла статистикой
+            RowLayout {
+                id: headerInfoBar
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                visible: headerRoot.headerMode === "info"
+                spacing: 8
+
+                Text {
+                    Layout.fillWidth: true
+                    Layout.alignment: Qt.AlignVCenter
+                    text: headerRoot.statsText
+                    font.pixelSize: 13
+                    color: Theme.textSecondary
+                    elide: Text.ElideRight
+                }
+            }
+
+            // 3. РЕЖИМ TITLE (по умолчанию)
+            // 3.1 Текстовый заголовок документа (редактируемый)
             TextField {
                 id: titleField
-                visible: !headerRoot.isGraphMode
+                visible: headerRoot.headerMode === "title" && !headerRoot.isGraphMode
                 objectName: "titleField"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -146,7 +170,7 @@ Item {
                 rightPadding: headerRoot.contentRightPadding
                 topPadding: 4
                 bottomPadding: 4
-                text: headerRoot.stripExt(headerRoot.fileName)
+                text: headerRoot.showPath && headerRoot.fileUrl ? headerRoot.fileUrl.replace(/^file:\/\/\/?/, "") : headerRoot.stripExt(headerRoot.fileName)
                 font.pixelSize: 17
                 font.bold: true
                 color: (headerRoot.isSplitMode && !headerRoot.isActivePane) ? Theme.textSecondary : Theme.textPrimary
@@ -174,7 +198,7 @@ Item {
                 Binding {
                     target: titleField
                     property: "text"
-                    value: headerRoot.stripExt(headerRoot.fileName)
+                    value: headerRoot.showPath && headerRoot.fileUrl ? headerRoot.fileUrl.replace(/^file:\/\/\/?/, "") : headerRoot.stripExt(headerRoot.fileName)
                     when: !titleField.activeFocus
                 }
 
@@ -223,10 +247,10 @@ Item {
                 }
             }
 
-            // 1.2 Заголовок графа связей
+            // 3.2 Заголовок графа связей
             RowLayout {
                 id: graphTitleArea
-                visible: headerRoot.isGraphMode
+                visible: headerRoot.headerMode === "title" && headerRoot.isGraphMode
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 spacing: 8
@@ -261,73 +285,16 @@ Item {
 
                 Item { Layout.fillWidth: true }
             }
-
-            // Путь к файлу при включенном режиме showPath
-            Text {
-                visible: !headerRoot.isGraphMode && headerRoot.showPath && headerRoot.fileUrl !== ""
-                Layout.alignment: Qt.AlignVCenter
-                text: headerRoot.fileUrl.replace(/^file:\/\/\/?/, "")
-                font.pixelSize: 11
-                color: Theme.textMuted
-                elide: Text.ElideLeft
-                Layout.maximumWidth: 280
-            }
         }
 
         // =====================================================================
-        // 2. Раскрывающийся контекстный контейнер (Drawer): History или Info
-        // =====================================================================
-        Item {
-            id: headerDrawerArea
-            Layout.fillWidth: true
-            Layout.preferredHeight: (headerRoot.headerMode !== "title") ? 34 : 0
-            Layout.maximumHeight: (headerRoot.headerMode !== "title") ? 34 : 0
-            Layout.leftMargin: headerRoot.barSize
-            Layout.rightMargin: headerRoot.barSize
-            clip: true
-            visible: headerRoot.headerMode !== "title"
-
-            // Режим "history": Git Graph таймлайн ревизий
-            HistoryTimelineBar {
-                id: headerHistoryBar
-                anchors.fill: parent
-                visible: headerRoot.headerMode === "history"
-                folderUrl: headerRoot.folderUrl
-                fileUrl: headerRoot.fileUrl
-                mode: (headerRoot.isGraphMode || headerRoot.isProjectTree) ? "project" : "note"
-                statsText: headerRoot.statsText
-
-                onActivated: headerRoot.paneActivated()
-                onSnapshotSelected: (snapshotId) => headerRoot.snapshotSelected(snapshotId)
-                onLiveRequested: headerRoot.liveRequested()
-            }
-
-            // Режим "info": Статистика документа/графа
-            RowLayout {
-                id: headerInfoBar
-                anchors.fill: parent
-                visible: headerRoot.headerMode === "info"
-                spacing: 8
-
-                Text {
-                    Layout.fillWidth: true
-                    Layout.alignment: Qt.AlignVCenter
-                    text: headerRoot.statsText
-                    font.pixelSize: 12
-                    color: Theme.textSecondary
-                    elide: Text.ElideRight
-                }
-            }
-        }
-
-        // =====================================================================
-        // 3. Разделительная нижняя линия (клик = закрепить/открепить)
+        // Разделительная нижняя линия (клик = закрепить/открепить)
         // =====================================================================
         Item {
             id: headerDividerArea
             Layout.fillWidth: true
-            Layout.preferredHeight: 4
-            Layout.maximumHeight: 4
+            Layout.preferredHeight: 2
+            Layout.maximumHeight: 2
             Layout.leftMargin: headerRoot.barSize
             Layout.rightMargin: headerRoot.barSize
 
