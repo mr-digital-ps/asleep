@@ -51,6 +51,36 @@ Item {
         }
     }
 
+    function toggleHistoryMode() {
+        if (paneHeader) {
+            paneHeader.toggleHistoryMode()
+        }
+    }
+
+    function toggleInfoMode() {
+        if (paneHeader) {
+            paneHeader.toggleInfoMode()
+        }
+    }
+
+    function toggleSearchMode() {
+        if (paneHeader) {
+            paneHeader.toggleSearchMode()
+        }
+    }
+
+    function togglePathMode() {
+        if (paneHeader) {
+            paneHeader.togglePathMode()
+        }
+    }
+
+    function toggleTabsMode() {
+        if (paneHeader) {
+            paneHeader.toggleTabsMode()
+        }
+    }
+
     function toggleHeaderOnly() {
         Controller.toggleHeaderOnly(workspacePane, (typeof backend !== "undefined" ? backend : null))
     }
@@ -375,6 +405,11 @@ Item {
                 onToggleHeaderFooterRequested: workspacePane.toggleHeaderFooter()
                 onToggleFooterRequested: workspacePane.toggleFooterOnly()
                 onToggleFooterModeRequested: workspacePane.toggleFooterMode()
+                onToggleHistoryRequested: workspacePane.toggleHistoryMode()
+                onToggleInfoRequested: workspacePane.toggleInfoMode()
+                onToggleSearchRequested: workspacePane.toggleSearchMode()
+                onTogglePathRequested: workspacePane.togglePathMode()
+                onToggleTabsRequested: workspacePane.toggleTabsMode()
                 onToggleHeaderRequested: workspacePane.toggleHeaderOnly()
                 onToggleCenteredModeRequested: workspacePane.isCenteredMode = !workspacePane.isCenteredMode
                 onTextChangedByUser: {

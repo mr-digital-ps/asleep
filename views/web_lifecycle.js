@@ -717,9 +717,34 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Mark
         case "toggle_header":
             applyToBothBars(splitLayout, "toggleHeaderOnly")
             break
+        case "toggle_history":
+            var barHist = getActiveBar(root, splitLayout)
+            if (barHist && typeof barHist.toggleHistoryMode === "function") {
+                barHist.toggleHistoryMode()
+            }
+            break
+        case "toggle_info":
+            var barInfo = getActiveBar(root, splitLayout)
+            if (barInfo && typeof barInfo.toggleInfoMode === "function") {
+                barInfo.toggleInfoMode()
+            }
+            break
         case "toggle_search":
-            if (splitLayout && typeof splitLayout.toggleSearch === "function") {
-                splitLayout.toggleSearch()
+            var barSearch = getActiveBar(root, splitLayout)
+            if (barSearch && typeof barSearch.toggleSearchMode === "function") {
+                barSearch.toggleSearchMode()
+            }
+            break
+        case "toggle_path":
+            var barPath = getActiveBar(root, splitLayout)
+            if (barPath && typeof barPath.togglePathMode === "function") {
+                barPath.togglePathMode()
+            }
+            break
+        case "toggle_tabs":
+            var barTabs = getActiveBar(root, splitLayout)
+            if (barTabs && typeof barTabs.toggleTabsMode === "function") {
+                barTabs.toggleTabsMode()
             }
             break
         case "toggle_split":

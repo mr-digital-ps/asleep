@@ -90,9 +90,9 @@ Item {
         // Alt + G: локальный граф
         // Alt + P: аутлайнер
         // Alt + U: заголовок (Header)
-        // Alt + I: режим подвала (History <-> Information)
-        // Alt + K / Alt + F: подвал (Footer)
-        // Alt + H: заголовок и подвал (Header + Footer)
+        // Alt + H: история изменений (History)
+        // Alt + I: информация и статистика (Information)
+        // Alt + T: вкладки (Tabs)
         if (event.modifiers & Qt.AltModifier) {
             if (isKeyG(event)) {
                 hotkeyRoot.actionTriggered("toggle_local_graph")
@@ -100,6 +100,11 @@ Item {
                 return true
             }
             if (isKeyP(event)) {
+                if (event.modifiers & Qt.ControlModifier) {
+                    hotkeyRoot.actionTriggered("toggle_path")
+                    event.accepted = true
+                    return true
+                }
                 hotkeyRoot.actionTriggered("toggle_outline")
                 event.accepted = true
                 return true
@@ -109,25 +114,44 @@ Item {
                 event.accepted = true
                 return true
             }
-            if (isKeyI(event)) {
-                hotkeyRoot.actionTriggered("toggle_footer_mode")
-                event.accepted = true
-                return true
-            }
-            if (isKeyK(event) || isKeyF(event)) {
-                hotkeyRoot.actionTriggered("toggle_footer")
-                event.accepted = true
-                return true
-            }
             if (isKeyH(event)) {
-                hotkeyRoot.actionTriggered("toggle_header_footer")
+                hotkeyRoot.actionTriggered("toggle_history")
+                event.accepted = true
+                return true
+            }
+            if (isKeyI(event)) {
+                hotkeyRoot.actionTriggered("toggle_info")
                 event.accepted = true
                 return true
             }
         }
 
-        // Глобальные: Ctrl + G (Глобальный граф), Ctrl + P (Глобальная структура)
+        // Глобальные комбинации с Ctrl:
+        // Ctrl + H: история изменений (History)
+        // Ctrl + I: информация и статистика (Information)
+        // Ctrl + F: поиск (Search)
+        // Ctrl + T: вкладки (Tabs)
+        // Ctrl + G: глобальный граф
+        // Ctrl + P: структура проекта
         if (event.modifiers & Qt.ControlModifier) {
+            // H (35, 'h', 'р')
+            if (isKeyH(event)) {
+                hotkeyRoot.actionTriggered("toggle_history")
+                event.accepted = true
+                return true
+            }
+            // I (23, 'i', 'ш')
+            if (isKeyI(event)) {
+                hotkeyRoot.actionTriggered("toggle_info")
+                event.accepted = true
+                return true
+            }
+            // F (33, 'f', 'а')
+            if (isKeyF(event) && !(event.modifiers & Qt.ShiftModifier)) {
+                hotkeyRoot.actionTriggered("toggle_search")
+                event.accepted = true
+                return true
+            }
             if (isKeyG(event)) {
                 hotkeyRoot.actionTriggered("toggle_graph")
                 event.accepted = true

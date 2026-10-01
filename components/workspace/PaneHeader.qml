@@ -26,11 +26,14 @@ Item {
     property real contentRightPadding: 0
     property string statsText: ""
 
-    // Режим работы хедера: "title" (по умолчанию, компактный) | "history" (Git Graph таймлайн) | "info" (статистика)
+    // Режим работы хедера: "title" (по умолчанию, компактный) | "history" (Git Graph таймлайн) | "info" (статистика) | "search" | "path" | "tabs"
     property string headerMode: "title"
+    property bool showPath: false
 
-    // Реактивная плавающая высота с плавной анимацией
-    readonly property int targetHeight: (headerMode === "title") ? Theme.headerCompactHeight : Theme.headerExpandedHeight
+    // Безопасные размеры с дефолтными значениями, если Theme еще не инициализирован
+    readonly property int compactHeight: (typeof Theme !== "undefined" && Theme && Theme.headerCompactHeight) ? Theme.headerCompactHeight : 40
+    readonly property int expandedHeight: (typeof Theme !== "undefined" && Theme && Theme.headerExpandedHeight) ? Theme.headerExpandedHeight : 76
+    readonly property int targetHeight: (headerMode === "title") ? compactHeight : expandedHeight
     property int effectiveHeight: targetHeight
 
     Behavior on effectiveHeight {
@@ -64,6 +67,18 @@ Item {
 
     function toggleInfoMode() {
         setMode("info")
+    }
+
+    function toggleSearchMode() {
+        setMode("search")
+    }
+
+    function togglePathMode() {
+        showPath = !showPath
+    }
+
+    function toggleTabsMode() {
+        setMode("tabs")
     }
 
     function stripExt(name) {
@@ -247,80 +262,15 @@ Item {
                 Item { Layout.fillWidth: true }
             }
 
-            // 1.3 Правые контекстные переключатели режимов хедера (History, Info)
-            RowLayout {
+            // Путь к файлу при включенном режиме showPath
+            Text {
+                visible: !headerRoot.isGraphMode && headerRoot.showPath && headerRoot.fileUrl !== ""
                 Layout.alignment: Qt.AlignVCenter
-                spacing: 4
-
-                // Кнопка переключения Истории (Git Graph таймлайн)
-                Rectangle {
-                    width: 26
-                    height: 22
-                    radius: 4
-                    color: (headerRoot.headerMode === "history")
-                        ? Theme.bgHover
-                        : (histMouse.containsMouse ? Theme.bgHover : "transparent")
-                    border.color: (headerRoot.headerMode === "history")
-                        ? Theme.textSecondary
-                        : (histMouse.containsMouse ? Theme.borderHover : "transparent")
-                    border.width: 1
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: "◷"
-                        font.pixelSize: 13
-                        color: (headerRoot.headerMode === "history") ? Theme.textPrimary : Theme.textSecondary
-                    }
-
-                    MouseArea {
-                        id: histMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            headerRoot.paneActivated()
-                            headerRoot.toggleHistoryMode()
-                        }
-                    }
-                    ToolTip.visible: histMouse.containsMouse
-                    ToolTip.delay: 300
-                    ToolTip.text: "История изменений (таймлайн)"
-                }
-
-                // Кнопка переключения Статистики (слов, знаков)
-                Rectangle {
-                    width: 26
-                    height: 22
-                    radius: 4
-                    color: (headerRoot.headerMode === "info")
-                        ? Theme.bgHover
-                        : (infoMouse.containsMouse ? Theme.bgHover : "transparent")
-                    border.color: (headerRoot.headerMode === "info")
-                        ? Theme.textSecondary
-                        : (infoMouse.containsMouse ? Theme.borderHover : "transparent")
-                    border.width: 1
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: "ℹ"
-                        font.pixelSize: 12
-                        color: (headerRoot.headerMode === "info") ? Theme.textPrimary : Theme.textSecondary
-                    }
-
-                    MouseArea {
-                        id: infoMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            headerRoot.paneActivated()
-                            headerRoot.toggleInfoMode()
-                        }
-                    }
-                    ToolTip.visible: infoMouse.containsMouse
-                    ToolTip.delay: 300
-                    ToolTip.text: "Информация и статистика"
-                }
+                text: headerRoot.fileUrl.replace(/^file:\/\/\/?/, "")
+                font.pixelSize: 11
+                color: Theme.textMuted
+                elide: Text.ElideLeft
+                Layout.maximumWidth: 280
             }
         }
 

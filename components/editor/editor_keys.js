@@ -102,10 +102,42 @@ function isToggleFooterKey(event) {
     return false
 }
 
-function isToggleFooterModeKey(event) {
-    // I (scan 23, 'ш')
+function isToggleHistoryKey(event) {
+    // H (scan 35, 'р') with Ctrl, or Alt+H
+    var isH = (event.key === Qt.Key_H || event.nativeScanCode === 35 || event.key === 1056 || event.key === 1088 || event.text === 'h' || event.text === 'H' || event.text === 'р' || event.text === 'Р')
+    if ((event.modifiers & Qt.ControlModifier) && isH) return true
+    if ((event.modifiers & Qt.AltModifier) && isH) return true
+    return false
+}
+
+function isToggleInfoKey(event) {
+    // I (scan 23, 'ш') with Ctrl, or Alt+I
     var isI = (event.key === Qt.Key_I || event.nativeScanCode === 23 || event.key === 1080 || event.key === 1048 || event.key === 1096 || event.key === 1064 || event.text === 'i' || event.text === 'I' || event.text === 'ш' || event.text === 'Ш')
+    if ((event.modifiers & Qt.ControlModifier) && isI) return true
     if ((event.modifiers & Qt.AltModifier) && isI) return true
+    return false
+}
+
+function isToggleSearchKey(event) {
+    // F (scan 33, 'а') with Ctrl
+    var isF = (event.key === Qt.Key_F || event.nativeScanCode === 33 || event.key === 1040 || event.key === 1072 || event.text === 'f' || event.text === 'F' || event.text === 'а' || event.text === 'А')
+    if ((event.modifiers & Qt.ControlModifier) && !(event.modifiers & Qt.ShiftModifier) && isF) return true
+    return false
+}
+
+function isTogglePathKey(event) {
+    // P (scan 25, 'з') with Ctrl+Alt or Alt+Shift
+    var isP = (event.key === Qt.Key_P || event.nativeScanCode === 25 || event.key === 1047 || event.key === 1079 || event.text === 'p' || event.text === 'P' || event.text === 'з' || event.text === 'З')
+    if ((event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.AltModifier) && isP) return true
+    if ((event.modifiers & Qt.AltModifier) && (event.modifiers & Qt.ShiftModifier) && isP) return true
+    return false
+}
+
+function isToggleTabsKey(event) {
+    // T (scan 20, 'е') with Ctrl or Alt
+    var isT = (event.key === Qt.Key_T || event.nativeScanCode === 20 || event.key === 1045 || event.key === 1077 || event.text === 't' || event.text === 'T' || event.text === 'е' || event.text === 'Е')
+    if ((event.modifiers & Qt.ControlModifier) && isT) return true
+    if ((event.modifiers & Qt.AltModifier) && isT) return true
     return false
 }
 
@@ -120,10 +152,13 @@ function isToggleHeaderKey(event) {
 // Перехват шорткатов на уровне ShortcutOverride сообщает Qt, что активный редактор забирает комбинацию себе
 function handleShortcutOverride(event, canvasRoot, editorArea, Markdown) {
     if (isCloseKey(event) ||
-        isToggleHeaderFooterKey(event) ||
-        isToggleFooterKey(event) ||
-        isToggleFooterModeKey(event) ||
+        isToggleHistoryKey(event) ||
+        isToggleInfoKey(event) ||
+        isToggleSearchKey(event) ||
+        isTogglePathKey(event) ||
+        isToggleTabsKey(event) ||
         isToggleHeaderKey(event) ||
+        isToggleHeaderFooterKey(event) ||
         isCenteredModeKey(event) ||
         isSaveKey(event) ||
         isNewKey(event) ||
@@ -167,19 +202,34 @@ function handleKeyPressed(event, canvasRoot, editorArea, Markdown) {
         canvasRoot.closeRequested()
         return true
     }
+    if (isToggleHistoryKey(event)) {
+        event.accepted = true
+        canvasRoot.toggleHistoryRequested()
+        return true
+    }
+    if (isToggleInfoKey(event)) {
+        event.accepted = true
+        canvasRoot.toggleInfoRequested()
+        return true
+    }
+    if (isToggleSearchKey(event)) {
+        event.accepted = true
+        canvasRoot.toggleSearchRequested()
+        return true
+    }
+    if (isTogglePathKey(event)) {
+        event.accepted = true
+        canvasRoot.togglePathRequested()
+        return true
+    }
+    if (isToggleTabsKey(event)) {
+        event.accepted = true
+        canvasRoot.toggleTabsRequested()
+        return true
+    }
     if (isToggleHeaderFooterKey(event)) {
         event.accepted = true
         canvasRoot.toggleHeaderFooterRequested()
-        return true
-    }
-    if (isToggleFooterKey(event)) {
-        event.accepted = true
-        canvasRoot.toggleFooterRequested()
-        return true
-    }
-    if (isToggleFooterModeKey(event)) {
-        event.accepted = true
-        canvasRoot.toggleFooterModeRequested()
         return true
     }
     if (isToggleHeaderKey(event)) {

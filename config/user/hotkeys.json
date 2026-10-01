@@ -3,21 +3,49 @@
 	// Переопределяют системные комбинации из config/default/hotkeys.json.
 	// Можно переназначить любое действие или добавить свои клавиши в список "keys".
 
-	// Показать / скрыть заголовок и статус-бар
+	// Показать / скрыть заголовок
+	"toggle_header": {
+		"keys": ["F9", "Ctrl+Shift+H", "Alt+H", "Ctrl+Shift+U", "Alt+U"],
+		"description": "Показать / скрыть верхнюю панель управления (Header HUD)"
+	},
 	"toggle_header_footer": {
 		"keys": ["F9", "Ctrl+Shift+H", "Alt+H"],
-		"description": "Показать / скрыть заголовок и статус-бар (Header и Footer)"
+		"description": "Показать / скрыть заголовок (совместимость)"
 	},
 
-	// Показать / скрыть статус-бар
-	"toggle_footer": {
-		"keys": ["Alt+K", "Ctrl+Shift+F", "Alt+F"],
-		"description": "Показать / скрыть только нижний статус-бар (Footer)"
+	// 1. История изменений (Git Graph таймлайн)
+	"toggle_history": {
+		"keys": ["Ctrl+H", "Ctrl+Shift+G", "Alt+H"],
+		"description": "Показать / скрыть историю изменений (Git Graph таймлайн)"
+	},
+
+	// 2. Информация и статистика (слов, символов, байт)
+	"toggle_info": {
+		"keys": ["Alt+I", "Ctrl+Shift+I"],
+		"description": "Показать / скрыть информацию и статистику документа"
+	},
+
+	// 3. Поиск по документу (Search bar)
+	"toggle_search": {
+		"keys": ["Ctrl+F"],
+		"description": "Показать / скрыть панель поиска (Search Bar)"
+	},
+
+	// 4. Переключение отображения имени / полного пути к файлу
+	"toggle_path": {
+		"keys": ["Ctrl+Alt+P", "Alt+Shift+P"],
+		"description": "Показать / скрыть путь к файлу (Path / Name)"
+	},
+
+	// 5. Переключение панели вкладок (Tab bar)
+	"toggle_tabs": {
+		"keys": ["Ctrl+T", "Alt+T"],
+		"description": "Показать / скрыть панель вкладок (Tab Bar)"
 	},
 
 	// Переключить режим подвала (История / Информация)
 	"toggle_footer_mode": {
-		"keys": ["Alt+I"],
+		"keys": ["Alt+I", "Ctrl+Shift+I"],
 		"description": "Переключить режим подвала (История проекта / Информация о вкладке)"
 	},
 
