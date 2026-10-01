@@ -11,8 +11,9 @@
 | **Конфиги (Config)** | `config/default/*.json` | 🟢 Работает | App, Theme, Editor, Hotkeys, Graph |
 | **Рабочее пространство (Workspace)** | `components/workspace/` | 🟢 Работает | Сплит панелей `WorkspaceSplit`, контейнер панелей `WorkspacePane`, единые `PaneHeader` и `PaneFooter` |
 | **Лист редактора** | `components/editor/EditorSheet.qml` | 🟢 Работает | Чистый бумажный лист: фокус, TextArea, подсветка синтаксиса MarkdownHighlighter активна |
-| **Хедер панели** | `components/workspace/PaneHeader.qml` | 🟢 Работает | Инлайн-заголовок документа, режимы графа/аутлайнера, drag окна |
-| **Футер панели** | `components/workspace/PaneFooter.qml` | 🟢 Работает | Слайдер истории ревизий (Git/snapshots) + статистика (слов/знаков/байт) |
+| **Хедер панели** | `components/workspace/PaneHeader.qml` | 🟢 Работает | Единый расширяемый HUD: заголовок, булавка, встроенный Git Graph таймлайн (`history`), статистика (`info`), плавающая высота |
+| **Футер панели** | `components/workspace/PaneFooter.qml` | ❌ Удалён | Полностью устранён: функционал истории и статистики перенесен в расширяемый PaneHeader, освобождая низ экрана |
+| **История (History)** | `components/history/` | 🟢 Работает | Горизонтальный Git Graph таймлайн, моноширинный блок даты/времени, встроен в выдвижной ящик хедера |
 | **Сайдбар** | `components/sidebar/` | ❌ Удалён | Исключён из архитектуры проекта: упор на чистый минималистичный лист |
 | **Сплиты (Split)** | `components/workspace/WorkspaceSplit.qml` | 🟢 Работает | Разделение экрана на 2 панели (Ctrl+\), ресайз сплиттера, независимый ввод |
 | **Хоткеи** | `components/hotkeys/`, `services/system/hotkey_service.py` | 🟢 Работает | Аппаратный GlobalHotkeyFilter, русская раскладка, Ctrl+S/N/O/W, Alt+W |

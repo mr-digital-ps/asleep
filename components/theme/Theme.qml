@@ -46,6 +46,8 @@ Item {
 
     // 6. Размеры и геометрия (Geometry Tokens)
     property int barSize: 36
+    property int headerCompactHeight: 40
+    property int headerExpandedHeight: 76
 
     // Применение настроек из объекта темы (автоматический маппинг snake_case -> camelCase)
     function applyConfig(cfg) {

@@ -2,14 +2,17 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import "../theme"
+import "../history"
 
 Item {
     id: headerRoot
-    height: 70
+    height: effectiveHeight
     z: 20
 
     property string fileName: ""
     property string fileUrl: ""
+    property string folderUrl: ""
+    property bool isProjectTree: false
     property bool isSplitMode: false
     property bool isActivePane: false
     property bool isEmpty: false
@@ -21,6 +24,21 @@ Item {
     property real scrollY: 0
     property real contentLeftPadding: 0
     property real contentRightPadding: 0
+    property string statsText: ""
+
+    // Режим работы хедера: "title" (по умолчанию, компактный) | "history" (Git Graph таймлайн) | "info" (статистика)
+    property string headerMode: "title"
+
+    // Реактивная плавающая высота с плавной анимацией
+    readonly property int targetHeight: (headerMode === "title") ? Theme.headerCompactHeight : Theme.headerExpandedHeight
+    property int effectiveHeight: targetHeight
+
+    Behavior on effectiveHeight {
+        NumberAnimation {
+            duration: 180
+            easing.type: Easing.OutCubic
+        }
+    }
 
     property alias titleField: titleField
 
@@ -29,6 +47,24 @@ Item {
     signal pinToggled()
     signal toggleOutlineRequested()
     signal openStructureRequested()
+    signal snapshotSelected(int snapshotId)
+    signal liveRequested()
+
+    function setMode(mode) {
+        if (headerMode === mode) {
+            headerMode = "title"
+        } else {
+            headerMode = mode
+        }
+    }
+
+    function toggleHistoryMode() {
+        setMode("history")
+    }
+
+    function toggleInfoMode() {
+        setMode("info")
+    }
 
     function stripExt(name) {
         if (!name) return ""
@@ -69,22 +105,23 @@ Item {
         anchors.fill: parent
         spacing: 0
 
-        // Режим 1: Обычный документ (редактор или аутлайнер)
+        // =====================================================================
+        // 1. Верхний ряд: заголовок документа или графа
+        // =====================================================================
         RowLayout {
-            id: docHeaderRow
-            visible: !headerRoot.isGraphMode
+            id: mainHeaderRow
             Layout.fillWidth: true
-            Layout.fillHeight: false
-            Layout.topMargin: 12
+            Layout.preferredHeight: 38
+            Layout.minimumHeight: 38
+            Layout.maximumHeight: 38
             Layout.leftMargin: headerRoot.barSize
             Layout.rightMargin: headerRoot.barSize
-            Layout.preferredHeight: 44
-            Layout.maximumHeight: 44
-            Layout.minimumHeight: 44
-            spacing: 0
+            spacing: 8
 
+            // 1.1 Текстовый заголовок документа
             TextField {
                 id: titleField
+                visible: !headerRoot.isGraphMode
                 objectName: "titleField"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -92,10 +129,10 @@ Item {
                 horizontalAlignment: Text.AlignLeft
                 leftPadding: headerRoot.contentLeftPadding
                 rightPadding: headerRoot.contentRightPadding
-                topPadding: 6
-                bottomPadding: 6
+                topPadding: 4
+                bottomPadding: 4
                 text: headerRoot.stripExt(headerRoot.fileName)
-                font.pixelSize: 18
+                font.pixelSize: 17
                 font.bold: true
                 color: (headerRoot.isSplitMode && !headerRoot.isActivePane) ? Theme.textSecondary : Theme.textPrimary
                 placeholderText: "Без названия"
@@ -164,126 +201,191 @@ Item {
                     event.accepted = true
                 }
 
-                Keys.onShortcutOverride: (event) => {
-                    if (event.modifiers & Qt.ControlModifier) {
-                        var scan = event.nativeScanCode
-                        var k = event.key
-                        if (scan === 30 || scan === 46 || scan === 47 || scan === 45 || scan === 44 || scan === 21 ||
-                            k === 1060 || k === 1092 || k === 1057 || k === 1089 || k === 1052 || k === 1084 ||
-                            k === 1063 || k === 1095 || k === 1071 || k === 1103 || k === 1053 || k === 1085) {
-                            event.accepted = true
-                        }
-                    }
-                }
-
-                Keys.onPressed: (event) => {
-                    if (event.modifiers & Qt.ControlModifier) {
-                        var scan = event.nativeScanCode
-                        var k = event.key
-                        if (scan === 30 || k === 1060 || k === 1092) {
-                            event.accepted = true
-                            titleField.selectAll()
-                            return
-                        }
-                        if (scan === 46 || k === 1057 || k === 1089) {
-                            event.accepted = true
-                            titleField.copy()
-                            return
-                        }
-                        if (scan === 47 || k === 1052 || k === 1084) {
-                            event.accepted = true
-                            titleField.paste()
-                            return
-                        }
-                        if (scan === 45 || k === 1063 || k === 1095) {
-                            event.accepted = true
-                            titleField.cut()
-                            return
-                        }
-                        if ((event.modifiers & Qt.ShiftModifier && (scan === 44 || k === 1071 || k === 1103)) ||
-                            scan === 21 || k === 1053 || k === 1085) {
-                            event.accepted = true
-                            if (titleField.canRedo) titleField.redo()
-                            return
-                        }
-                        if (scan === 44 || k === 1071 || k === 1103) {
-                            event.accepted = true
-                            if (titleField.canUndo) titleField.undo()
-                            return
-                        }
-                    }
-                }
-
                 Keys.onEscapePressed: {
                     titleDebounceTimer.stop()
                     text = originalText
                     focus = false
                 }
             }
-        }
 
-        // Режим 2: Строка заголовка в режиме графа
-        RowLayout {
-            id: graphHeaderRow
-            visible: headerRoot.isGraphMode
-            Layout.fillWidth: true
-            Layout.fillHeight: false
-            Layout.topMargin: 12
-            Layout.leftMargin: headerRoot.barSize
-            Layout.rightMargin: headerRoot.barSize
-            Layout.preferredHeight: 44
-            Layout.maximumHeight: 44
-            Layout.minimumHeight: 44
-            spacing: 8
-
-            Text {
-                text: (headerRoot.isLocalGraphMode ? "🕸 Локальный граф: " : "🕸 ") + (headerRoot.fileName ? headerRoot.stripExt(headerRoot.fileName) : "Граф связей")
-                font.pixelSize: 17
-                font.bold: true
-                color: Theme.textPrimary
-                elide: Text.ElideRight
-                Layout.alignment: Qt.AlignVCenter
-            }
-
-            Rectangle {
-                visible: headerRoot.isLocalGraphMode
-                Layout.preferredHeight: 20
-                Layout.preferredWidth: localBadgeText.implicitWidth + 12
-                Layout.alignment: Qt.AlignVCenter
-                radius: 4
-                color: Theme.bgApp
-                border.color: Theme.borderColor
-                border.width: 1
+            // 1.2 Заголовок графа связей
+            RowLayout {
+                id: graphTitleArea
+                visible: headerRoot.isGraphMode
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                spacing: 8
 
                 Text {
-                    id: localBadgeText
-                    anchors.centerIn: parent
-                    text: "Локальный (1-hop)"
-                    font.pixelSize: 10
-                    color: Theme.textSecondary
+                    text: (headerRoot.isLocalGraphMode ? "🕸 Локальный граф: " : "🕸 ") + (headerRoot.fileName ? headerRoot.stripExt(headerRoot.fileName) : "Граф связей")
+                    font.pixelSize: 16
+                    font.bold: true
+                    color: Theme.textPrimary
+                    elide: Text.ElideRight
+                    Layout.alignment: Qt.AlignVCenter
                 }
+
+                Rectangle {
+                    visible: headerRoot.isLocalGraphMode
+                    Layout.preferredHeight: 18
+                    Layout.preferredWidth: localBadgeText.implicitWidth + 10
+                    Layout.alignment: Qt.AlignVCenter
+                    radius: 3
+                    color: Theme.bgApp
+                    border.color: Theme.borderColor
+                    border.width: 1
+
+                    Text {
+                        id: localBadgeText
+                        anchors.centerIn: parent
+                        text: "1-hop"
+                        font.pixelSize: 10
+                        color: Theme.textSecondary
+                    }
+                }
+
+                Item { Layout.fillWidth: true }
             }
 
-            Item {
-                Layout.fillWidth: true
+            // 1.3 Правые контекстные переключатели режимов хедера (History, Info)
+            RowLayout {
+                Layout.alignment: Qt.AlignVCenter
+                spacing: 4
+
+                // Кнопка переключения Истории (Git Graph таймлайн)
+                Rectangle {
+                    width: 26
+                    height: 22
+                    radius: 4
+                    color: (headerRoot.headerMode === "history")
+                        ? Theme.bgHover
+                        : (histMouse.containsMouse ? Theme.bgHover : "transparent")
+                    border.color: (headerRoot.headerMode === "history")
+                        ? Theme.textSecondary
+                        : (histMouse.containsMouse ? Theme.borderHover : "transparent")
+                    border.width: 1
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "◷"
+                        font.pixelSize: 13
+                        color: (headerRoot.headerMode === "history") ? Theme.textPrimary : Theme.textSecondary
+                    }
+
+                    MouseArea {
+                        id: histMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            headerRoot.paneActivated()
+                            headerRoot.toggleHistoryMode()
+                        }
+                    }
+                    ToolTip.visible: histMouse.containsMouse
+                    ToolTip.delay: 300
+                    ToolTip.text: "История изменений (таймлайн)"
+                }
+
+                // Кнопка переключения Статистики (слов, знаков)
+                Rectangle {
+                    width: 26
+                    height: 22
+                    radius: 4
+                    color: (headerRoot.headerMode === "info")
+                        ? Theme.bgHover
+                        : (infoMouse.containsMouse ? Theme.bgHover : "transparent")
+                    border.color: (headerRoot.headerMode === "info")
+                        ? Theme.textSecondary
+                        : (infoMouse.containsMouse ? Theme.borderHover : "transparent")
+                    border.width: 1
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "ℹ"
+                        font.pixelSize: 12
+                        color: (headerRoot.headerMode === "info") ? Theme.textPrimary : Theme.textSecondary
+                    }
+
+                    MouseArea {
+                        id: infoMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            headerRoot.paneActivated()
+                            headerRoot.toggleInfoMode()
+                        }
+                    }
+                    ToolTip.visible: infoMouse.containsMouse
+                    ToolTip.delay: 300
+                    ToolTip.text: "Информация и статистика"
+                }
             }
         }
 
-        // Верхняя разделительная линия (клик = закрепить/открепить)
+        // =====================================================================
+        // 2. Раскрывающийся контекстный контейнер (Drawer): History или Info
+        // =====================================================================
+        Item {
+            id: headerDrawerArea
+            Layout.fillWidth: true
+            Layout.preferredHeight: (headerRoot.headerMode !== "title") ? 34 : 0
+            Layout.maximumHeight: (headerRoot.headerMode !== "title") ? 34 : 0
+            Layout.leftMargin: headerRoot.barSize
+            Layout.rightMargin: headerRoot.barSize
+            clip: true
+            visible: headerRoot.headerMode !== "title"
+
+            // Режим "history": Git Graph таймлайн ревизий
+            HistoryTimelineBar {
+                id: headerHistoryBar
+                anchors.fill: parent
+                visible: headerRoot.headerMode === "history"
+                folderUrl: headerRoot.folderUrl
+                fileUrl: headerRoot.fileUrl
+                mode: (headerRoot.isGraphMode || headerRoot.isProjectTree) ? "project" : "note"
+                statsText: headerRoot.statsText
+
+                onActivated: headerRoot.paneActivated()
+                onSnapshotSelected: (snapshotId) => headerRoot.snapshotSelected(snapshotId)
+                onLiveRequested: headerRoot.liveRequested()
+            }
+
+            // Режим "info": Статистика документа/графа
+            RowLayout {
+                id: headerInfoBar
+                anchors.fill: parent
+                visible: headerRoot.headerMode === "info"
+                spacing: 8
+
+                Text {
+                    Layout.fillWidth: true
+                    Layout.alignment: Qt.AlignVCenter
+                    text: headerRoot.statsText
+                    font.pixelSize: 12
+                    color: Theme.textSecondary
+                    elide: Text.ElideRight
+                }
+            }
+        }
+
+        // =====================================================================
+        // 3. Разделительная нижняя линия (клик = закрепить/открепить)
+        // =====================================================================
         Item {
             id: headerDividerArea
             Layout.fillWidth: true
-            Layout.preferredHeight: 14
-            Layout.maximumHeight: 14
-            Layout.leftMargin: 36
-            Layout.rightMargin: 36
+            Layout.preferredHeight: 4
+            Layout.maximumHeight: 4
+            Layout.leftMargin: headerRoot.barSize
+            Layout.rightMargin: headerRoot.barSize
 
             Rectangle {
                 id: headerDividerLine
                 anchors.centerIn: parent
                 width: parent.width
-                height: 2
-                radius: 1
+                height: 1
                 color: (headerRoot.isPinned || headerRoot.isGraphMode)
                     ? (headerDividerMouse.containsMouse ? Theme.textPrimary : Theme.textSecondary)
                     : (headerDividerMouse.containsMouse ? Theme.borderFocus : Theme.borderColor)

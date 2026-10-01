@@ -26,9 +26,7 @@ Item {
     property bool typewriterMode: false
     property bool focusMode: false
     property bool isHeaderPinned: false
-    property bool isFooterPinned: true
     property bool showHeader: true
-    property bool showFooter: true
     property real editorLineHeightPercent: 135.0
     property bool showLineDots: true
     property int tabSize: 4
@@ -44,21 +42,13 @@ Item {
     onIsGraphModeChanged: Controller.handleGraphModeChanged(workspacePane, editorScroll, paneGraphView, editorArea, smoothScrollAnim)
 
     function toggleHeaderFooter() {
-        Controller.toggleHeaderFooter(workspacePane, (typeof backend !== "undefined" ? backend : null))
+        Controller.toggleHeaderOnly(workspacePane, (typeof backend !== "undefined" ? backend : null))
     }
-
-    property string footerMode: "information"
 
     function toggleFooterMode() {
-        if (workspacePane.footerMode === "information") {
-            workspacePane.footerMode = "history"
-        } else {
-            workspacePane.footerMode = "information"
+        if (paneHeader) {
+            paneHeader.toggleHistoryMode()
         }
-    }
-
-    function toggleFooterOnly() {
-        Controller.toggleFooterOnly(workspacePane, (typeof backend !== "undefined" ? backend : null))
     }
 
     function toggleHeaderOnly() {
@@ -83,14 +73,12 @@ Item {
     property alias paneOutliner: paneOutliner
     property alias paneGraphView: paneGraphView
     property alias paneHeader: paneHeader
-    property alias paneFooter: paneFooter
     property alias paperSheet: paperSheet
 
     // Обратная совместимость с MainBar
     property alias sheetOutliner: paneOutliner
     property alias sheetGraphView: paneGraphView
     property alias docHeader: paneHeader
-    property alias docFooter: paneFooter
 
     function toggleOutlineMode() {
         if (workspacePane.isGraphMode) return
@@ -241,6 +229,8 @@ Item {
         width: workspacePane.effectiveSheetWidth
         fileName: workspacePane.fileName
         fileUrl: workspacePane.fileUrl
+        folderUrl: workspacePane.folderUrl
+        isProjectTree: workspacePane.isProjectTree
         isSplitMode: workspacePane.isSplitMode
         isActivePane: workspacePane.isActivePane
         isEmpty: workspacePane.isEmpty
@@ -250,6 +240,7 @@ Item {
         isOutlineMode: workspacePane.isOutlineMode
         contentLeftPadding: editorArea ? editorArea.leftPadding : 0
         contentRightPadding: editorArea ? editorArea.rightPadding : 0
+        statsText: workspacePane.isGraphMode ? workspacePane.graphStatsText : workspacePane.statsString
         visible: workspacePane.showHeader && (!workspacePane.isEmpty || workspacePane.isGraphMode)
 
         onTitleCommitted: (newTitle) => workspacePane.titleChangedByUser(newTitle)
@@ -260,6 +251,25 @@ Item {
         }
         onToggleOutlineRequested: workspacePane.toggleOutlineMode()
         onOpenStructureRequested: workspacePane.openStructureRequested()
+        onSnapshotSelected: (snapshotId) => {
+            if (workspacePane.isGraphMode) {
+                if (typeof backend !== "undefined" && backend && typeof backend.get_history_snapshot_graph === "function" && paneGraphView) {
+                    var gData = backend.get_history_snapshot_graph(workspacePane.folderUrl, snapshotId)
+                    paneGraphView.loadHistoricalGraph(gData)
+                }
+            } else if (paperSheet) {
+                paperSheet.loadHistoricalSnapshot(snapshotId)
+            }
+        }
+        onLiveRequested: {
+            if (workspacePane.isGraphMode) {
+                if (paneGraphView) {
+                    paneGraphView.reloadGraph()
+                }
+            } else if (paperSheet) {
+                paperSheet.restoreLive()
+            }
+        }
     }
 
     // =========================================================================
@@ -270,7 +280,7 @@ Item {
         anchors.top: (workspacePane.showHeader && !workspacePane.isEmpty) ? paneHeader.bottom : parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.bottom: (workspacePane.showFooter && !workspacePane.isEmpty) ? paneFooter.top : parent.bottom
+        anchors.bottom: parent.bottom
         clip: true
         contentWidth: availableWidth
         contentHeight: scrollContentContainer.height
@@ -399,7 +409,7 @@ Item {
         activeFileUrl: workspacePane.fileUrl
         openFileUrls: workspacePane.openFileUrls
         anchors.top: (workspacePane.showHeader && workspacePane.isGraphMode) ? paneHeader.bottom : parent.top
-        anchors.bottom: (workspacePane.showFooter && workspacePane.isGraphMode) ? paneFooter.top : parent.bottom
+        anchors.bottom: parent.bottom
         anchors.horizontalCenter: parent.horizontalCenter
         width: workspacePane.effectiveSheetWidth
 
@@ -428,7 +438,7 @@ Item {
         folderUrl: workspacePane.folderUrl
         documentText: workspacePane.text
         anchors.top: (workspacePane.showHeader && !workspacePane.isEmpty) ? paneHeader.bottom : parent.top
-        anchors.bottom: (workspacePane.showFooter && !workspacePane.isEmpty) ? paneFooter.top : parent.bottom
+        anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
 
@@ -471,48 +481,6 @@ Item {
                 workspacePane.editorArea.cursorPosition = Math.min(targetPos, txt.length)
                 workspacePane.editorArea.forceActiveFocus()
                 workspacePane.requestEnsureCursorVisible()
-            }
-        }
-    }
-
-    // =========================================================================
-    // 5. НИЖНЯЯ ПАНЕЛЬ (PaneFooter)
-    // =========================================================================
-    PaneFooter {
-        id: paneFooter
-        barSize: workspacePane.barSize
-        folderUrl: workspacePane.folderUrl
-        fileUrl: workspacePane.fileUrl
-        isProjectTree: workspacePane.isProjectTree
-        footerMode: workspacePane.footerMode
-        anchors.bottom: parent.bottom
-        anchors.horizontalCenter: parent.horizontalCenter
-        width: workspacePane.effectiveSheetWidth
-        height: 70
-        z: 20
-        isPinned: true
-        isGraphMode: workspacePane.isGraphMode
-        statsText: workspacePane.isGraphMode ? workspacePane.graphStatsText : workspacePane.statsString
-        visible: workspacePane.showFooter && (!workspacePane.isEmpty || workspacePane.isGraphMode)
-
-        onActivated: workspacePane.paneActivated()
-        onSnapshotSelected: (snapshotId) => {
-            if (workspacePane.isGraphMode) {
-                if (typeof backend !== "undefined" && backend && typeof backend.get_history_snapshot_graph === "function" && paneGraphView) {
-                    var gData = backend.get_history_snapshot_graph(workspacePane.folderUrl, snapshotId)
-                    paneGraphView.loadHistoricalGraph(gData)
-                }
-            } else if (paperSheet) {
-                paperSheet.loadHistoricalSnapshot(snapshotId)
-            }
-        }
-        onLiveRequested: {
-            if (workspacePane.isGraphMode) {
-                if (paneGraphView) {
-                    paneGraphView.reloadGraph()
-                }
-            } else if (paperSheet) {
-                paperSheet.restoreLive()
             }
         }
     }
