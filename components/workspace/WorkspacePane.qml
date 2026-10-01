@@ -254,7 +254,6 @@ Item {
     PaneHeader {
         id: paneHeader
         barSize: workspacePane.barSize
-        anchors.top: parent.top
         anchors.horizontalCenter: parent.horizontalCenter
         width: workspacePane.effectiveSheetWidth
         fileName: workspacePane.fileName
@@ -268,10 +267,17 @@ Item {
         isGraphMode: workspacePane.isGraphMode
         isLocalGraphMode: workspacePane.isLocalGraphMode
         isOutlineMode: workspacePane.isOutlineMode
+        scrollY: workspacePane.scrollY
         contentLeftPadding: editorArea ? editorArea.leftPadding : 0
         contentRightPadding: editorArea ? editorArea.rightPadding : 0
         statsText: workspacePane.isGraphMode ? workspacePane.graphStatsText : workspacePane.statsString
         visible: workspacePane.showHeader && (!workspacePane.isEmpty || workspacePane.isGraphMode)
+
+        // Закрепление: когда закреплен (isPinned) или в режиме графа/истории — прибит к верху (y = 0).
+        // Когда откреплен (!isPinned) — уезжает вверх вместе со скроллом листа (y = -scrollY) и скрывается.
+        y: (workspacePane.isHeaderPinned || workspacePane.isGraphMode || paneHeader.headerMode !== "title")
+            ? 0
+            : -Math.min(paneHeader.height, workspacePane.scrollY)
 
         onTitleCommitted: (newTitle) => workspacePane.titleChangedByUser(newTitle)
         onPaneActivated: workspacePane.paneActivated()
@@ -307,7 +313,9 @@ Item {
     // =========================================================================
     ScrollView {
         id: editorScroll
-        anchors.top: (workspacePane.showHeader && !workspacePane.isEmpty) ? paneHeader.bottom : parent.top
+        anchors.top: (workspacePane.showHeader && workspacePane.isHeaderPinned && !workspacePane.isEmpty)
+            ? paneHeader.bottom
+            : parent.top
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom

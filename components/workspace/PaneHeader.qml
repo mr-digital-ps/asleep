@@ -6,7 +6,7 @@ import "../history"
 
 Item {
     id: headerRoot
-    height: effectiveHeight
+    height: 70
     z: 20
 
     property string fileName: ""
@@ -26,13 +26,9 @@ Item {
     property real contentRightPadding: 0
     property string statsText: ""
 
-    // Режим работы хедера: "title" (по умолчанию, компактный) | "history" (Git Graph таймлайн) | "info" (статистика) | "search" | "path" | "tabs"
+    // Режим работы хедера: "title" (по умолчанию) | "history" (Git Graph таймлайн) | "info" (статистика) | "search" | "path" | "tabs"
     property string headerMode: "title"
     property bool showPath: false
-
-    // Безопасные размеры с дефолтными значениями, если Theme еще не инициализирован
-    readonly property int barHeight: (typeof Theme !== "undefined" && Theme && Theme.headerCompactHeight) ? Theme.headerCompactHeight : 40
-    property int effectiveHeight: barHeight
 
     property alias titleField: titleField
 
@@ -80,7 +76,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         color: Theme.bgHeader
-        visible: true
+        visible: headerRoot.isPinned || (headerRoot.headerMode !== "title") || headerRoot.isGraphMode
     }
 
     MouseArea {
@@ -117,9 +113,12 @@ Item {
         RowLayout {
             id: mainHeaderRow
             Layout.fillWidth: true
-            Layout.fillHeight: true
+            Layout.topMargin: 12
             Layout.leftMargin: headerRoot.barSize
             Layout.rightMargin: headerRoot.barSize
+            Layout.preferredHeight: 44
+            Layout.maximumHeight: 44
+            Layout.minimumHeight: 44
             spacing: 8
 
             // 1. РЕЖИМ HISTORY: заменяет название файла таймлайном
@@ -168,10 +167,10 @@ Item {
                 horizontalAlignment: Text.AlignLeft
                 leftPadding: headerRoot.contentLeftPadding
                 rightPadding: headerRoot.contentRightPadding
-                topPadding: 4
-                bottomPadding: 4
+                topPadding: 6
+                bottomPadding: 6
                 text: headerRoot.showPath && headerRoot.fileUrl ? headerRoot.fileUrl.replace(/^file:\/\/\/?/, "") : headerRoot.stripExt(headerRoot.fileName)
-                font.pixelSize: 17
+                font.pixelSize: 18
                 font.bold: true
                 color: (headerRoot.isSplitMode && !headerRoot.isActivePane) ? Theme.textSecondary : Theme.textPrimary
                 placeholderText: "Без названия"
@@ -257,7 +256,7 @@ Item {
 
                 Text {
                     text: (headerRoot.isLocalGraphMode ? "🕸 Локальный граф: " : "🕸 ") + (headerRoot.fileName ? headerRoot.stripExt(headerRoot.fileName) : "Граф связей")
-                    font.pixelSize: 16
+                    font.pixelSize: 17
                     font.bold: true
                     color: Theme.textPrimary
                     elide: Text.ElideRight
@@ -266,10 +265,10 @@ Item {
 
                 Rectangle {
                     visible: headerRoot.isLocalGraphMode
-                    Layout.preferredHeight: 18
-                    Layout.preferredWidth: localBadgeText.implicitWidth + 10
+                    Layout.preferredHeight: 20
+                    Layout.preferredWidth: localBadgeText.implicitWidth + 12
                     Layout.alignment: Qt.AlignVCenter
-                    radius: 3
+                    radius: 4
                     color: Theme.bgApp
                     border.color: Theme.borderColor
                     border.width: 1
@@ -277,7 +276,7 @@ Item {
                     Text {
                         id: localBadgeText
                         anchors.centerIn: parent
-                        text: "1-hop"
+                        text: "Локальный (1-hop)"
                         font.pixelSize: 10
                         color: Theme.textSecondary
                     }
@@ -293,8 +292,8 @@ Item {
         Item {
             id: headerDividerArea
             Layout.fillWidth: true
-            Layout.preferredHeight: 2
-            Layout.maximumHeight: 2
+            Layout.preferredHeight: 14
+            Layout.maximumHeight: 14
             Layout.leftMargin: headerRoot.barSize
             Layout.rightMargin: headerRoot.barSize
 
@@ -302,7 +301,8 @@ Item {
                 id: headerDividerLine
                 anchors.centerIn: parent
                 width: parent.width
-                height: 1
+                height: 2
+                radius: 1
                 color: (headerRoot.isPinned || headerRoot.isGraphMode)
                     ? (headerDividerMouse.containsMouse ? Theme.textPrimary : Theme.textSecondary)
                     : (headerDividerMouse.containsMouse ? Theme.borderFocus : Theme.borderColor)

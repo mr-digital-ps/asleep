@@ -52,10 +52,11 @@ Rectangle {
     property alias rightHandle: rightHandle
     readonly property bool isResizingSheet: (leftHandle && (leftHandle.containsMouse || leftHandle.pressed)) || (rightHandle && (rightHandle.containsMouse || rightHandle.pressed))
 
-    // Чистый модульный расчет полной естественной высоты листа (только текст)
+    // Чистый модульный расчет полной естественной высоты листа (Header + Content)
     readonly property real contentNaturalHeight: {
+        var hHeader = (sheetRoot.showHeader && !sheetRoot.isHeaderPinned) ? 70 : 0
         var hContent = (editorArea && editorArea.contentHeight > 0) ? editorArea.contentHeight : 0
-        return hContent + 40
+        return hHeader + hContent + 40
     }
 
     // Сигналы
@@ -116,7 +117,7 @@ Rectangle {
         id: editorCanvas
         visible: !sheetRoot.isEmpty
         anchors.top: parent.top
-        anchors.topMargin: 16
+        anchors.topMargin: (sheetRoot.showHeader && !sheetRoot.isHeaderPinned) ? 70 : 16
         anchors.left: parent.left
         anchors.right: parent.right
         availableHeight: sheetRoot.availableHeight
