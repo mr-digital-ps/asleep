@@ -296,8 +296,8 @@ Item {
             id: scrollContentContainer
             width: editorScroll.availableWidth
             readonly property real contentH: paperSheet ? paperSheet.contentNaturalHeight : 0
-            readonly property real typewriterOverscroll: (editorArea && editorArea.lineCount > 1) ? Math.max(0, editorScroll.availableHeight - 100) : 0
-            height: Math.max(editorScroll.availableHeight, contentH + typewriterOverscroll)
+            readonly property real typewriterOverscroll: (editorArea && editorArea.lineCount > 1) ? Math.max(0, editorScroll.height - 100) : 0
+            height: Math.max(editorScroll.height, contentH + typewriterOverscroll)
 
             MouseArea {
                 anchors.fill: parent

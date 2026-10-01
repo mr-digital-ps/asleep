@@ -31,4 +31,7 @@
 - [x] Граф заметок: Ctrl+G (глобальный граф связей), Alt+G (локальный граф)
 - [x] Корневая папка `js/` полностью устранена: скрипты перенесены в соответствующие фичи
 - [x] Иерархия `views/` сокращена до чистого монолита: удалены `views/tabs/` и `action_dispatcher.js`
-- [x] 100% тестов в verify.py пройдены, 0 ошибок и варнингов при старте `web.py`
+- [x] Fix: `backend` прокинут явно в `.pragma library` (`openFileFromFolder`, `createNewTab`, `renameTab`, `handleNodeSelected`)
+- [x] Fix: двойной toggle графа в `WorkspaceSplit` устранён (один вызов `toggleGraph()`)
+- [x] Fix: binding loop `height` в `scrollContentContainer` (замена `availableHeight` → `height`)
+- [x] 100% тестов в verify.py пройдены
