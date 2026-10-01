@@ -398,8 +398,8 @@ Item {
         openFileUrls: workspacePane.openFileUrls
         anchors.top: (workspacePane.showHeader && workspacePane.isGraphMode) ? paneHeader.bottom : parent.top
         anchors.bottom: (workspacePane.showFooter && workspacePane.isGraphMode) ? paneFooter.top : parent.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: workspacePane.isCenteredMode ? Math.min(parent.width, Math.max(workspacePane.minSheetWidth, workspacePane.customSheetWidth)) : parent.width
 
         onGraphPressed: workspacePane.paneActivated()
         onActiveFocusChanged: {
