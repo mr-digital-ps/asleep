@@ -1,5 +1,5 @@
-// js/editor/mainbar_controller.js — Контроллер рабочей области редактора (скролл, лист, конфиг, статистика)
-.import "frontmatter_service.js" as Frontmatter
+// components/workspace/pane_controller.js — Контроллер рабочей области панели (скролл, режимы, конфиг, статистика)
+.import "../editor/frontmatter_service.js" as Frontmatter
 
 function calculateStats(text) {
     var txt = text || ""
@@ -8,7 +8,13 @@ function calculateStats(text) {
     if (trimmed.length > 0) {
         words = trimmed.split(/\s+/).length
     }
-    return words + " слов · " + txt.length + " знаков"
+    var bytes = 0
+    try {
+        bytes = encodeURI(txt).split(/%..|./).length - 1
+    } catch(e) {
+        bytes = txt.length
+    }
+    return words + " слов · " + txt.length + " знаков · " + bytes + " байт"
 }
 
 function stripExt(name) {
@@ -45,7 +51,6 @@ function ensureCursorVisible(mainBar, editorArea, editorScroll) {
     let currentY = editorScroll.contentItem.contentY
     let maxY = Math.max(0, editorScroll.contentItem.contentHeight - viewH)
 
-    // Режим печатной машинки: центрируем активную строку по вертикали
     if (mainBar.typewriterMode) {
         let cursorCenter = cursorTop + rect.height / 2
         let viewportCenter = viewH / 2
@@ -54,7 +59,6 @@ function ensureCursorVisible(mainBar, editorArea, editorScroll) {
         return
     }
 
-    // Запас отступа сверху и снизу (~70-90px), чтобы курсор не прилипал к краю экрана
     let topMargin = Math.min(70, viewH * 0.2)
     let bottomMargin = Math.max(90, viewH * 0.2)
 
@@ -178,17 +182,7 @@ function handleGraphModeChanged(mainBar, editorScroll, sheetGraphView, editorAre
                     sheetGraphView.canvas.requestPaint()
                 }
             } else {
-                var graphW = (mainBar.isCenteredMode && mainBar.customSheetWidth)
-                    ? Math.min(mainBar.width || 800, Math.max(mainBar.minSheetWidth || 380, mainBar.customSheetWidth))
-                    : (mainBar.width || 800)
-                var headerH = (mainBar.showHeader ? 70 : 0)
-                var footerH = (mainBar.showFooter ? 70 : 0)
-                var graphH = Math.max(100, (mainBar.height || 600) - headerH - footerH)
-                if (typeof sheetGraphView.reloadGraphWithDimensions === "function") {
-                    sheetGraphView.reloadGraphWithDimensions(graphW, graphH)
-                } else {
-                    sheetGraphView.reloadGraph()
-                }
+                sheetGraphView.reloadGraph()
                 if (mainBar.fileUrl && !sheetGraphView.centerOnNode(mainBar.fileUrl)) {
                     Qt.callLater(function() {
                         if (sheetGraphView && mainBar.isGraphMode && mainBar.fileUrl) {
@@ -261,14 +255,6 @@ function handleBackgroundDragPressed(mouse, mainBar, state) {
     }
 }
 
-function handleBackgroundDragMoved(mouse, mainBar, containerItem, state) {
-}
-
-function handleBackgroundDragReleased(mouse, mainBar, containerItem, state) {
-}
-
-
-
 function initMainBar(mainBar, editorArea, backend) {
     if (backend && typeof backend.get_current_config === "function") {
         try {
@@ -321,6 +307,3 @@ function handleFontSizeChanged(mainBar, backend, sz) {
         backend.update_font_size(sz)
     }
 }
-
-
-

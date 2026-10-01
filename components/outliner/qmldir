@@ -1,0 +1,3 @@
+module components.outliner
+DocumentOutliner 1.0 DocumentOutliner.qml
+OutlinerTreeItem 1.0 OutlinerTreeItem.qml

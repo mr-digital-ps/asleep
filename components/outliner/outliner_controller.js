@@ -1,4 +1,4 @@
-// js/editor/outliner_controller.js — Расчет отступов, скрытия и навигации аутлайнера
+// components/outliner/outliner_controller.js — Расчет отступов, скрытия и навигации аутлайнера
 .pragma library
 
 function findHighlightIndex(highlightLabel, blocksList) {
@@ -102,4 +102,3 @@ function getLabelText(isProjectTree, modelData) {
     if (modelData.level === 0 && modelData.content) return "Введение"
     return "(Без заголовка)"
 }
-

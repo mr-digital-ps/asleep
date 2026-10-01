@@ -9,14 +9,15 @@
 | **Окно (Window)** | `views/window.qml`, `WindowFrame.qml` | 🟢 Работает | Безрамочное окно, resize, drag, закрытие, QML движок собирает дерево |
 | **Тема (Theme)** | `components/theme/Theme.qml`, `config/default/theme.json` | 🟢 Работает | Цвета и стили темы |
 | **Конфиги (Config)** | `config/default/*.json` | 🟢 Работает | App, Theme, Editor, Hotkeys, Graph |
-| **Сборка представлений** | `views/web.qml`, `EditorSplitLayout.qml` | 🟢 Работает | Импорты и сигналы восстановлены, дерево загружается чисто |
-| **Лист редактора** | `components/editor/EditorSheet.qml` | 🟢 Работает | Фокус, ввод текста, подсветка синтаксиса MarkdownHighlighter активна |
-| **Хедер листа** | `components/editor/EditorHeader.qml`, `DocumentHeader.qml` | 🟢 Работает | Заголовок документа, инлайн-переименование, перетаскивание окна |
-| **Футер листа** | `components/editor/EditorFooter.qml` | 🟢 Работает | Подсчет слов/знаков, расчет высоты overscroll sticky-footer |
+| **Рабочее пространство (Workspace)** | `components/workspace/` | 🟢 Работает | Сплит панелей `WorkspaceSplit`, контейнер панелей `WorkspacePane`, единые `PaneHeader` и `PaneFooter` |
+| **Лист редактора** | `components/editor/EditorSheet.qml` | 🟢 Работает | Чистый бумажный лист: фокус, TextArea, подсветка синтаксиса MarkdownHighlighter активна |
+| **Хедер панели** | `components/workspace/PaneHeader.qml` | 🟢 Работает | Инлайн-заголовок документа, режимы графа/аутлайнера, drag окна |
+| **Футер панели** | `components/workspace/PaneFooter.qml` | 🟢 Работает | Слайдер истории ревизий (Git/snapshots) + статистика (слов/знаков/байт) |
 | **Сайдбар** | `components/sidebar/` | ❌ Удалён | Исключён из архитектуры проекта: упор на чистый минималистичный лист |
-| **Сплиты (Split)** | `components/editor/EditorSplitLayout.qml` | 🟢 Работает | Разделение экрана на 2 панели (Ctrl+\), ресайз сплиттера, независимый ввод |
+| **Сплиты (Split)** | `components/workspace/WorkspaceSplit.qml` | 🟢 Работает | Разделение экрана на 2 панели (Ctrl+\), ресайз сплиттера, независимый ввод |
 | **Хоткеи** | `components/hotkeys/`, `services/system/hotkey_service.py` | 🟢 Работает | Аппаратный GlobalHotkeyFilter, русская раскладка, Ctrl+S/N/O/W, Alt+W |
 | **Граф знаний** | `components/graph/GraphView.qml` | 🟢 Работает | Интерактивный Canvas-граф (Ctrl+G, Alt+G), физика связей, центрирование |
+| **Аутлайнер / Структура** | `components/outliner/DocumentOutliner.qml` | 🟢 Работает | Оглавление заметок и структура проекта, drag-and-drop блоков, вынесен в автономный модуль |
 | **Detached Tabs** | `tabs.js` (открепление на рабочий стол) | ❌ Удалён | Вычищен: в монолитной модели используется чистый Split View без рассинхронов |
 | **Views Контроллеры** | `views/web_lifecycle.js`, `views/window_controller.js` | 🟢 Монолит | Устранены `views/tabs/` и `action_dispatcher.js`, единый жизненный цикл и диспетчеризация |
 

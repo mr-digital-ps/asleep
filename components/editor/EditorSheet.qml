@@ -1,8 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "./mainbar_controller.js" as Controller
-import "../graph"
 import "../theme"
 
 Rectangle {
@@ -13,7 +11,6 @@ Rectangle {
     property string fileName: "Новый документ"
     property string fileUrl: ""
     property string folderUrl: ""
-    property var openFileUrls: []
     property bool isCenteredMode: true
     property real customSheetWidth: 800
     property real minSheetWidth: 380
@@ -34,11 +31,6 @@ Rectangle {
     property var containerItem: null
     property var editorScroll: null
 
-    // Режимы графа и аутлайнера
-    property bool isGraphMode: false
-    property bool isLocalGraphMode: false
-    property bool isOutlineMode: false
-    readonly property string graphStatsText: sheetGraphView ? sheetGraphView.getGraphStats() : ""
     readonly property bool isProjectTree: {
         if (typeof backend !== "undefined" && backend && typeof backend.is_project_structure_file === "function") {
             return backend.is_project_structure_file(sheetRoot.fileName)
@@ -56,8 +48,6 @@ Rectangle {
     property alias editorCanvas: editorCanvas
     property alias editorArea: editorCanvas.editorArea
     property alias text: editorCanvas.text
-    property alias sheetGraphView: sheetGraphView
-    property alias sheetOutliner: sheetOutliner
     property alias leftHandle: leftHandle
     property alias rightHandle: rightHandle
     readonly property bool isResizingSheet: (leftHandle && (leftHandle.containsMouse || leftHandle.pressed)) || (rightHandle && (rightHandle.containsMouse || rightHandle.pressed))
@@ -80,12 +70,10 @@ Rectangle {
     signal toggleSplitRequested()
     signal openRequested()
     signal openSplitRequested()
-    signal nodeSelected(string fileUrl, string label)
-    signal closeGraphRequested()
-    signal openStructureRequested()
     signal cursorVisibilityRequested()
     signal toggleHeaderFooterRequested()
     signal toggleFooterRequested()
+    signal toggleFooterModeRequested()
     signal toggleHeaderRequested()
     signal toggleCenteredModeRequested()
     signal textChangedByUser()
@@ -97,10 +85,8 @@ Rectangle {
     signal sheetWidthCommitted(real finalWidth)
     signal toggleFullWidthRequested()
     signal headerPinToggled(bool pinned)
-    signal outlineModeToggled()
-    signal textChangedByOutliner(string newText)
 
-    visible: !isEmpty || isGraphMode
+    visible: !isEmpty
     width: isCenteredMode ? Math.min(parent.width, Math.max(minSheetWidth, customSheetWidth)) : parent.width
     height: parent ? parent.height : availableHeight
     y: 0
@@ -120,10 +106,10 @@ Rectangle {
         focusMode: sheetRoot.focusMode
     }
 
-    // 2. Рабочая область документа (Gutter + TextArea + шорткаты)
+    // Рабочая область документа (Gutter + TextArea + шорткаты)
     EditorCanvas {
         id: editorCanvas
-        visible: !sheetRoot.isGraphMode && !sheetRoot.isEmpty && !sheetRoot.isOutlineMode
+        visible: !sheetRoot.isEmpty
         anchors.top: parent.top
         anchors.topMargin: 16
         anchors.left: parent.left
@@ -140,6 +126,7 @@ Rectangle {
         onCursorVisibilityRequested: sheetRoot.cursorVisibilityRequested()
         onToggleHeaderFooterRequested: sheetRoot.toggleHeaderFooterRequested()
         onToggleFooterRequested: sheetRoot.toggleFooterRequested()
+        onToggleFooterModeRequested: sheetRoot.toggleFooterModeRequested()
         onToggleHeaderRequested: sheetRoot.toggleHeaderRequested()
         onToggleCenteredModeRequested: sheetRoot.toggleCenteredModeRequested()
         onSaveRequested: sheetRoot.saveRequested()
@@ -158,94 +145,8 @@ Rectangle {
         onSyncNoticeRequested: (t) => sheetRoot.syncNoticeRequested(t)
     }
 
-    // 2.1 Интерактивный граф связей на листе (In-Sheet Graph View)
-    GraphView {
-        id: sheetGraphView
-        visible: sheetRoot.isGraphMode
-        embeddedInSheet: true
-        isLocalGraph: sheetRoot.isLocalGraphMode
-        folderUrl: sheetRoot.folderUrl
-        activeFileUrl: sheetRoot.fileUrl
-        openFileUrls: sheetRoot.openFileUrls
-        anchors.top: parent.top
-        anchors.topMargin: sheetRoot.showHeader ? 70 : 0
-        anchors.left: parent.left
-        anchors.right: parent.right
-        height: Math.max(100, sheetRoot.availableHeight - (sheetRoot.showHeader ? 70 : 0))
-
-        onGraphPressed: sheetRoot.paneActivated()
-        onActiveFocusChanged: {
-            if (activeFocus) {
-                sheetRoot.paneActivated()
-            }
-        }
-
-        onNodeClicked: (fUrl, lbl, type) => {
-            sheetRoot.paneActivated()
-            sheetRoot.nodeSelected(fUrl, lbl)
-        }
-        onCloseRequested: {
-            sheetRoot.closeGraphRequested()
-        }
-    }
-
-    // 2.2 Режим иерархии блоков документа (Outliner)
-    DocumentOutliner {
-        id: sheetOutliner
-        visible: sheetRoot.isOutlineMode && !sheetRoot.isGraphMode && !sheetRoot.isEmpty
-        fileName: sheetRoot.fileName
-        folderUrl: sheetRoot.folderUrl
-        documentText: sheetRoot.text
-        anchors.top: parent.top
-        anchors.topMargin: sheetRoot.showHeader ? 70 : 0
-        anchors.left: parent.left
-        anchors.right: parent.right
-        height: Math.max(100, sheetRoot.availableHeight - (sheetRoot.showHeader ? 70 : 0))
-
-        onTextChangedByOutliner: (newText) => sheetRoot.textChangedByOutliner(newText)
-        onCloseRequested: {
-            sheetRoot.isOutlineMode = false
-        }
-        onPaneActivated: sheetRoot.paneActivated()
-        onOpenFileRequested: (fUrl, lbl) => {
-            sheetRoot.isOutlineMode = false
-            sheetRoot.nodeSelected(fUrl, lbl)
-        }
-        onJumpToHeadingRequested: (heading) => {
-            sheetRoot.isOutlineMode = false
-            sheetRoot.paneActivated()
-            if (!heading || !sheetRoot.editorArea) return
-            var txt = sheetRoot.editorArea.text || ""
-            var lines = txt.split("\n")
-            var targetPos = 0
-            var found = false
-            var cleanHeading = heading.trim().toLowerCase()
-            for (var i = 0; i < lines.length; i++) {
-                var l = lines[i].trim()
-                var match = l.match(/^(#{1,6})\s+(.+)$/)
-                if (match && match[2].trim().toLowerCase() === cleanHeading) {
-                    found = true
-                    break
-                }
-                targetPos += lines[i].length + 1
-            }
-            if (found) {
-                sheetRoot.editorArea.cursorPosition = Math.min(targetPos, txt.length)
-                sheetRoot.editorArea.forceActiveFocus()
-                sheetRoot.cursorVisibilityRequested()
-            }
-        }
-    }
-
     function loadHistoricalSnapshot(snapshotId) {
         if (typeof backend === "undefined" || !backend) return
-        if (isGraphMode) {
-            if (typeof backend.get_history_snapshot_graph === "function" && sheetGraphView) {
-                var gData = backend.get_history_snapshot_graph(folderUrl, snapshotId)
-                sheetGraphView.loadHistoricalGraph(gData)
-            }
-            return
-        }
 
         if (typeof _liveDraftText === "undefined" && editorArea) {
             _liveDraftText = editorArea.text
@@ -261,12 +162,6 @@ Rectangle {
     }
 
     function restoreLive() {
-        if (isGraphMode) {
-            if (sheetGraphView) {
-                sheetGraphView.reloadGraph()
-            }
-            return
-        }
         if (typeof _liveDraftText === "string") {
             if (editorArea) {
                 editorArea.text = _liveDraftText
@@ -283,8 +178,6 @@ Rectangle {
             editorArea.readOnly = false
         }
     }
-
-
 
     // Интерактивная граница изменения ширины листа слева
     SheetResizeHandle {

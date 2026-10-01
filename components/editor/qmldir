@@ -1,12 +1,6 @@
 module components.editor
-EditorSplitLayout 1.0 EditorSplitLayout.qml
-MainBar 1.0 MainBar.qml
 EditorSheet 1.0 EditorSheet.qml
-DocumentHeader 1.0 DocumentHeader.qml
-EditorHeader 1.0 EditorHeader.qml
-EditorFooter 1.0 EditorFooter.qml
 EditorCanvas 1.0 EditorCanvas.qml
-DocumentOutliner 1.0 DocumentOutliner.qml
 BracketHighlightOverlay 1.0 BracketHighlightOverlay.qml
 EditorFocusDimmer 1.0 EditorFocusDimmer.qml
 EditorEmptyState 1.0 EditorEmptyState.qml
@@ -14,4 +8,3 @@ EditorGutter 1.0 EditorGutter.qml
 EditorScrollbar 1.0 EditorScrollbar.qml
 SheetResizeHandle 1.0 SheetResizeHandle.qml
 SyncNotice 1.0 SyncNotice.qml
-OutlinerTreeItem 1.0 OutlinerTreeItem.qml

@@ -19,6 +19,9 @@ Item {
     property bool isProjectTree: false
     readonly property string timelineMode: (isGraphMode || isProjectTree) ? "project" : "note"
 
+    // Режимы футера: "history" (только ползунок) или "information" (слов, знаков, байт)
+    property string footerMode: "information"
+
     // Свойства таймлайна истории проекта (проксируются в HistoryTimelineBar)
     property alias timelineList: historyBar.timelineList
     property alias currentSnapshotIndex: historyBar.currentSnapshotIndex
@@ -30,18 +33,32 @@ Item {
     signal snapshotSelected(int snapshotId)
     signal liveRequested()
 
+    function toggleFooterMode() {
+        if (footerMode === "information") {
+            footerMode = "history"
+        } else {
+            footerMode = "information"
+        }
+    }
+
     focus: true
     Keys.onSpacePressed: (event) => {
-        historyBar.togglePlay()
-        event.accepted = true
+        if (footerMode === "history") {
+            historyBar.togglePlay()
+            event.accepted = true
+        }
     }
     Keys.onLeftPressed: (event) => {
-        historyBar.stepPrev()
-        event.accepted = true
+        if (footerMode === "history") {
+            historyBar.stepPrev()
+            event.accepted = true
+        }
     }
     Keys.onRightPressed: (event) => {
-        historyBar.stepNext()
-        event.accepted = true
+        if (footerMode === "history") {
+            historyBar.stepNext()
+            event.accepted = true
+        }
     }
 
     function togglePlay() { historyBar.togglePlay() }
@@ -101,10 +118,10 @@ Item {
         }
     }
 
-    // Шкала истории (всегда активна: для графа, структуры или заметки)
+    // Содержимое подвала: режим history (только ползунок)
     HistoryTimelineBar {
         id: historyBar
-        visible: true
+        visible: footerRoot.footerMode === "history"
         folderUrl: footerRoot.folderUrl
         fileUrl: footerRoot.fileUrl
         mode: footerRoot.timelineMode
@@ -120,5 +137,26 @@ Item {
         onActivated: footerRoot.activated()
         onSnapshotSelected: (snapshotId) => footerRoot.snapshotSelected(snapshotId)
         onLiveRequested: footerRoot.liveRequested()
+    }
+
+    // Содержимое подвала: режим information (только статистика: слов, знаков, байт)
+    Item {
+        id: infoBar
+        visible: footerRoot.footerMode === "information"
+        anchors.top: footerDividerArea.bottom
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 6
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.leftMargin: footerRoot.barSize
+        anchors.rightMargin: footerRoot.barSize
+
+        Text {
+            anchors.centerIn: parent
+            text: footerRoot.statsText
+            font.pixelSize: 13
+            color: Theme.textSecondary
+            elide: Text.ElideRight
+        }
     }
 }

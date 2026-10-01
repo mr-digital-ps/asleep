@@ -141,14 +141,13 @@ Item {
     signal closeGraphRequested()
     signal openStructureRequested()
 
-
-    // Контейнер с панелями редактора
+    // Контейнер с панелями
     Item {
         id: panesContainer
         anchors.fill: parent
 
         // Левая / Основная панель
-        MainBar {
+        WorkspacePane {
             id: primaryBar
             visible: true
             barSize: splitLayout.barSize
@@ -158,7 +157,6 @@ Item {
             isActivePane: splitLayout.activePane === 0
             isEmpty: splitLayout.isPrimaryEmpty
 
-            // Режим графа на листе
             isGraphMode: splitLayout.isPrimaryGraphVisible
             isLocalGraphMode: splitLayout.isPrimaryLocalGraph
             folderUrl: splitLayout.currentFolderUrl
@@ -198,7 +196,7 @@ Item {
             onOpenStructureRequested: splitLayout.openStructureRequested()
         }
 
-        // Вертикальный разделитель (виден только при включенном сплите)
+        // Вертикальный разделитель
         Item {
             id: splitterDivider
             visible: splitLayout.isSplit
@@ -235,7 +233,7 @@ Item {
         }
 
         // Правая / Вторичная панель
-        MainBar {
+        WorkspacePane {
             id: secondaryBar
             visible: splitLayout.isSplit
             barSize: splitLayout.barSize
@@ -244,7 +242,6 @@ Item {
             isSplitMode: splitLayout.isSplit
             isActivePane: splitLayout.activePane === 1
 
-            // Режим графа на листе
             isGraphMode: splitLayout.isSplit && splitLayout.isSecondaryGraphVisible
             isLocalGraphMode: splitLayout.isSecondaryLocalGraph
             folderUrl: splitLayout.currentFolderUrl
@@ -284,7 +281,6 @@ Item {
             onOpenStructureRequested: splitLayout.openStructureRequested()
         }
 
-
         Connections {
             target: primaryBar.editorArea
             function onTextChanged() {
@@ -302,9 +298,7 @@ Item {
         }
     }
 
-    // =========================================================================
-    // ПОЛУПРОЗРАЧНЫЙ ОВЕРЛЕЙ ПРЕДПРОСМОТРА ЗОНЫ ДОКИНГА (DROP PREVIEW OVERLAY)
-    // =========================================================================
+    // Оверлей предпросмотра зоны сплита
     Item {
         id: dropOverlayLayer
         anchors.fill: parent

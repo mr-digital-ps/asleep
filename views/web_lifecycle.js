@@ -398,14 +398,22 @@ function toggleSplit(root) {
     }
 }
 
+function normalizeFileUrl(u) {
+    if (!u) return ""
+    return decodeURIComponent(u.toString().replace(/^file:\/\/\/?/i, "").toLowerCase().replace(/\\/g, "/"))
+}
+
 function openFileFromFolder(root, fileUrl, fileName, isShift) {
     if (!root || typeof backend === "undefined" || !backend || !fileUrl) return
-    if (root.splitLayout && typeof root.splitLayout.closeGraph === "function") {
+    if (root.splitLayout && typeof root.splitLayout.closeAllGraphs === "function") {
+        root.splitLayout.closeAllGraphs()
+    } else if (root.splitLayout && typeof root.splitLayout.closeGraph === "function") {
         root.splitLayout.closeGraph()
     }
 
     var cleanName = stripExt(fileName)
     var content = backend.read_file(fileUrl)
+    var normTarget = normalizeFileUrl(fileUrl)
 
     if (root.tabsModel.count === 0 || root.primaryTabIndex < 0) {
         root.tabsModel.clear()
@@ -452,15 +460,24 @@ function openFileFromFolder(root, fileUrl, fileName, isShift) {
 
     if (root.primaryTabIndex >= 0 && root.primaryTabIndex < root.tabsModel.count) {
         var pTab = root.tabsModel.get(root.primaryTabIndex)
-        if (pTab && pTab.fileUrl === fileUrl) {
+        if (pTab && normalizeFileUrl(pTab.fileUrl) === normTarget) {
             setActivePane(root, 0)
             return
         }
     }
     if (root.isSplit && root.secondaryTabIndex >= 0 && root.secondaryTabIndex < root.tabsModel.count) {
         var sTab = root.tabsModel.get(root.secondaryTabIndex)
-        if (sTab && sTab.fileUrl === fileUrl) {
+        if (sTab && normalizeFileUrl(sTab.fileUrl) === normTarget) {
             setActivePane(root, 1)
+            return
+        }
+    }
+
+    // Ищем среди остальных вкладок
+    for (var t = 0; t < root.tabsModel.count; t++) {
+        var tabItem = root.tabsModel.get(t)
+        if (tabItem && normalizeFileUrl(tabItem.fileUrl) === normTarget) {
+            switchToTab(root, t)
             return
         }
     }
@@ -693,6 +710,9 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Mark
             break
         case "toggle_footer":
             applyToBothBars(splitLayout, "toggleFooterOnly")
+            break
+        case "toggle_footer_mode":
+            applyToBothBars(splitLayout, "toggleFooterMode")
             break
         case "toggle_header":
             applyToBothBars(splitLayout, "toggleHeaderOnly")

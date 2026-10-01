@@ -32,6 +32,7 @@ RowLayout {
     signal syncNoticeRequested(string title)
     signal toggleHeaderFooterRequested()
     signal toggleFooterRequested()
+    signal toggleFooterModeRequested()
     signal toggleHeaderRequested()
     signal toggleCenteredModeRequested()
     signal saveRequested()

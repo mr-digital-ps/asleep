@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "../components/editor"
+import "../components/workspace"
 import "../components/dialogs"
 import "../components/hotkeys"
 import "../components/theme"
@@ -186,7 +187,7 @@ Rectangle {
     // =========================================================================
     // ГЛАВНАЯ ОБЛАСТЬ РЕДАКТОРА (ЧИСТЫЙ МОНОЛИТ)
     // =========================================================================
-    EditorSplitLayout {
+    WorkspaceSplit {
         id: splitLayout
         anchors.fill: parent
         barSize: root.barSize

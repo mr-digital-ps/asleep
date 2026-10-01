@@ -102,6 +102,13 @@ function isToggleFooterKey(event) {
     return false
 }
 
+function isToggleFooterModeKey(event) {
+    // I (scan 23, 'ш')
+    var isI = (event.key === Qt.Key_I || event.nativeScanCode === 23 || event.key === 1080 || event.key === 1048 || event.key === 1096 || event.key === 1064 || event.text === 'i' || event.text === 'I' || event.text === 'ш' || event.text === 'Ш')
+    if ((event.modifiers & Qt.AltModifier) && isI) return true
+    return false
+}
+
 function isToggleHeaderKey(event) {
     // U (scan 22, 'г')
     var isU = (event.key === Qt.Key_U || event.nativeScanCode === 22 || event.key === 1043 || event.key === 1075 || event.text === 'u' || event.text === 'U' || event.text === 'г' || event.text === 'Г')
@@ -115,6 +122,7 @@ function handleShortcutOverride(event, canvasRoot, editorArea, Markdown) {
     if (isCloseKey(event) ||
         isToggleHeaderFooterKey(event) ||
         isToggleFooterKey(event) ||
+        isToggleFooterModeKey(event) ||
         isToggleHeaderKey(event) ||
         isCenteredModeKey(event) ||
         isSaveKey(event) ||
@@ -167,6 +175,11 @@ function handleKeyPressed(event, canvasRoot, editorArea, Markdown) {
     if (isToggleFooterKey(event)) {
         event.accepted = true
         canvasRoot.toggleFooterRequested()
+        return true
+    }
+    if (isToggleFooterModeKey(event)) {
+        event.accepted = true
+        canvasRoot.toggleFooterModeRequested()
         return true
     }
     if (isToggleHeaderKey(event)) {
