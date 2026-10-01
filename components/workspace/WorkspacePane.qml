@@ -228,6 +228,8 @@ Item {
         }
     }
 
+    readonly property real effectiveSheetWidth: isCenteredMode ? Math.min(width, Math.max(minSheetWidth, customSheetWidth)) : width
+
     // =========================================================================
     // 1. ВЕРХНЯЯ ПАНЕЛЬ ЗАГОЛОВКА (PaneHeader)
     // =========================================================================
@@ -236,7 +238,7 @@ Item {
         barSize: workspacePane.barSize
         anchors.top: parent.top
         anchors.horizontalCenter: parent.horizontalCenter
-        width: (!workspacePane.isGraphMode && paperSheet) ? paperSheet.width : parent.width
+        width: workspacePane.effectiveSheetWidth
         fileName: workspacePane.fileName
         fileUrl: workspacePane.fileUrl
         isSplitMode: workspacePane.isSplitMode
@@ -399,7 +401,7 @@ Item {
         anchors.top: (workspacePane.showHeader && workspacePane.isGraphMode) ? paneHeader.bottom : parent.top
         anchors.bottom: (workspacePane.showFooter && workspacePane.isGraphMode) ? paneFooter.top : parent.bottom
         anchors.horizontalCenter: parent.horizontalCenter
-        width: workspacePane.isCenteredMode ? Math.min(parent.width, Math.max(workspacePane.minSheetWidth, workspacePane.customSheetWidth)) : parent.width
+        width: workspacePane.effectiveSheetWidth
 
         onGraphPressed: workspacePane.paneActivated()
         onActiveFocusChanged: {
@@ -485,7 +487,7 @@ Item {
         footerMode: workspacePane.footerMode
         anchors.bottom: parent.bottom
         anchors.horizontalCenter: parent.horizontalCenter
-        width: (!workspacePane.isGraphMode && paperSheet) ? paperSheet.width : parent.width
+        width: workspacePane.effectiveSheetWidth
         height: 70
         z: 20
         isPinned: true

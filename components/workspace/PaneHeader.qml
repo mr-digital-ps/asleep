@@ -38,7 +38,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         color: Theme.bgHeader
-        visible: headerRoot.isPinned
+        visible: true
     }
 
     MouseArea {

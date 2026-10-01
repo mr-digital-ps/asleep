@@ -1,43 +1,50 @@
-// block_sync.js — определение активного блока и применение внешних обновлений
+// components/editor/block_sync.js — определение активного именованного блока Имя { ... } и синхронизация
+.pragma library
 
 function getCurrentBlockInfo(editor, backend) {
     if (!editor) return null
     let fullText = editor.text
     let pos = editor.cursorPosition
-    // Синхронизируем блоки заголовков любого уровня (#..######)
-    let headingRegex = /^[ \t]*(#{1,6})\s+(.+)$/gm
+
+    // Именованные блоки по спецификации: Имя Блока { ... }
+    let blockRegex = /^([^{}\n\r]+?)\s*\{[ \t]*$/gm
+    let endRegex = /^[ \t]*\}[ \t]*$/gm
     let match
-    let matches = []
-    while ((match = headingRegex.exec(fullText)) !== null) {
-        matches.push({
+
+    // Находим все открывающие скобки
+    let blockStarts = []
+    while ((match = blockRegex.exec(fullText)) !== null) {
+        blockStarts.push({
+            name: match[1].trim(),
             start: match.index,
-            end: match.index + match[0].length,
-            level: match[1].length,
-            title: match[2].trim()
+            headerEnd: match.index + match[0].length
         })
     }
-    for (let i = 0; i < matches.length; i++) {
-        let m = matches[i]
-        let contentStart = m.end
-        let contentEnd = (i + 1 < matches.length) ? matches[i + 1].start : fullText.length
 
-        // Если курсор на самой строке заголовка (pos <= contentStart), не синхронизируем как тело блока
-        if (pos <= contentStart) {
-            continue
-        }
+    if (blockStarts.length === 0) return null
+
+    // Для каждого блока ищем парную закрывающую скобку '}'
+    for (let i = 0; i < blockStarts.length; i++) {
+        let b = blockStarts[i]
+        let contentStart = b.headerEnd
+
+        // Ищем закрывающую скобку до следующего блока или конца текста
+        let searchEnd = (i + 1 < blockStarts.length) ? blockStarts[i + 1].start : fullText.length
+        endRegex.lastIndex = contentStart
+        let endMatch = endRegex.exec(fullText)
+        let contentEnd = (endMatch && endMatch.index < searchEnd) ? endMatch.index : searchEnd
 
         if (pos > contentStart && pos <= contentEnd) {
             let rawContent = fullText.substring(contentStart, contentEnd)
-            let cleanContent = rawContent.replace(/^\r?\n/, "").replace(/\r?\n$/, "")
+            let cleanContent = rawContent.replace(/^\r?\n/, "").replace(/\r?\n$/, "").trim()
 
-            // Если тело блока пустое — проверяем, существует ли уже контент в кэше/других файлах
             if (!cleanContent) {
                 if (typeof backend !== "undefined" && backend && typeof backend.get_block === "function") {
-                    let existing = backend.get_block(m.title)
+                    let existing = backend.get_block(b.name)
                     if (existing && existing.found && existing.content && existing.content.trim().length > 0) {
                         return {
-                            heading: m.title,
-                            headingNorm: m.title.toLowerCase(),
+                            heading: b.name,
+                            headingNorm: b.name.toLowerCase(),
                             shouldAutoFill: true,
                             autoFillContent: existing.content.trim(),
                             contentStart: contentStart,
@@ -49,10 +56,10 @@ function getCurrentBlockInfo(editor, backend) {
             }
 
             return {
-                heading: m.title,
-                headingNorm: m.title.toLowerCase(),
+                heading: b.name,
+                headingNorm: b.name.toLowerCase(),
                 content: cleanContent,
-                blockStart: m.start,
+                blockStart: b.start,
                 contentStart: contentStart,
                 contentEnd: contentEnd
             }
@@ -64,15 +71,16 @@ function getCurrentBlockInfo(editor, backend) {
 function applyExternalBlockUpdate(editor, headingNorm, newContent) {
     if (!editor) return false
     let fullText = editor.text
-    let headingRegex = /^[ \t]*(#{1,6})\s+(.+)$/gm
+    let blockRegex = /^([^{}\n\r]+?)\s*\{[ \t]*$/gm
+    let endRegex = /^[ \t]*\}[ \t]*$/gm
     let match
-    let matches = []
-    while ((match = headingRegex.exec(fullText)) !== null) {
-        matches.push({
+
+    let blockStarts = []
+    while ((match = blockRegex.exec(fullText)) !== null) {
+        blockStarts.push({
+            name: match[1].trim(),
             start: match.index,
-            end: match.index + match[0].length,
-            level: match[1].length,
-            title: match[2].trim()
+            headerEnd: match.index + match[0].length
         })
     }
 
@@ -80,17 +88,21 @@ function applyExternalBlockUpdate(editor, headingNorm, newContent) {
     let cursor = editor.cursorPosition
     let changed = false
 
-    for (let i = matches.length - 1; i >= 0; i--) {
-        let m = matches[i]
-        if (m.title.toLowerCase() === headingNorm.toLowerCase()) {
-            let contentStart = m.end
-            let contentEnd = (i + 1 < matches.length) ? matches[i + 1].start : fullText.length
+    for (let i = blockStarts.length - 1; i >= 0; i--) {
+        let b = blockStarts[i]
+        if (b.name.toLowerCase() === headingNorm.toLowerCase()) {
+            let contentStart = b.headerEnd
+            let searchEnd = (i + 1 < blockStarts.length) ? blockStarts[i + 1].start : fullText.length
+            endRegex.lastIndex = contentStart
+            let endMatch = endRegex.exec(fullText)
+            let contentEnd = (endMatch && endMatch.index < searchEnd) ? endMatch.index : searchEnd
+
             let oldContent = fullText.substring(contentStart, contentEnd)
-            let cleanOld = oldContent.replace(/^\r?\n/, "").replace(/\r?\n$/, "")
-            let cleanNew = newContent.replace(/^\r?\n/, "").replace(/\r?\n$/, "")
+            let cleanOld = oldContent.replace(/^\r?\n/, "").replace(/\r?\n$/, "").trim()
+            let cleanNew = newContent.replace(/^\r?\n/, "").replace(/\r?\n$/, "").trim()
             if (cleanOld === cleanNew) continue
 
-            let formattedNew = "\n" + cleanNew + (i + 1 < matches.length ? "\n\n" : "\n")
+            let formattedNew = "\n    " + cleanNew + "\n"
             let before = updatedText.substring(0, contentStart)
             let after = updatedText.substring(contentEnd)
             updatedText = before + formattedNew + after

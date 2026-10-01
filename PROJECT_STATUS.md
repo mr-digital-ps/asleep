@@ -18,6 +18,7 @@
 | **Хоткеи** | `components/hotkeys/`, `services/system/hotkey_service.py` | 🟢 Работает | Аппаратный GlobalHotkeyFilter, русская раскладка, Ctrl+S/N/O/W, Alt+W |
 | **Граф знаний** | `components/graph/GraphView.qml` | 🟢 Работает | Интерактивный Canvas-граф (Ctrl+G, Alt+G), физика связей, центрирование |
 | **Аутлайнер / Структура** | `components/outliner/DocumentOutliner.qml` | 🟢 Работает | Оглавление заметок и структура проекта, drag-and-drop блоков, вынесен в автономный модуль |
+| **Парсер диалекта** | `services/content/user_dialect_parser.py` | 🟢 Работает | Пользовательский диалект для писателей/сценаристов: блоки `Имя { ... }`, трансклюзия `Имя()`, `Файл.Имя()`, `[[...]]`, экранирование кода |
 | **Detached Tabs** | `tabs.js` (открепление на рабочий стол) | ❌ Удалён | Вычищен: в монолитной модели используется чистый Split View без рассинхронов |
 | **Views Контроллеры** | `views/web_lifecycle.js`, `views/window_controller.js` | 🟢 Монолит | Устранены `views/tabs/` и `action_dispatcher.js`, единый жизненный цикл и диспетчеризация |
 
@@ -34,4 +35,6 @@
 - [x] Fix: `backend` прокинут явно в `.pragma library` (`openFileFromFolder`, `createNewTab`, `renameTab`, `handleNodeSelected`)
 - [x] Fix: двойной toggle графа в `WorkspaceSplit` устранён (один вызов `toggleGraph()`)
 - [x] Fix: binding loop `height` в `scrollContentContainer` (замена `availableHeight` → `height`)
+- [x] Реализован парсер пользовательского диалекта `user_dialect_parser.py` с тестами (блоки с пробелами, запрет точек в имени, трансклюзия, вики-ссылки, экранирование в коде)
 - [x] 100% тестов в verify.py пройдены
+

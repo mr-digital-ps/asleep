@@ -74,6 +74,11 @@ Item {
         return event.key === Qt.Key_F || event.nativeScanCode === 33 || event.text === 'f' || event.text === 'F' || event.text === 'а' || event.text === 'А' || event.key === 1040 || event.key === 1072
     }
 
+    function isKeyI(event) {
+        // I (scan 23, Russian 'ш')
+        return event.key === Qt.Key_I || event.nativeScanCode === 23 || event.text === 'i' || event.text === 'I' || event.text === 'ш' || event.text === 'Ш' || event.key === 1080 || event.key === 1048 || event.key === 1096 || event.key === 1064
+    }
+
     function handleKeyEvent(event) {
         if (isCloseKey(event)) {
             hotkeyRoot.closeActiveTabRequested()
@@ -85,6 +90,7 @@ Item {
         // Alt + G: локальный граф
         // Alt + P: аутлайнер
         // Alt + U: заголовок (Header)
+        // Alt + I: режим подвала (History <-> Information)
         // Alt + K / Alt + F: подвал (Footer)
         // Alt + H: заголовок и подвал (Header + Footer)
         if (event.modifiers & Qt.AltModifier) {
@@ -100,6 +106,11 @@ Item {
             }
             if (isKeyU(event)) {
                 hotkeyRoot.actionTriggered("toggle_header")
+                event.accepted = true
+                return true
+            }
+            if (isKeyI(event)) {
+                hotkeyRoot.actionTriggered("toggle_footer_mode")
                 event.accepted = true
                 return true
             }

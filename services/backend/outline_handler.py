@@ -22,6 +22,16 @@ class OutlineHandlerMixin:
             safe_print(f"[Backend] Ошибка парсинга аутлайна: {e}")
             return []
 
+    @pyqtSlot(str, result="QVariantMap")
+    def parse_dialect(self, text: str) -> dict:
+        """Разбирает пользовательский диалект сценария/заметок (блоки, трансклюзия, ссылки)."""
+        try:
+            from services.content.document_outline import parse_user_dialect
+            return parse_user_dialect(text)
+        except Exception as e:
+            safe_print(f"[Backend] Ошибка парсинга диалекта: {e}")
+            return {"blocks": [], "local_calls": [], "external_calls": [], "wikilinks": [], "free_text": "", "errors": [str(e)]}
+
     @pyqtSlot(result=str)
     @pyqtSlot(str, result=str)
     def get_project_structure_filename(self, folder_url: str = "") -> str:

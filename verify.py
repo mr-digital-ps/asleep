@@ -27,8 +27,8 @@ def test_services():
     from services.system.window_manager import WindowManager
     from web import Backend
 
-    # 1. Тест парсера блоков
-    sample = "## Заголовок 1\nТело 1\n\n## Заголовок 2\nТело 2\n"
+    # 1. Тест парсера блоков пользовательского диалекта
+    sample = "Заголовок 1 {\n    Тело 1\n}\n\nЗаголовок 2 {\n    Тело 2\n}\n"
     blocks = parse_markdown_blocks(sample)
     assert len(blocks) == 2, f"Ожидалось 2 блока, получено {len(blocks)}"
     assert blocks[0]["title"] == "Заголовок 1"
@@ -348,7 +348,7 @@ tags:
     from services.content.outline_service import OutlineService
     from services.core.document_session import DocumentSession
     osvc = OutlineService()
-    test_doc = "{\nБлок 1\nТекст 1\n}\n\n{\nБлок 2\nТекст 2\n}\n\n{\nБлок 3\nТекст 3\n}"
+    test_doc = "Блок 1 {\n    Текст 1\n}\n\nБлок 2 {\n    Текст 2\n}\n\nБлок 3 {\n    Текст 3\n}"
     parsed_blks = osvc.parse_document(test_doc)
     assert len(parsed_blks) == 3, f"Ожидалось 3 блока, получено {len(parsed_blks)}"
     assert parsed_blks[0]["heading"] == "Блок 1"

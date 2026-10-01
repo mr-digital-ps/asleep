@@ -1,20 +1,244 @@
-# services/document_outline.py — Парсинг и манипуляция блоками { ... }
+# services/content/document_outline.py — Парсинг и манипуляция пользовательским диалектом (блоки, трансклюзия, аутлайнер)
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
+
+
+class BlockItem(TypedDict):
+    name: str
+    name_norm: str
+    content: str
+    start_line: int
+    end_line: int
+    start_char: int
+    end_char: int
+
+
+class ExternalCallItem(TypedDict):
+    target_file: str
+    target_block: str
+    line: int
+    raw: str
+
+
+class LocalCallItem(TypedDict):
+    target_block: str
+    line: int
+    raw: str
+
+
+class DialectParseResult(TypedDict):
+    blocks: list[BlockItem]
+    local_calls: list[LocalCallItem]
+    external_calls: list[ExternalCallItem]
+    wikilinks: list[str]
+    free_text: str
+    errors: list[str]
+
+
+# Регулярные выражения пользовательского диалекта
+RE_CODE_FENCE = re.compile(r'^[ \t]*```')
+RE_BLOCK_START = re.compile(r'^([^{}\n\r]+?)\s*\{[ \t]*$')
+RE_BLOCK_END = re.compile(r'^[ \t]*\}[ \t]*$')
+
+# Вызовы блоков: Файл.Блок() и Блок()
+RE_EXTERNAL_CALL = re.compile(r'([^.(){}\n\r]+)\.([^.(){}\n\r]+)\(\)')
+RE_LOCAL_CALL = re.compile(r'([^.(){}\n\r]+)\(\)')
+
+# Вики-ссылки [[Имя]]
+RE_WIKILINK = re.compile(r'\[\[([^\]|\n\r]+)(?:\|[^\]\n\r]+)?\]\]')
+
+# Для структуры проекта
+LIST_ITEM_REGEX = re.compile(r'^([ \t]*)([-*+]|\d+[.)])\s+(.+)$')
+PURE_WIKILINK_REGEX = re.compile(r'^\s*(?:[-*+]\s+)?\[\[([^\]|]+)(?:\|[^\]]+)?\]\]\s*$', re.MULTILINE)
+
+
+def parse_user_dialect(text: str) -> DialectParseResult:
+    """
+    Разбирает текст в соответствии с пользовательским диалектом:
+    - Плоские именованные блоки `Имя Блока { ... }`
+    - Проверка уникальности имен внутри файла
+    - Вызовы `Блок()` и `Файл.Блок()`
+    - Вики-ссылки `[[Имя Файла]]`
+    - Полное экранирование синтаксиса внутри блоков кода ```
+    """
+    if not text:
+        return {
+            "blocks": [],
+            "local_calls": [],
+            "external_calls": [],
+            "wikilinks": [],
+            "free_text": "",
+            "errors": []
+        }
+
+    lines = text.splitlines(keepends=True)
+
+    in_code_block = False
+    in_user_block = False
+    current_block_name = ""
+    current_block_start_line = 0
+    current_block_start_char = 0
+    current_block_lines: list[str] = []
+
+    blocks: list[BlockItem] = []
+    seen_block_names: set[str] = set()
+    errors: list[str] = []
+
+    local_calls: list[LocalCallItem] = []
+    external_calls: list[ExternalCallItem] = []
+    wikilinks: list[str] = []
+    free_text_lines: list[str] = []
+
+    current_char_offset = 0
+
+    for line_idx, line_raw in enumerate(lines, start=1):
+        line_len = len(line_raw)
+        stripped = line_raw.strip()
+
+        # 1. Проверка блоков кода ```
+        if RE_CODE_FENCE.match(line_raw):
+            in_code_block = not in_code_block
+            if in_user_block:
+                current_block_lines.append(line_raw)
+            else:
+                free_text_lines.append(line_raw)
+            current_char_offset += line_len
+            continue
+
+        if in_code_block:
+            if in_user_block:
+                current_block_lines.append(line_raw)
+            else:
+                free_text_lines.append(line_raw)
+            current_char_offset += line_len
+            continue
+
+        # 2. Обработка закрытия блока
+        if in_user_block:
+            if RE_BLOCK_END.match(line_raw):
+                content = "".join(current_block_lines)
+                end_char = current_char_offset + line_len
+                blocks.append({
+                    "name": current_block_name,
+                    "name_norm": current_block_name.lower(),
+                    "content": content,
+                    "start_line": current_block_start_line,
+                    "end_line": line_idx,
+                    "start_char": current_block_start_char,
+                    "end_char": end_char
+                })
+                in_user_block = False
+                current_block_name = ""
+                current_block_lines = []
+                current_char_offset += line_len
+                continue
+
+            nested_match = RE_BLOCK_START.match(stripped)
+            if nested_match and "{" in line_raw:
+                errors.append(f"Line {line_idx}: Nested blocks are forbidden ('{nested_match.group(1).strip()}')")
+
+            _extract_links_and_calls(line_raw, line_idx, local_calls, external_calls, wikilinks)
+            current_block_lines.append(line_raw)
+            current_char_offset += line_len
+            continue
+
+        # 3. Вне блока: проверка на открытие нового блока
+        block_match = RE_BLOCK_START.match(stripped)
+        if block_match:
+            raw_name = block_match.group(1).strip()
+            if "." in raw_name:
+                errors.append(f"Line {line_idx}: Block name cannot contain '.' ('{raw_name}')")
+            elif not raw_name:
+                errors.append(f"Line {line_idx}: Empty block name")
+            else:
+                name_norm = raw_name.lower()
+                if name_norm in seen_block_names:
+                    errors.append(f"Line {line_idx}: Duplicate block name '{raw_name}'")
+                else:
+                    seen_block_names.add(name_norm)
+
+                in_user_block = True
+                current_block_name = raw_name
+                current_block_start_line = line_idx
+                current_block_start_char = current_char_offset
+                current_block_lines = []
+                current_char_offset += line_len
+                continue
+
+        # 4. Свободный текст
+        free_text_lines.append(line_raw)
+        _extract_links_and_calls(line_raw, line_idx, local_calls, external_calls, wikilinks)
+        current_char_offset += line_len
+
+    if in_user_block:
+        errors.append(f"Unclosed block '{current_block_name}' starting at line {current_block_start_line}")
+        content = "".join(current_block_lines)
+        blocks.append({
+            "name": current_block_name,
+            "name_norm": current_block_name.lower(),
+            "content": content,
+            "start_line": current_block_start_line,
+            "end_line": len(lines),
+            "start_char": current_block_start_char,
+            "end_char": current_char_offset
+        })
+
+    return {
+        "blocks": blocks,
+        "local_calls": local_calls,
+        "external_calls": external_calls,
+        "wikilinks": list(dict.fromkeys(wikilinks)),
+        "free_text": "".join(free_text_lines),
+        "errors": errors
+    }
+
+
+def _extract_links_and_calls(
+    line: str,
+    line_num: int,
+    local_calls: list[LocalCallItem],
+    external_calls: list[ExternalCallItem],
+    wikilinks: list[str]
+):
+    for m in RE_WIKILINK.finditer(line):
+        target = m.group(1).strip()
+        if target:
+            wikilinks.append(target)
+
+    clean_line = RE_WIKILINK.sub(" ", line)
+    clean_line = re.sub(r'`[^`]+`', ' ', clean_line)
+
+    for m in RE_EXTERNAL_CALL.finditer(clean_line):
+        f_name = m.group(1).strip()
+        b_name = m.group(2).strip()
+        if f_name and b_name:
+            external_calls.append({
+                "target_file": f_name,
+                "target_block": b_name,
+                "line": line_num,
+                "raw": m.group(0)
+            })
+
+    clean_for_local = RE_EXTERNAL_CALL.sub(" ", clean_line)
+    for m in RE_LOCAL_CALL.finditer(clean_for_local):
+        b_name = m.group(1).strip()
+        if b_name:
+            local_calls.append({
+                "target_block": b_name,
+                "line": line_num,
+                "raw": m.group(0)
+            })
 
 
 class DocumentOutlineManager:
     """
-    Отвечает за разбор плоских блоков в фигурных скобках { ... } в заметке,
-    манипуляцию блоками и их Drag-and-Drop перестановку.
-    Заголовки H1-H6 и YAML-шапки полностью устранены.
+    Отвечает за разбор именованных блоков `Имя { ... }` в заметке,
+    манипуляцию блоками в аутлайнере и синхронизацию структуры.
     """
 
-    CURLY_BLOCK_REGEX = re.compile(r'\{([^{}]*)\}', re.DOTALL)
-    LIST_ITEM_REGEX = re.compile(r'^([ \t]*)([-*+]|\d+[.)])\s+(.+)$')
-    PURE_WIKILINK_REGEX = re.compile(r'^\s*(?:[-*+]\s+)?\[\[([^\]|]+)(?:\|[^\]]+)?\]\]\s*$', re.MULTILINE)
-    WIKILINK_FINDER = re.compile(r'\[\[(.*?)\]\]')
+    LIST_ITEM_REGEX = LIST_ITEM_REGEX
+    PURE_WIKILINK_REGEX = PURE_WIKILINK_REGEX
 
     def parse_document(
         self,
@@ -24,9 +248,10 @@ class DocumentOutlineManager:
     ) -> list[dict[str, Any]]:
         """
         Разбор документа на плоские блоки:
-        1. Если в документе есть блоки { ... }, они парсятся как основные блоки карточек.
-        2. Для файлов структуры проекта (_Структура.md / _notes.md) поддерживаются списки файлов - [[...]].
-        3. Если в обычном тексте еще нет { ... }, абзацы разделяются на блоки.
+        1. Для файлов структуры проекта (_notes.md) поддерживаются списки файлов - [[...]].
+        2. Для обычных заметок парсинг выполняется через единый `parse_user_dialect`:
+           - Именованные блоки `Имя { ... }` формируют карточки оглавления.
+           - Если блоков нет, свободный текст делится на карточки параграфов.
         """
         if not text:
             return []
@@ -39,14 +264,15 @@ class DocumentOutlineManager:
         if is_structure_tree:
             return self._parse_structure_tree(text)
 
+        parsed = parse_user_dialect(text)
         blocks: list[dict[str, Any]] = []
-        matches = list(self.CURLY_BLOCK_REGEX.finditer(text))
 
-        if matches:
-            # Текст до первого блока (если есть)
-            first_start = matches[0].start()
-            if first_start > 0:
-                prelude = text[:first_start].strip()
+        # 1. Если есть именованные блоки:
+        if parsed["blocks"]:
+            # Проверяем свободный текст до первого блока
+            first_blk = parsed["blocks"][0]
+            if first_blk["start_char"] > 0:
+                prelude = text[:first_blk["start_char"]].strip()
                 if prelude:
                     lines = [l for l in prelude.splitlines() if l.strip()]
                     lbl = lines[0].strip() if lines else "Введение"
@@ -65,44 +291,36 @@ class DocumentOutlineManager:
                         "collapsed": False,
                         "has_children": False,
                         "start_char": 0,
-                        "end_char": first_start,
+                        "end_char": first_blk["start_char"],
                     })
 
-            for m in matches:
+            for b in parsed["blocks"]:
                 idx = len(blocks)
-                raw_inner = m.group(1).strip()
-                lines = [l for l in raw_inner.splitlines() if l.strip()]
-                lbl = lines[0].strip() if lines else f"Блок {idx + 1}"
-                # Первую строку берем как заголовок/лейбл карточки
-                heading = lbl
-                # Тело блока: если больше одной строки, остальное идет в content
-                content = raw_inner
-
+                clean_content = b["content"].strip("\r\n")
                 blocks.append({
                     "id": f"blk_{idx}",
                     "key": f"block_{idx}",
                     "index": idx,
                     "level": 0,
                     "indent": 0,
-                    "heading": heading,
-                    "label": lbl,
+                    "heading": b["name"],
+                    "label": b["name"],
                     "type": "block",
                     "marker": "",
                     "isOrdered": False,
-                    "content": content,
+                    "content": clean_content,
                     "collapsed": False,
                     "has_children": False,
-                    "start_char": m.start(),
-                    "end_char": m.end(),
+                    "start_char": b["start_char"],
+                    "end_char": b["end_char"],
                 })
         else:
-            # Если фигурных скобок еще нет в тексте: разделяем текст по непустым параграфам
+            # Если явных блоков еще нет: делим текст на абзацы без старых решеток #
             raw_blocks = re.split(r'\n{2,}', text.strip())
             for idx, raw in enumerate(raw_blocks):
                 raw = raw.strip()
                 if not raw:
                     continue
-                # Удаляем старые решетки #, если они были в тексте
                 cleaned = re.sub(r'^#{1,6}\s*', '', raw, flags=re.MULTILINE).strip()
                 lines = [l for l in cleaned.splitlines() if l.strip()]
                 lbl = lines[0].strip() if lines else f"Блок {idx + 1}"
@@ -125,7 +343,7 @@ class DocumentOutlineManager:
         return blocks
 
     def _parse_structure_tree(self, text: str) -> list[dict[str, Any]]:
-        """Разбор дерева проекта для файлов _notes.md / _Структура.md."""
+        """Разбор дерева проекта для файлов _notes.md."""
         lines = text.splitlines()
         blocks = []
         heading_rx = re.compile(r'^(#{1,6})\s+(.+)$')
@@ -187,7 +405,6 @@ class DocumentOutlineManager:
         return blocks
 
     def get_subtree_indices(self, blocks: list[dict[str, Any]], start_index: int) -> list[int]:
-        """Для плоских заметок поддеревьев нет; для структуры проекта переносятся все вложенные элементы."""
         if start_index < 0 or start_index >= len(blocks):
             return []
         if any(b.get("type") in ("file", "folder", "heading") for b in blocks):
@@ -203,15 +420,13 @@ class DocumentOutlineManager:
 
     def blocks_to_markdown(self, blocks: list[dict[str, Any]]) -> str:
         """
-        Сериализует список блоков в Markdown:
-        - Обычные блоки оборачиваются в { ... } с ровным разделением в 1 пустую строку.
-        - Списочные элементы структуры сохраняются как списки.
-        - Никаких символов # и YAML ---!
+        Сериализует список блоков в текст сценария/заметки:
+        - Именованные блоки форматируются как `Имя {\nСодержимое\n}`
+        - Ликвидированы любые символы '#'
         """
         if not blocks:
             return ""
 
-        # Если это структура проекта
         if any(b.get("type") in ("file", "folder") for b in blocks):
             lines = []
             for blk in blocks:
@@ -230,17 +445,22 @@ class DocumentOutlineManager:
                     lines.append(f"{indent}- {heading}")
             return "\n".join(lines).rstrip() + "\n"
 
-        # Обычные блоки заметок
         block_strings = []
         for blk in blocks:
             content = blk.get("content", "").strip()
             heading = blk.get("heading", "").strip()
-            # Устраняем остатки решеток # и YAML
+            # Удаляем старые решетки Markdown
             content = re.sub(r'^#{1,6}\s*', '', content, flags=re.MULTILINE).strip()
-            if not content and heading:
-                content = heading
-            if content:
-                block_strings.append(f"{{\n{content}\n}}")
+            
+            # Если это прелюдия / свободный текст без имени
+            if blk.get("key") == "prelude_0" or not heading:
+                if content:
+                    block_strings.append(content)
+            else:
+                if content:
+                    block_strings.append(f"{heading} {{\n    {content}\n}}")
+                else:
+                    block_strings.append(f"{heading} {{\n}}")
 
         return "\n\n".join(block_strings).rstrip() + "\n"
 
@@ -251,14 +471,6 @@ class DocumentOutlineManager:
         val = new_heading.strip()
         blocks[block_index]["heading"] = val
         blocks[block_index]["label"] = val
-        # Обновляем первую строку контента
-        content = blocks[block_index].get("content", "")
-        lines = content.splitlines()
-        if lines:
-            lines[0] = val
-            blocks[block_index]["content"] = "\n".join(lines)
-        else:
-            blocks[block_index]["content"] = val
         return self.blocks_to_markdown(blocks)
 
     def update_block_content(self, text: str, block_index: int, new_content: str, parse_list_items: bool | None = None) -> str:
@@ -267,10 +479,6 @@ class DocumentOutlineManager:
             return text
         val = new_content.strip()
         blocks[block_index]["content"] = val
-        lines = [l for l in val.splitlines() if l.strip()]
-        if lines:
-            blocks[block_index]["heading"] = lines[0].strip()
-            blocks[block_index]["label"] = lines[0].strip()
         return self.blocks_to_markdown(blocks)
 
     def reorder_blocks(self, text: str, source_index: int, target_index: int, position: str = "before", parse_list_items: bool | None = None) -> str:
@@ -306,7 +514,6 @@ class DocumentOutlineManager:
         return self.blocks_to_markdown(result_blocks)
 
     def change_block_level(self, text: str, block_index: int, delta: int, parse_list_items: bool | None = None) -> str:
-        # В плоской блочной модели уровней нет
         return text
 
     def generate_project_structure_tree(

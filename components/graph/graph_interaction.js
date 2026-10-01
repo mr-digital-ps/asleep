@@ -549,13 +549,13 @@ function handleMouseUp(graphRoot, canvas, animTimer, mouse, graphMouse, backend)
 
     graphMouse.cursorShape = (graphRoot.hoveredNode ? Qt.OpenHandCursor : Qt.ArrowCursor)
 
-    if (movedDist < 6 && mouse.button === Qt.LeftButton) {
-        if (graphRoot.hoveredNode) {
-            var hNode = graphRoot.hoveredNode
-            if (hNode.type === "file" && hNode.fileUrl) {
-                graphRoot.nodeClicked(hNode.fileUrl, hNode.label, "file")
-            } else if (hNode.type === "block" && hNode.sourceFileUrl) {
-                graphRoot.nodeClicked(hNode.sourceFileUrl, hNode.label, "block")
+    if (movedDist < 10 && mouse.button === Qt.LeftButton) {
+        var clickedNode = graphRoot.hoveredNode || nodeRef
+        if (clickedNode) {
+            if (clickedNode.type === "file" && clickedNode.fileUrl) {
+                graphRoot.nodeClicked(clickedNode.fileUrl, clickedNode.label, "file")
+            } else if (clickedNode.type === "block" && clickedNode.sourceFileUrl) {
+                graphRoot.nodeClicked(clickedNode.sourceFileUrl, clickedNode.label, "block")
             }
         }
     }

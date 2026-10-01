@@ -136,180 +136,57 @@ RowLayout {
         }
     }
 
-    // Кнопка воспроизведения: Play / Pause
-    Rectangle {
-        id: playBtn
-        Layout.preferredWidth: 28
-        Layout.preferredHeight: 28
-        Layout.alignment: Qt.AlignVCenter
-        radius: 6
-        color: playMouse.containsMouse ? Theme.borderHover : Theme.bgPaper
-        border.color: Theme.borderColor
-        border.width: 1
-
-        Text {
-            anchors.centerIn: parent
-            text: historyBarRoot.isPlaying ? "⏸" : "▶"
-            font.pixelSize: 11
-            color: playMouse.containsMouse ? Theme.textPrimary : Theme.textSecondary
-        }
-
-        MouseArea {
-            id: playMouse
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: {
-                historyBarRoot.activated()
-                historyBarRoot.togglePlay()
-            }
-        }
-    }
-
-    // Метка месяца и года
-    Text {
-        id: monthYearText
-        Layout.alignment: Qt.AlignVCenter
-        font.pixelSize: 12
-        font.bold: true
-        color: Theme.textPrimary
-        text: TimelineCtrl.getMonthYearContext(historyBarRoot.currentSnapshotIndex, historyBarRoot.timelineList)
-        visible: text.length > 0
-    }
-
-    // Тонкий разделитель
-    Rectangle {
-        Layout.preferredWidth: 1
-        Layout.preferredHeight: 16
-        Layout.alignment: Qt.AlignVCenter
-        color: Theme.borderColor
-        visible: monthYearText.visible
-    }
-
-    // Сегментированный таймлайн
-    ColumnLayout {
-        id: segmentedTimeline
+    // Ползунок истории проекта: только бегунок по срезам/дням
+    Slider {
+        id: timelineSlider
         Layout.fillWidth: true
         Layout.alignment: Qt.AlignVCenter
-        spacing: 4
+        from: 0
+        to: Math.max(0, historyBarRoot.daysList.length - 1)
+        stepSize: 1
+        snapMode: Slider.SnapAlways
+        value: historyBarRoot.isHistoricalMode ? historyBarRoot.currentDayIndex : to
 
-        // Верхняя информационная строка
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 8
-
-            Text {
-                id: stepTitleText
-                Layout.fillWidth: true
-                elide: Text.ElideRight
-                font.pixelSize: 11
-                font.bold: true
-                color: Theme.textPrimary
-                text: TimelineCtrl.getStepTitleText(historyBarRoot.daysList, historyBarRoot.isHistoricalMode, historyBarRoot.currentDayIndex)
-            }
-
-            Text {
-                id: docStatsLabel
-                visible: historyBarRoot.statsText !== ""
-                font.pixelSize: 11
-                color: Theme.textMuted
-                text: historyBarRoot.statsText
-            }
-
-            Text {
-                id: statsCountText
-                font.pixelSize: 11
-                color: Theme.textSecondary
-                text: TimelineCtrl.getStatsCountText(historyBarRoot.timelineList, historyBarRoot.currentSnapshotIndex)
-            }
-
-            // Кнопка возврата к актуальному состоянию
-            Rectangle {
-                visible: historyBarRoot.isHistoricalMode
-                Layout.preferredHeight: 18
-                Layout.preferredWidth: liveBtnText.implicitWidth + 12
-                radius: 9
-                color: liveMouse.containsMouse ? Theme.borderHover : Theme.bgPaper
-                border.color: Theme.borderColor
-                border.width: 1
-
-                Text {
-                    id: liveBtnText
-                    anchors.centerIn: parent
-                    text: "↺ Сейчас"
-                    font.pixelSize: 10
-                    color: liveMouse.containsMouse ? Theme.textPrimary : Theme.textSecondary
-                }
-
-                MouseArea {
-                    id: liveMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        historyBarRoot.activated()
-                        historyBarRoot.goLive()
-                    }
-                }
+        onMoved: {
+            historyBarRoot.activated()
+            let targetIdx = Math.round(value)
+            if (targetIdx >= to) {
+                historyBarRoot.goLive()
+            } else {
+                historyBarRoot.selectDay(targetIdx)
             }
         }
 
-        // Нижняя сегментированная полоса
-        RowLayout {
-            id: segmentsRow
-            Layout.fillWidth: true
-            Layout.preferredHeight: 18
-            spacing: 4
+        // Кастомная минималистичная стилизация ползунка в стиле asleep
+        background: Rectangle {
+            x: timelineSlider.leftPadding
+            y: timelineSlider.topPadding + timelineSlider.availableHeight / 2 - height / 2
+            implicitWidth: 200
+            implicitHeight: 4
+            width: timelineSlider.availableWidth
+            height: implicitHeight
+            radius: 2
+            color: Theme.borderColor
 
-            Repeater {
-                model: historyBarRoot.daysList
-
-                Rectangle {
-                    id: segRect
-                    required property var modelData
-                    required property int index
-
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 18
-                    radius: 3
-
-                    property bool isCurrent: historyBarRoot.isHistoricalMode && (historyBarRoot.currentDayIndex === index)
-                    property bool isPassed: historyBarRoot.isHistoricalMode ? (index <= historyBarRoot.currentDayIndex) : true
-                    property bool isHovered: segMouse.containsMouse
-
-                    color: isPassed
-                        ? (isCurrent ? Theme.textPrimary : Theme.textSecondary)
-                        : (isHovered ? Theme.borderHover : Theme.bgPaper)
-
-                    border.color: isCurrent
-                        ? Theme.textPrimary
-                        : (isPassed ? Theme.textSecondary : (isHovered ? Theme.textSecondary : Theme.borderColor))
-                    border.width: 1
-
-                    Behavior on color { ColorAnimation { duration: 100 } }
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: segRect.modelData.dayNum
-                        font.pixelSize: 10
-                        font.bold: segRect.isCurrent
-                        color: segRect.isPassed
-                            ? Theme.bgApp
-                            : (segRect.isHovered ? Theme.textPrimary : Theme.textMuted)
-                    }
-
-                    MouseArea {
-                        id: segMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            historyBarRoot.activated()
-                            historyBarRoot.selectDay(segRect.index)
-                        }
-                    }
-                }
+            Rectangle {
+                width: timelineSlider.visualPosition * parent.width
+                height: parent.height
+                color: Theme.accentColor
+                radius: 2
             }
+        }
+
+        handle: Rectangle {
+            x: timelineSlider.leftPadding + timelineSlider.visualPosition * (timelineSlider.availableWidth - width)
+            y: timelineSlider.topPadding + timelineSlider.availableHeight / 2 - height / 2
+            implicitWidth: 16
+            implicitHeight: 16
+            radius: 8
+            color: timelineSlider.pressed ? Theme.textSelected : (timelineSlider.hovered ? Theme.accentHover : Theme.textPrimary)
+            border.color: Theme.bgPaper
+            border.width: 2
+
+            Behavior on color { ColorAnimation { duration: 120 } }
         }
     }
 }
