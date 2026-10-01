@@ -180,10 +180,7 @@ Item {
             onOpenSplitRequested: splitLayout.openSplitRequested()
             onNewRequested: splitLayout.newRequested()
             onNewSplitRequested: splitLayout.newSplitRequested()
-            onToggleGraphRequested: {
-                splitLayout.isPrimaryGraphVisible = !splitLayout.isPrimaryGraphVisible
-                splitLayout.toggleGraphRequested()
-            }
+            onToggleGraphRequested: splitLayout.toggleGraph()
             onToggleSplitRequested: splitLayout.toggleSplitRequested()
             onCloseGraphRequested: {
                 splitLayout.isPrimaryGraphVisible = false
@@ -265,10 +262,7 @@ Item {
             onOpenSplitRequested: splitLayout.openSplitRequested()
             onNewRequested: splitLayout.newRequested()
             onNewSplitRequested: splitLayout.newSplitRequested()
-            onToggleGraphRequested: {
-                splitLayout.isSecondaryGraphVisible = !splitLayout.isSecondaryGraphVisible
-                splitLayout.toggleGraphRequested()
-            }
+            onToggleGraphRequested: splitLayout.toggleGraph()
             onToggleSplitRequested: splitLayout.toggleSplitRequested()
             onCloseGraphRequested: {
                 splitLayout.isSecondaryGraphVisible = false

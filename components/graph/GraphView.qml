@@ -7,7 +7,6 @@ import "../theme"
 
 Rectangle {
     id: graphRoot
-    anchors.fill: parent
     color: embeddedInSheet ? "transparent" : ((graphConfig && graphConfig.visual && graphConfig.visual.backgroundColor && graphConfig.visual.backgroundColor !== Theme.bgApp) ? graphConfig.visual.backgroundColor : Theme.bgPaper)
     clip: true
 
