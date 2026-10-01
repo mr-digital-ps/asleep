@@ -111,7 +111,7 @@ Rectangle {
     }
 
     function openFileFromFolder(fileUrl, fileName, isShift) {
-        WebLifecycle.openFileFromFolder(root, fileUrl, fileName, isShift)
+        WebLifecycle.openFileFromFolder(root, fileUrl, fileName, isShift, backend)
     }
 
     property string previousFileUrlBeforeStructure: ""
@@ -123,11 +123,11 @@ Rectangle {
     }
 
     // Делегированные методы управления вкладками и сплитом
-    function createNewTab(isShift) { WebLifecycle.createNewTab(root, isShift) }
+    function createNewTab(isShift) { WebLifecycle.createNewTab(root, isShift, backend) }
     function switchToTab(index) { WebLifecycle.switchToTab(root, index) }
 
     function closeTab(index) { WebLifecycle.closeTab(root, index) }
-    function renameTab(index, newTitle) { WebLifecycle.renameTab(root, index, newTitle) }
+    function renameTab(index, newTitle) { WebLifecycle.renameTab(root, index, newTitle, backend) }
     function toggleSplit() { WebLifecycle.toggleSplit(root) }
     function closeSplit() { WebLifecycle.closeSplit(root) }
     function setActivePane(paneIndex) { WebLifecycle.setActivePane(root, paneIndex) }
@@ -206,7 +206,7 @@ Rectangle {
         currentFolderUrl: root.currentFolderUrl
         currentFolderName: root.currentFolderName
 
-        onNodeSelected: (fUrl, lbl) => WebLifecycle.handleNodeSelected(root, splitLayout, fUrl, lbl)
+        onNodeSelected: (fUrl, lbl) => WebLifecycle.handleNodeSelected(root, splitLayout, fUrl, lbl, backend)
 
         onPrimaryTitleChanged: (newTitle) => root.renameTab(root.primaryTabIndex, newTitle)
         onSecondaryTitleChanged: (newTitle) => root.renameTab(root.secondaryTabIndex, newTitle)

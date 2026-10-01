@@ -148,7 +148,7 @@ function switchToTab(root, index) {
     syncEditorsFromModel(root)
 }
 
-function createNewTab(root, isShift) {
+function createNewTab(root, isShift, backend) {
     if (!root) return
     if (root.splitLayout && typeof root.splitLayout.closeGraph === "function") {
         root.splitLayout.closeGraph()
@@ -156,7 +156,7 @@ function createNewTab(root, isShift) {
     syncCurrentPaneText(root)
 
     var folderUrl = root.currentFolderUrl
-    if (!folderUrl && typeof backend !== "undefined" && backend && typeof backend.get_default_folder === "function") {
+    if (!folderUrl && backend && typeof backend.get_default_folder === "function") {
         folderUrl = backend.get_default_folder()
         root.currentFolderUrl = folderUrl
         if (typeof backend.get_folder_name === "function") {
@@ -167,7 +167,7 @@ function createNewTab(root, isShift) {
     var fileUrl = ""
     var fileName = "Новый документ"
 
-    if (typeof backend !== "undefined" && backend && folderUrl) {
+    if (backend && folderUrl) {
         var res = backend.create_file_in_folder(folderUrl, "Новый документ")
         if (res && res.success) {
             fileUrl = res.fileUrl
@@ -302,20 +302,20 @@ function closeTab(root, index) {
     syncEditorsFromModel(root)
 }
 
-function renameTab(root, index, newTitle) {
+function renameTab(root, index, newTitle, backend) {
     if (!root || !root.tabsModel || index < 0 || index >= root.tabsModel.count) return
 
     var finalTitle = stripExt((newTitle || "").trim())
     if (!finalTitle) finalTitle = "Новый документ"
 
     var tab = root.tabsModel.get(index)
-    if (tab && tab.fileUrl && typeof backend !== "undefined" && backend) {
+    if (tab && tab.fileUrl && backend) {
         var res = backend.rename_file(tab.fileUrl, finalTitle)
         if (res && res.success) {
             root.tabsModel.setProperty(index, "fileUrl", res.fileUrl)
             finalTitle = stripExt(res.fileName)
         }
-    } else if (tab && (!tab.fileUrl || tab.fileUrl === "") && typeof backend !== "undefined" && backend && root.currentFolderUrl) {
+    } else if (tab && (!tab.fileUrl || tab.fileUrl === "") && backend && root.currentFolderUrl) {
         var resCreate = backend.create_file_in_folder(root.currentFolderUrl, finalTitle)
         if (resCreate && resCreate.success) {
             root.tabsModel.setProperty(index, "fileUrl", resCreate.fileUrl)
@@ -403,8 +403,8 @@ function normalizeFileUrl(u) {
     return decodeURIComponent(u.toString().replace(/^file:\/\/\/?/i, "").toLowerCase().replace(/\\/g, "/"))
 }
 
-function openFileFromFolder(root, fileUrl, fileName, isShift) {
-    if (!root || typeof backend === "undefined" || !backend || !fileUrl) return
+function openFileFromFolder(root, fileUrl, fileName, isShift, backend) {
+    if (!root || !backend || !fileUrl) return
     if (root.splitLayout && typeof root.splitLayout.closeAllGraphs === "function") {
         root.splitLayout.closeAllGraphs()
     } else if (root.splitLayout && typeof root.splitLayout.closeGraph === "function") {
@@ -1006,12 +1006,12 @@ function toggleProjectStructure(root, splitLayout, backend) {
             activeBar.isOutlineMode = false
         }
         if (root.previousFileUrlBeforeStructure) {
-            openFileFromFolder(root, root.previousFileUrlBeforeStructure, root.previousFileNameBeforeStructure, false)
+            openFileFromFolder(root, root.previousFileUrlBeforeStructure, root.previousFileNameBeforeStructure, false, backend)
         } else if (root.tabsModel.count > 1) {
             for (var t = 0; t < root.tabsModel.count; t++) {
                 var tabItem = root.tabsModel.get(t)
                 if (tabItem && tabItem.fileUrl && tabItem.fileUrl !== curUrl) {
-                    openFileFromFolder(root, tabItem.fileUrl, tabItem.title, false)
+                    openFileFromFolder(root, tabItem.fileUrl, tabItem.title, false, backend)
                     break
                 }
             }
@@ -1027,7 +1027,7 @@ function toggleProjectStructure(root, splitLayout, backend) {
 
     var info = backend.sync_project_structure_file(root.currentFolderUrl)
     if (info && info.fileUrl) {
-        openFileFromFolder(root, info.fileUrl, info.fileName, false)
+        openFileFromFolder(root, info.fileUrl, info.fileName, false, backend)
     }
 }
 
@@ -1088,11 +1088,11 @@ function handleGlobalKeyEvent(root, splitLayout, hotkeyManager, backend, event) 
     return false
 }
 
-function handleNodeSelected(root, splitLayout, fUrl, lbl) {
+function handleNodeSelected(root, splitLayout, fUrl, lbl, backend) {
     if (!root || !splitLayout) return
     var targetBar = getActiveBar(root, splitLayout)
     if (targetBar) {
         targetBar.isOutlineMode = false
     }
-    openFileFromFolder(root, fUrl, lbl, false)
+    openFileFromFolder(root, fUrl, lbl, false, backend)
 }
