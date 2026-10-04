@@ -360,7 +360,7 @@ Item {
                 id: scrollContentContainer
                 width: editorScroll.availableWidth
                 readonly property real contentH: paperSheet ? paperSheet.contentNaturalHeight : 0
-                readonly property real typewriterOverscroll: (editorArea && editorArea.lineCount > 1) ? Math.max(0, paneBody.height - 100) : 0
+                readonly property real typewriterOverscroll: (workspacePane.typewriterMode && editorArea && editorArea.lineCount > 1) ? Math.max(0, paneBody.height - 200) : 0
                 height: Math.max(paneBody.height, contentH + typewriterOverscroll)
 
                 MouseArea {
