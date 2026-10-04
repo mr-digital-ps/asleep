@@ -773,6 +773,9 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Mark
                 }
             }
             break
+        case "toggle_scrollbar":
+            applyToBothBars(splitLayout, "toggleScrollbar")
+            break
         case "close_tab":
             closeActiveTab(root)
             break

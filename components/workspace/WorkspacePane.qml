@@ -24,6 +24,7 @@ Item {
     property bool focusMode: false
     property bool isHeaderPinned: false
     property bool showHeader: true
+    property bool showScrollbar: true
     property real editorLineHeightPercent: Theme.defaultLineHeightPercent
     property bool showLineDots: true
     property int tabSize: Theme.defaultTabSize
@@ -92,6 +93,10 @@ Item {
 
     function toggleCenteredMode() {
         workspacePane.isCenteredMode = !workspacePane.isCenteredMode
+    }
+
+    function toggleScrollbar() {
+        workspacePane.showScrollbar = !workspacePane.showScrollbar
     }
 
     // Режим локального графа заметки
@@ -527,6 +532,7 @@ Item {
         anchors.bottomMargin: 16
         x: Math.round((workspacePane.width + workspacePane.effectiveSheetWidth) / 2.0 - workspacePane.barSize)
         isEmpty: workspacePane.isEmpty || workspacePane.isGraphMode
+        visible: workspacePane.showScrollbar && !isEmpty
         onActivated: workspacePane.paneActivated()
     }
 }

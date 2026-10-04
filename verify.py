@@ -220,6 +220,10 @@ tags:
         ev_centered = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.AltModifier, 17, 0x57, 0)
         assert matcher.match_event(ev_centered) == "toggle_centered_mode", "Alt+W/Alt+Ц должен распознаваться"
 
+    # 12. Проверка toggle_scrollbar: Alt+K (RU 'Л', scan 37, VK 0x4B)
+    assert "toggle_scrollbar" in hks, "toggle_scrollbar должен присутствовать в hotkeys"
+    ev_scrollbar = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.AltModifier, 37, 0x4B, 0)
+    assert matcher.match_event(ev_scrollbar) == "toggle_scrollbar", "Alt+K/Alt+Л должен распознаваться как toggle_scrollbar"
 
     # 7. Тест GraphService
     from services.graph.graph_service import GraphService
