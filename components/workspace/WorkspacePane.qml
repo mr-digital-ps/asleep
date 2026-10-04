@@ -356,8 +356,8 @@ Item {
             Item {
                 id: scrollContentContainer
                 width: editorScroll.availableWidth
-                readonly property real contentH: paperSheet ? paperSheet.contentNaturalHeight : 0
-                height: Math.max(paneBody.height, contentH)
+                implicitHeight: paperSheet ? paperSheet.contentNaturalHeight : 0
+                height: Math.max(paneBody.height, implicitHeight)
 
                 MouseArea {
                     anchors.fill: parent
@@ -411,8 +411,8 @@ Item {
                     showLineDots: workspacePane.showLineDots
                     tabSize: workspacePane.tabSize
                     scrollY: workspacePane.scrollY
-                    availableHeight: editorScroll.availableHeight
-                    viewHeight: editorScroll.availableHeight
+                    availableHeight: paneBody.height
+                    viewHeight: paneBody.height
                     containerItem: scrollContentContainer
                     editorScroll: editorScroll
 
