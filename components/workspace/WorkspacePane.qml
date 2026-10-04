@@ -356,8 +356,7 @@ Item {
             Item {
                 id: scrollContentContainer
                 width: editorScroll.availableWidth
-                implicitHeight: paperSheet ? paperSheet.contentNaturalHeight : 0
-                height: Math.max(paneBody.height, implicitHeight)
+                height: paperSheet ? (paperSheet.height + paperSheet.overscrollPadding) : 0
 
                 MouseArea {
                     anchors.fill: parent
