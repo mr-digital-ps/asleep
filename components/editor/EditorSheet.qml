@@ -58,8 +58,10 @@ Rectangle {
         return Math.max(0, sheetRoot.viewHeight - reservedTop - minVisibleSpace)
     }
     readonly property real contentNaturalHeight: {
-        var hHeader = (sheetRoot.showHeader && !sheetRoot.isHeaderPinned) ? 70 : 0
-        var hContent = (editorArea && editorArea.contentHeight > 0) ? editorArea.contentHeight : 0
+        var hHeader = (sheetRoot.showHeader && !sheetRoot.isHeaderPinned) ? 70 : 16
+        var hContent = (editorCanvas && editorCanvas.implicitHeight > 0) 
+            ? editorCanvas.implicitHeight 
+            : ((editorArea && editorArea.implicitHeight > 0) ? editorArea.implicitHeight : 0)
         return hHeader + hContent + 40 + overscrollPadding
     }
 
