@@ -363,6 +363,34 @@ Item {
                 readonly property real typewriterOverscroll: (editorArea && editorArea.lineCount > 1) ? Math.max(0, editorScroll.height - 100) : 0
                 height: Math.max(editorScroll.height, contentH + typewriterOverscroll)
 
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton
+                    cursorShape: Qt.ArrowCursor
+                    hoverEnabled: true
+                    preventStealing: true
+
+                    onPressed: (mouse) => {
+                        if (mouse.button === Qt.LeftButton) {
+                            workspacePane.paneActivated()
+                            var win = workspacePane.targetWindow
+                            if (win && typeof win.startSystemMove === "function") {
+                                win.startSystemMove()
+                            }
+                        }
+                    }
+                    onDoubleClicked: {
+                        var win = workspacePane.targetWindow
+                        if (win) {
+                            if (win.visibility === Window.Maximized) {
+                                win.showNormal()
+                            } else {
+                                win.showMaximized()
+                            }
+                        }
+                    }
+                }
+
                 EditorEmptyState {
                     visible: workspacePane.isEmpty
                 }
