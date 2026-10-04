@@ -283,11 +283,8 @@ Item {
         statsText: workspacePane.isGraphMode ? workspacePane.graphStatsText : workspacePane.statsString
         visible: workspacePane.showHeader && (!workspacePane.isEmpty || workspacePane.isGraphMode)
 
-        // Закрепление: когда закреплен (isPinned) или в режиме графа — прибит к верху (y = 0).
-        // Когда откреплен (!isPinned) — уезжает вверх вместе со скроллом листа (y = -scrollY) и скрывается.
-        y: (workspacePane.isHeaderPinned || workspacePane.isGraphMode)
-            ? 0
-            : -Math.min(paneHeader.height, workspacePane.scrollY)
+        // Шапка зафиксирована вверху своей области
+        y: 0
 
         onTitleCommitted: (newTitle) => workspacePane.titleChangedByUser(newTitle)
         onPaneActivated: workspacePane.paneActivated()
@@ -325,7 +322,7 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        anchors.top: (workspacePane.showHeader && (workspacePane.isHeaderPinned || workspacePane.viewMode === "graph") && !workspacePane.isEmpty)
+        anchors.top: (workspacePane.showHeader && !workspacePane.isEmpty)
             ? paneHeader.bottom
             : parent.top
 

@@ -49,20 +49,18 @@ Rectangle {
     property alias editorArea: editorCanvas.editorArea
     property alias text: editorCanvas.text
 
-    // Чистый модульный расчет полной естественной высоты листа (Header + Content + Overscroll)
+    // Чистый модульный расчет полной естественной высоты листа (Content + Overscroll)
     // Расчет от обратного: при максимальном скролле внизу экрана всегда видна хотя бы 1 строка
     readonly property real singleLineHeight: (editorArea && editorArea.font.pixelSize > 0) ? (editorArea.font.pixelSize * 1.35) : 24
     readonly property real overscrollPadding: {
-        let reservedTop = (sheetRoot.showHeader && !sheetRoot.isHeaderPinned) ? 70 : 16
         let minVisibleSpace = Theme.minVisibleLinesAtBottom * singleLineHeight
-        return Math.max(0, sheetRoot.viewHeight - reservedTop - minVisibleSpace)
+        return Math.max(0, sheetRoot.viewHeight - 16 - minVisibleSpace)
     }
     readonly property real contentNaturalHeight: {
-        var hHeader = (sheetRoot.showHeader && !sheetRoot.isHeaderPinned) ? 70 : 16
         var hContent = (editorCanvas && editorCanvas.implicitHeight > 0) 
             ? editorCanvas.implicitHeight 
             : ((editorArea && editorArea.implicitHeight > 0) ? editorArea.implicitHeight : 0)
-        return hHeader + hContent + 40 + overscrollPadding
+        return hContent + 32 + overscrollPadding
     }
 
     // Сигналы
@@ -118,7 +116,7 @@ Rectangle {
         id: editorCanvas
         visible: !sheetRoot.isEmpty
         anchors.top: parent.top
-        anchors.topMargin: (sheetRoot.showHeader && !sheetRoot.isHeaderPinned) ? 70 : 16
+        anchors.topMargin: 16
         anchors.left: parent.left
         anchors.right: parent.right
         availableHeight: sheetRoot.availableHeight
