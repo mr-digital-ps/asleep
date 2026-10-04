@@ -168,19 +168,19 @@ class ConfigHandlerMixin:
         save_session_config({"header_pinned": pinned})
 
     @pyqtSlot(bool)
-    def save_footer_pinned(self, pinned: bool):
-        """Сохраняет состояние закрепления нижнего статус-бара в сессию"""
-        save_session_config({"footer_pinned": pinned})
-
-    @pyqtSlot(bool)
     def save_header_visible(self, visible: bool):
         """Сохраняет видимость верхнего заголовка в сессию"""
         save_session_config({"header_visible": visible})
 
     @pyqtSlot(bool)
-    def save_footer_visible(self, visible: bool):
-        """Сохраняет видимость нижнего статус-бара в сессию"""
-        save_session_config({"footer_visible": visible})
+    def save_show_scrollbar(self, show: bool):
+        """Сохраняет отображение скроллбара в сессию"""
+        save_session_config({"show_scrollbar": show})
+
+    @pyqtSlot(bool)
+    def save_show_line_dots(self, show: bool):
+        """Сохраняет отображение точек строк в сессию"""
+        save_session_config({"show_line_dots": show})
 
     @pyqtSlot(result="QVariantMap")
     def get_session_config(self) -> dict:

@@ -20,7 +20,7 @@
   "header_pinned": true,
   "header_visible": true,
 
-  // Устаревшие параметры (сохранены для совместимости схем)
-  "footer_pinned": false,
-  "footer_visible": false
+  // Визуальное отображение служебных элементов редактора
+  "show_scrollbar": true,
+  "show_line_dots": true
 }

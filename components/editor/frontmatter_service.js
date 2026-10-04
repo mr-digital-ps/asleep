@@ -54,9 +54,9 @@ function initSessionConfig(mainBar, backend) {
         let sess = backend.get_session_config()
         if (sess) {
             if (typeof sess.header_pinned === "boolean") mainBar.isHeaderPinned = sess.header_pinned
-            if (typeof sess.footer_pinned === "boolean") mainBar.isFooterPinned = sess.footer_pinned
             if (typeof sess.header_visible === "boolean") mainBar.showHeader = sess.header_visible
-            if (typeof sess.footer_visible === "boolean") mainBar.showFooter = sess.footer_visible
+            if (typeof sess.show_scrollbar === "boolean") mainBar.showScrollbar = sess.show_scrollbar
+            if (typeof sess.show_line_dots === "boolean") mainBar.showLineDots = sess.show_line_dots
         }
     } catch(e) {}
 }
@@ -65,7 +65,5 @@ function savePinnedState(backend, isHeader, pinned) {
     if (!backend) return
     if (isHeader && typeof backend.save_header_pinned === "function") {
         backend.save_header_pinned(pinned)
-    } else if (!isHeader && typeof backend.save_footer_pinned === "function") {
-        backend.save_footer_pinned(pinned)
     }
 }

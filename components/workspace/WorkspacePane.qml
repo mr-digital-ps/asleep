@@ -97,10 +97,16 @@ Item {
 
     function toggleScrollbar() {
         workspacePane.showScrollbar = !workspacePane.showScrollbar
+        if (typeof backend !== "undefined" && backend && typeof backend.save_show_scrollbar === "function") {
+            backend.save_show_scrollbar(workspacePane.showScrollbar)
+        }
     }
 
     function toggleLineDots() {
         workspacePane.showLineDots = !workspacePane.showLineDots
+        if (typeof backend !== "undefined" && backend && typeof backend.save_show_line_dots === "function") {
+            backend.save_show_line_dots(workspacePane.showLineDots)
+        }
     }
 
     // Режим локального графа заметки
@@ -133,10 +139,6 @@ Item {
 
     function saveHeaderPinnedState(pinned) {
         Controller.savePinnedState((typeof backend !== "undefined" ? backend : null), true, pinned)
-    }
-
-    function saveFooterPinnedState(pinned) {
-        Controller.savePinnedState((typeof backend !== "undefined" ? backend : null), false, pinned)
     }
 
     // Плавный скролл с накоплением дельты
