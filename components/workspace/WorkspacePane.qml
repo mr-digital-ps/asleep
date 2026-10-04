@@ -322,12 +322,7 @@ Item {
     // =========================================================================
     Item {
         id: paneBody
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        anchors.top: (workspacePane.showHeader && (workspacePane.isHeaderPinned || workspacePane.viewMode === "graph") && !workspacePane.isEmpty)
-            ? paneHeader.bottom
-            : parent.top
+        anchors.fill: parent
 
         // 2.1 Текстовый редактор (ScrollView + EditorSheet)
         ScrollView {
