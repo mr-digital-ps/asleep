@@ -56,11 +56,13 @@ Rectangle {
         let minVisibleSpace = Theme.minVisibleLinesAtBottom * singleLineHeight
         return Math.max(0, sheetRoot.viewHeight - 16 - minVisibleSpace)
     }
+    readonly property real docContentHeight: {
+        if (!editorArea) return 0
+        let lines = Math.max(1, editorArea.lineCount)
+        return lines * singleLineHeight
+    }
     readonly property real contentNaturalHeight: {
-        var hContent = (editorCanvas && editorCanvas.implicitHeight > 0) 
-            ? editorCanvas.implicitHeight 
-            : ((editorArea && editorArea.implicitHeight > 0) ? editorArea.implicitHeight : 0)
-        return hContent + 32 + overscrollPadding
+        return docContentHeight + 32 + overscrollPadding
     }
 
     // Сигналы

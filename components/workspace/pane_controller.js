@@ -59,16 +59,15 @@ function ensureCursorVisible(mainBar, editorArea, editorScroll) {
         return
     }
 
-    let topMargin = Math.min(70, viewH * 0.2)
-    let bottomMargin = Math.max(90, viewH * 0.2)
+    let topMargin = 20
+    let bottomMargin = 40
 
     if (cursorBottom + bottomMargin > viewH) {
         let diff = (cursorBottom + bottomMargin) - viewH
         editorScroll.contentItem.contentY = Math.max(0, Math.min(maxY, currentY + diff))
     } else if (cursorTop < topMargin) {
         let diff = topMargin - cursorTop
-        let firstLineEnd = editorArea.text.indexOf("\n")
-        if (editorArea.cursorPosition === 0 || (firstLineEnd !== -1 && editorArea.cursorPosition <= firstLineEnd)) {
+        if (editorArea.cursorPosition === 0) {
             editorScroll.contentItem.contentY = 0
         } else {
             editorScroll.contentItem.contentY = Math.max(0, Math.min(maxY, currentY - diff))
