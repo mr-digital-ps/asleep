@@ -258,6 +258,9 @@ class ConfigService:
     def get_markdown_config(self, folder_path: Path | None = None) -> dict:
         return self.load_category_config("markdown", folder_path)
 
+    def get_session_config(self) -> dict:
+        return self.load_category_config("session")
+
     @staticmethod
     def get_config_filename(folder_name: str) -> str:
         return f"_Настройка каталога {folder_name}.md"

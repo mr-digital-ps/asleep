@@ -1,3 +1,4 @@
+import os
 import sys
 import json
 from pathlib import Path
@@ -15,16 +16,30 @@ def _safe_print(*args, **kwargs):
     except Exception:
         pass
 
+from services.storage.config_service import ConfigService, deep_merge, parse_json_with_comments
+
 _this_p = Path(__file__).resolve()
 _root = _this_p.parent.parent if (_this_p.parent.parent / "config").exists() else _this_p.parent.parent.parent
+DEFAULT_SESSION_FILE = _root / "config" / "default" / "session.json"
 CONFIG_DIR = _root / "config" / "user"
 CONFIG_FILE = CONFIG_DIR / "session.json"
 _LEGACY_CONFIG_FILE = _root / ".session_config.json"
 
 def load_session_config() -> dict:
+    """Загружает настройки сессии по правилу Config-First (default -> user)"""
+    cfg = {}
+    try:
+        if DEFAULT_SESSION_FILE.exists():
+            cfg = parse_json_with_comments(DEFAULT_SESSION_FILE.read_text(encoding="utf-8"))
+    except Exception as e:
+        _safe_print(f"[FileService] Ошибка чтения {DEFAULT_SESSION_FILE.name}: {e}")
+
     try:
         if CONFIG_FILE.exists():
-            return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            user_cfg = parse_json_with_comments(CONFIG_FILE.read_text(encoding="utf-8"))
+            if isinstance(user_cfg, dict):
+                cfg = deep_merge(cfg, user_cfg)
+                return cfg
         if _LEGACY_CONFIG_FILE.exists():
             data = json.loads(_LEGACY_CONFIG_FILE.read_text(encoding="utf-8"))
             try:
@@ -33,17 +48,24 @@ def load_session_config() -> dict:
                 _LEGACY_CONFIG_FILE.unlink(missing_ok=True)
             except Exception:
                 pass
-            return data
+            if isinstance(data, dict):
+                cfg = deep_merge(cfg, data)
+                return cfg
     except Exception:
         pass
-    return {}
+    return cfg
 
 def save_session_config(data: dict):
     try:
-        cfg = load_session_config()
-        cfg.update(data)
+        user_cfg = {}
+        if CONFIG_FILE.exists():
+            try:
+                user_cfg = parse_json_with_comments(CONFIG_FILE.read_text(encoding="utf-8"))
+            except Exception:
+                user_cfg = {}
+        user_cfg.update(data)
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        CONFIG_FILE.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+        CONFIG_FILE.write_text(json.dumps(user_cfg, ensure_ascii=False, indent=2), encoding="utf-8")
     except Exception as e:
         _safe_print(f"[FileService] Ошибка сохранения сессии: {e}")
 
@@ -224,7 +246,7 @@ class FileService:
             return {"success": False, "fileUrl": file_url, "fileName": ""}
 
     def get_default_folder(self) -> str:
-        """Возвращает последнюю сохраненную папку либо дефолтную папку Notes"""
+        """Возвращает последнюю сохраненную папку либо дефолтную папку из конфигурации session.json"""
         try:
             cfg = load_session_config()
             last_folder = cfg.get("last_folder", "")
@@ -233,10 +255,11 @@ class FileService:
                 if p.exists() and p.is_dir():
                     return last_folder
 
-            notes_dir = Path.home() / "Documents" / "Notes"
+            def_folder_str = cfg.get("default_folder", "~/Documents/Notes")
+            def_path = Path(os.path.expanduser(def_folder_str)).resolve()
             try:
-                notes_dir.mkdir(parents=True, exist_ok=True)
-                return QUrl.fromLocalFile(str(notes_dir.resolve())).toString()
+                def_path.mkdir(parents=True, exist_ok=True)
+                return QUrl.fromLocalFile(str(def_path)).toString()
             except Exception:
                 project_dir = Path(__file__).parent.resolve()
                 return QUrl.fromLocalFile(str(project_dir)).toString()
@@ -255,7 +278,8 @@ class FileService:
                 if last_f and self.to_path(last_f).exists():
                     start_dir = str(self.to_path(last_f).resolve())
                 else:
-                    start_dir = str(Path.home() / "Documents")
+                    def_folder_str = cfg.get("default_folder", "~/Documents/Notes")
+                    start_dir = str(Path(os.path.expanduser(def_folder_str)).resolve())
 
             chosen = QFileDialog.getExistingDirectory(None, "Выберите рабочую папку", start_dir)
             if chosen:
