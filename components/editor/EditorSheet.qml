@@ -48,8 +48,9 @@ Rectangle {
     property alias text: editorCanvas.text
 
     // Естественная высота текста документа
+    readonly property real contentTopMargin: (sheetRoot.showHeader && !sheetRoot.isHeaderPinned) ? 70 : 16
     readonly property real docContentHeight: (editorArea && editorArea.contentHeight > 0) ? editorArea.contentHeight : 0
-    readonly property real contentNaturalHeight: docContentHeight + 32
+    readonly property real contentNaturalHeight: docContentHeight + contentTopMargin + 16
 
     // Сигналы
     signal paneActivated()
@@ -104,7 +105,7 @@ Rectangle {
         id: editorCanvas
         visible: !sheetRoot.isEmpty
         anchors.top: parent.top
-        anchors.topMargin: 16
+        anchors.topMargin: sheetRoot.contentTopMargin
         anchors.left: parent.left
         anchors.right: parent.right
         availableHeight: sheetRoot.availableHeight
