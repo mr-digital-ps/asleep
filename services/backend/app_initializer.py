@@ -30,19 +30,3 @@ def configure_surface_format():
         QSurfaceFormat.setDefaultFormat(fmt)
     except Exception as e:
         safe_print(f"[Graphics] Ошибка настройки QSurfaceFormat: {e}")
-
-
-def load_application_fonts(project_dir: Path):
-    """Сканирует папку fonts/ в корне проекта и регистрирует все TTF/OTF шрифты в QFontDatabase."""
-    fonts_dir = project_dir / "fonts"
-    if not fonts_dir.exists():
-        fonts_dir.mkdir(exist_ok=True)
-        return
-    for ext in ["*.ttf", "*.otf", "*.TTF", "*.OTF"]:
-        for font_file in fonts_dir.glob(ext):
-            font_id = QFontDatabase.addApplicationFont(str(font_file.resolve()))
-            if font_id != -1:
-                families = QFontDatabase.applicationFontFamilies(font_id)
-                safe_print(f"[Fonts] Загружен шрифт '{font_file.name}': {', '.join(families)}")
-            else:
-                safe_print(f"[Fonts] Не удалось загрузить шрифт '{font_file.name}'")

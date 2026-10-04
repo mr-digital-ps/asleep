@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import QApplication
 from PyQt6.QtQml import QQmlApplicationEngine
 from PyQt6.QtCore import QUrl
 
-from services.core import Backend, configure_surface_format, load_application_fonts
+from services.core import Backend, configure_surface_format
 from services.system import setup_live_reload
 
 # Реэкспорт Backend для обратной совместимости с тестами и модулями
@@ -33,8 +33,6 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("Asleep Text Editor")
     app.setOrganizationName("Asleep")
-
-    load_application_fonts(PROJECT_DIR)
 
     engine = QQmlApplicationEngine()
     engine.addImportPath(str(PROJECT_DIR))
