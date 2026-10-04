@@ -19,7 +19,6 @@ Item {
     property bool isPinned: false
     property bool isGraphMode: false
     property bool isLocalGraphMode: false
-    property bool isOutlineMode: false
     property int barSize: 36
     property real scrollY: 0
     property real contentLeftPadding: 0
@@ -35,7 +34,6 @@ Item {
     signal titleCommitted(string newTitle)
     signal paneActivated()
     signal pinToggled()
-    signal toggleOutlineRequested()
     signal openStructureRequested()
     signal snapshotSelected(int snapshotId)
     signal liveRequested()
@@ -45,6 +43,9 @@ Item {
             headerMode = "title"
         } else {
             headerMode = mode
+            if (mode === "history" && headerHistoryBar) {
+                headerHistoryBar.reloadTimeline()
+            }
         }
     }
 
@@ -60,8 +61,25 @@ Item {
         setMode("search")
     }
 
+    // Путь / имя файла — часть режима "title": при вызове из history/info/search/tabs
+    // сначала возвращаем заголовок, иначе переключение идёт в скрытом поле.
+    function showPathMode() {
+        headerMode = "title"
+        showPath = true
+    }
+
+    function showFileNameMode() {
+        headerMode = "title"
+        showPath = false
+    }
+
     function togglePathMode() {
-        showPath = !showPath
+        if (headerMode !== "title") {
+            headerMode = "title"
+            showPath = true
+        } else {
+            showPath = !showPath
+        }
     }
 
     function toggleTabsMode() {
@@ -129,6 +147,7 @@ Item {
                 visible: headerRoot.headerMode === "history"
                 folderUrl: headerRoot.folderUrl
                 fileUrl: headerRoot.fileUrl
+                fileName: headerRoot.fileName
                 mode: (headerRoot.isGraphMode || headerRoot.isProjectTree) ? "project" : "note"
                 statsText: headerRoot.statsText
 
@@ -292,7 +311,29 @@ Item {
                     }
                 }
 
-                Item { Layout.fillWidth: true }
+                MouseArea {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    acceptedButtons: Qt.LeftButton
+                    cursorShape: Qt.ArrowCursor
+                    onPressed: (mouse) => {
+                        headerRoot.paneActivated()
+                        let win = Window.window
+                        if (win && typeof win.startSystemMove === "function") {
+                            win.startSystemMove()
+                        }
+                    }
+                    onDoubleClicked: {
+                        let win = Window.window
+                        if (win) {
+                            if (win.visibility === Window.Maximized) {
+                                win.showNormal()
+                            } else {
+                                win.showMaximized()
+                            }
+                        }
+                    }
+                }
             }
         }
 

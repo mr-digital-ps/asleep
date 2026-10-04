@@ -705,15 +705,6 @@ function saveFile(root, saveDialog, backend) {
 
 function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Markdown, action) {
     switch (action) {
-        case "toggle_header_footer":
-            applyToBothBars(splitLayout, "toggleHeaderFooter")
-            break
-        case "toggle_footer":
-            applyToBothBars(splitLayout, "toggleFooterOnly")
-            break
-        case "toggle_footer_mode":
-            applyToBothBars(splitLayout, "toggleFooterMode")
-            break
         case "toggle_header":
             applyToBothBars(splitLayout, "toggleHeaderOnly")
             break
@@ -733,6 +724,20 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Mark
             var barSearch = getActiveBar(root, splitLayout)
             if (barSearch && typeof barSearch.toggleSearchMode === "function") {
                 barSearch.toggleSearchMode()
+            }
+            break
+        case "show_path":
+            var barShowPath = getActiveBar(root, splitLayout)
+            if (barShowPath && typeof barShowPath.togglePathMode === "function") {
+                barShowPath.togglePathMode()
+            } else if (barShowPath && typeof barShowPath.showPathMode === "function") {
+                barShowPath.showPathMode()
+            }
+            break
+        case "show_filename":
+            var barShowName = getActiveBar(root, splitLayout)
+            if (barShowName && typeof barShowName.showFileNameMode === "function") {
+                barShowName.showFileNameMode()
             }
             break
         case "toggle_path":
@@ -813,8 +818,6 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Mark
             break
         case "toggle_local_graph":
             if (splitLayout) {
-                var activeBarG = getActiveBar(root, splitLayout)
-                if (activeBarG) activeBarG.isOutlineMode = false
                 if (typeof splitLayout.toggleLocalGraph === "function") {
                     splitLayout.toggleLocalGraph()
                 }
@@ -823,20 +826,6 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Mark
         case "show_text_mode":
             if (splitLayout && typeof splitLayout.closeGraph === "function") {
                 splitLayout.closeGraph()
-            }
-            var barText = getActiveBar(root, splitLayout)
-            if (barText) {
-                barText.isOutlineMode = false
-                if (typeof barText.showTextMode === "function") barText.showTextMode()
-            }
-            break
-        case "toggle_outline":
-            if (splitLayout && typeof splitLayout.closeGraph === "function") {
-                splitLayout.closeGraph()
-            }
-            var barOutline = getActiveBar(root, splitLayout)
-            if (barOutline && typeof barOutline.toggleOutlineMode === "function") {
-                barOutline.toggleOutlineMode()
             }
             break
         case "toggle_live_preview":
@@ -881,18 +870,6 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Mark
             } else if (root && root.isSplit) {
                 root.activePane = 1
             }
-            break
-        case "show_source_view":
-            var barSrc = getActiveBar(root, splitLayout)
-            if (barSrc && typeof barSrc.showTextMode === "function") barSrc.showTextMode()
-            break
-        case "show_hierarchy_view":
-            var barHier = getActiveBar(root, splitLayout)
-            if (barHier && typeof barHier.showHierarchyMode === "function") barHier.showHierarchyMode()
-            break
-        case "show_graph_view":
-            var barGraph = getActiveBar(root, splitLayout)
-            if (barGraph && typeof barGraph.showGraphMode === "function") barGraph.showGraphMode()
             break
     }
 }
@@ -1023,13 +1000,6 @@ function toggleProjectStructure(root, splitLayout, backend) {
 
     var isStructOpen = (typeof backend.is_project_structure_file === "function") && backend.is_project_structure_file(curName)
     if (isStructOpen) {
-        if (activeBar && activeBar.isOutlineMode) {
-            activeBar.showTextMode()
-            return
-        }
-        if (activeBar) {
-            activeBar.isOutlineMode = false
-        }
         if (root.previousFileUrlBeforeStructure) {
             openFileFromFolder(root, root.previousFileUrlBeforeStructure, root.previousFileNameBeforeStructure, false, backend)
         } else if (root.tabsModel.count > 1) {
@@ -1104,20 +1074,11 @@ function handleGlobalKeyEvent(root, splitLayout, hotkeyManager, backend, event) 
             event.accepted = true
             return true
         }
-        if (activeBar && activeBar.isOutlineMode) {
-            activeBar.showTextMode()
-            event.accepted = true
-            return true
-        }
     }
     return false
 }
 
 function handleNodeSelected(root, splitLayout, fUrl, lbl, backend) {
     if (!root || !splitLayout) return
-    var targetBar = getActiveBar(root, splitLayout)
-    if (targetBar) {
-        targetBar.isOutlineMode = false
-    }
     openFileFromFolder(root, fUrl, lbl, false, backend)
 }

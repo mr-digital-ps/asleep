@@ -63,13 +63,6 @@ class HotkeyMatcher:
                     qt_keys.update([84, 1045, 1077])
                     chars.update(['T', 'Е'])
 
-                # Для toggle_outline (Alt+E): физическая клавиша E (русская 'У', scan 18, VK 0x45)
-                if action == "toggle_outline":
-                    vks.add(0x45)
-                    scan_codes.add(18)
-                    qt_keys.update([69, 1059, 1091])
-                    chars.update(['E', 'У'])
-
                 # Для open_structure (Ctrl+T / Ctrl+E): физическая клавиша T (русская 'Е', scan 20, VK 0x54) и E (русская 'У', scan 18)
                 if action == "open_structure":
                     vks.update([0x54, 0x45])

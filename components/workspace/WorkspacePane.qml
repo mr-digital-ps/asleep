@@ -5,7 +5,6 @@ import "../editor/block_sync.js" as BlockSync
 import "./pane_controller.js" as Controller
 import "../editor"
 import "../graph"
-import "../outliner"
 import "../theme"
 
 Item {
@@ -32,24 +31,21 @@ Item {
     property int tabSize: 4
     readonly property var targetWindow: Window.window
 
-    // Свойства графа связей
+    // Режимы рабочей области (paneBody): "editor" | "graph"
+    property string viewMode: isGraphMode ? "graph" : "editor"
     property bool isGraphMode: false
+    onIsGraphModeChanged: {
+        Controller.handleGraphModeChanged(workspacePane, editorScroll, paneGraphView, editorArea, smoothScrollAnim)
+    }
+    onViewModeChanged: {
+        if (viewMode === "graph" && !isGraphMode) isGraphMode = true
+        else if (viewMode === "editor" && isGraphMode) isGraphMode = false
+    }
+
     property string folderUrl: ""
     property string currentFolderName: ""
     property var openFileUrls: []
     readonly property string graphStatsText: paneGraphView ? paneGraphView.getGraphStats() : ""
-
-    onIsGraphModeChanged: Controller.handleGraphModeChanged(workspacePane, editorScroll, paneGraphView, editorArea, smoothScrollAnim)
-
-    function toggleHeaderFooter() {
-        Controller.toggleHeaderOnly(workspacePane, (typeof backend !== "undefined" ? backend : null))
-    }
-
-    function toggleFooterMode() {
-        if (paneHeader) {
-            paneHeader.toggleHistoryMode()
-        }
-    }
 
     function toggleHistoryMode() {
         if (paneHeader) {
@@ -66,6 +62,18 @@ Item {
     function toggleSearchMode() {
         if (paneHeader) {
             paneHeader.toggleSearchMode()
+        }
+    }
+
+    function showPathMode() {
+        if (paneHeader) {
+            paneHeader.showPathMode()
+        }
+    }
+
+    function showFileNameMode() {
+        if (paneHeader) {
+            paneHeader.showFileNameMode()
         }
     }
 
@@ -98,25 +106,13 @@ Item {
         return workspacePane.fileName === "_Структура.md"
     }
 
-    // Режим иерархии блоков документа (Outliner)
-    property bool isOutlineMode: false
-    property alias paneOutliner: paneOutliner
     property alias paneGraphView: paneGraphView
     property alias paneHeader: paneHeader
     property alias paperSheet: paperSheet
 
     // Обратная совместимость с MainBar
-    property alias sheetOutliner: paneOutliner
     property alias sheetGraphView: paneGraphView
     property alias docHeader: paneHeader
-
-    function toggleOutlineMode() {
-        if (workspacePane.isGraphMode) return
-        workspacePane.isOutlineMode = !workspacePane.isOutlineMode
-        if (workspacePane.isOutlineMode && paneOutliner) {
-            paneOutliner.reload()
-        }
-    }
 
     property string statsString: "0 слов · 0 знаков"
 
@@ -249,6 +245,30 @@ Item {
     readonly property real effectiveSheetWidth: isCenteredMode ? Math.min(width, Math.max(minSheetWidth, customSheetWidth)) : width
 
     // =========================================================================
+    // 0. ФОН ПАНЕЛИ: перетаскивание окна за пустые места в ЛЮБОМ режиме
+    //    (объявлен первым → лежит под шапкой, листом, графом и аутлайнером)
+    // =========================================================================
+    MouseArea {
+        id: paneBackgroundDrag
+        anchors.fill: parent
+        acceptedButtons: Qt.LeftButton
+        onPressed: {
+            workspacePane.paneActivated()
+            var win = workspacePane.targetWindow
+            if (win && typeof win.startSystemMove === "function") {
+                win.startSystemMove()
+            }
+        }
+        onDoubleClicked: {
+            var win = workspacePane.targetWindow
+            if (win) {
+                if (win.visibility === Window.Maximized) win.showNormal()
+                else win.showMaximized()
+            }
+        }
+    }
+
+    // =========================================================================
     // 1. ВЕРХНЯЯ ПАНЕЛЬ ЗАГОЛОВКА (PaneHeader)
     // =========================================================================
     PaneHeader {
@@ -266,7 +286,6 @@ Item {
         isPinned: workspacePane.isHeaderPinned
         isGraphMode: workspacePane.isGraphMode
         isLocalGraphMode: workspacePane.isLocalGraphMode
-        isOutlineMode: workspacePane.isOutlineMode
         scrollY: workspacePane.scrollY
         contentLeftPadding: editorArea ? editorArea.leftPadding : 0
         contentRightPadding: editorArea ? editorArea.rightPadding : 0
@@ -285,7 +304,6 @@ Item {
             workspacePane.isHeaderPinned = !workspacePane.isHeaderPinned
             workspacePane.saveHeaderPinnedState(workspacePane.isHeaderPinned)
         }
-        onToggleOutlineRequested: workspacePane.toggleOutlineMode()
         onOpenStructureRequested: workspacePane.openStructureRequested()
         onSnapshotSelected: (snapshotId) => {
             if (workspacePane.isGraphMode) {
@@ -309,231 +327,178 @@ Item {
     }
 
     // =========================================================================
-    // 2. РАБОЧАЯ ОБЛАСТЬ ТЕКСТА (ScrollView + EditorSheet)
+    // 2. ЕДИНАЯ РАБОЧАЯ ОБЛАСТЬ (paneBody): переключает Editor и Graph
     // =========================================================================
-    ScrollView {
-        id: editorScroll
-        anchors.top: (workspacePane.showHeader && workspacePane.isHeaderPinned && !workspacePane.isEmpty)
-            ? paneHeader.bottom
-            : parent.top
+    Item {
+        id: paneBody
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        clip: true
-        contentWidth: availableWidth
-        contentHeight: scrollContentContainer.height
-        ScrollBar.vertical.policy: ScrollBar.AlwaysOff
-        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-        visible: !workspacePane.isGraphMode && !workspacePane.isOutlineMode
+        anchors.top: (workspacePane.showHeader && (workspacePane.isHeaderPinned || workspacePane.viewMode === "graph") && !workspacePane.isEmpty)
+            ? paneHeader.bottom
+            : parent.top
 
-        WheelHandler {
-            target: editorScroll.contentItem
-            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-            enabled: !workspacePane.isGraphMode && !workspacePane.isOutlineMode
-            onWheel: (event) => Controller.handleWheel(workspacePane, editorArea, editorScroll, smoothScrollAnim, event, (typeof backend !== "undefined" ? backend : null))
-        }
+        // 2.1 Текстовый редактор (ScrollView + EditorSheet)
+        ScrollView {
+            id: editorScroll
+            anchors.fill: parent
+            clip: true
+            contentWidth: availableWidth
+            contentHeight: scrollContentContainer.height
+            ScrollBar.vertical.policy: ScrollBar.AlwaysOff
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            visible: workspacePane.viewMode === "editor"
 
-        Connections {
-            target: editorScroll.contentItem
-            function onContentHeightChanged() {
-                if (editorArea && editorArea.activeFocus) {
-                    workspacePane.requestEnsureCursorVisible()
+            WheelHandler {
+                target: editorScroll.contentItem
+                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                enabled: workspacePane.viewMode === "editor"
+                onWheel: (event) => Controller.handleWheel(workspacePane, editorArea, editorScroll, smoothScrollAnim, event, (typeof backend !== "undefined" ? backend : null))
+            }
+
+            Connections {
+                target: editorScroll.contentItem
+                function onContentHeightChanged() {
+                    if (editorArea && editorArea.activeFocus) {
+                        workspacePane.requestEnsureCursorVisible()
+                    }
                 }
             }
-        }
 
-        Item {
-            id: scrollContentContainer
-            width: editorScroll.availableWidth
-            readonly property real contentH: paperSheet ? paperSheet.contentNaturalHeight : 0
-            readonly property real typewriterOverscroll: (editorArea && editorArea.lineCount > 1) ? Math.max(0, editorScroll.height - 100) : 0
-            height: Math.max(editorScroll.height, contentH + typewriterOverscroll)
+            Item {
+                id: scrollContentContainer
+                width: editorScroll.availableWidth
+                readonly property real contentH: paperSheet ? paperSheet.contentNaturalHeight : 0
+                readonly property real typewriterOverscroll: (editorArea && editorArea.lineCount > 1) ? Math.max(0, editorScroll.height - 100) : 0
+                height: Math.max(editorScroll.height, contentH + typewriterOverscroll)
 
-            MouseArea {
-                anchors.fill: parent
-                acceptedButtons: Qt.LeftButton
-                cursorShape: Qt.ArrowCursor
-                hoverEnabled: true
-                preventStealing: true
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton
+                    cursorShape: Qt.ArrowCursor
+                    hoverEnabled: true
+                    preventStealing: true
 
-                onPressed: (mouse) => Controller.handleBackgroundDragPressed(mouse, workspacePane, this)
-                onDoubleClicked: {
-                    var win = workspacePane.targetWindow
-                    if (win) {
-                        if (win.visibility === Window.Maximized) {
-                            win.showNormal()
-                        } else {
-                            win.showMaximized()
+                    onPressed: (mouse) => Controller.handleBackgroundDragPressed(mouse, workspacePane, this)
+                    onDoubleClicked: {
+                        var win = workspacePane.targetWindow
+                        if (win) {
+                            if (win.visibility === Window.Maximized) {
+                                win.showNormal()
+                            } else {
+                                win.showMaximized()
+                            }
                         }
                     }
                 }
-            }
 
-            EditorEmptyState {
-                visible: workspacePane.isEmpty
-            }
-
-            EditorSheet {
-                id: paperSheet
-                barSize: workspacePane.barSize
-                fileName: workspacePane.fileName
-                fileUrl: workspacePane.fileUrl
-                folderUrl: workspacePane.folderUrl
-                isCenteredMode: workspacePane.isCenteredMode
-                customSheetWidth: workspacePane.customSheetWidth
-                minSheetWidth: workspacePane.minSheetWidth
-                isSplitMode: workspacePane.isSplitMode
-                isActivePane: workspacePane.isActivePane
-                isEmpty: workspacePane.isEmpty
-                customFontFamily: workspacePane.customFontFamily
-                typewriterMode: workspacePane.typewriterMode
-                focusMode: workspacePane.focusMode
-                isHeaderPinned: workspacePane.isHeaderPinned
-                showHeader: workspacePane.showHeader
-                showLineDots: workspacePane.showLineDots
-                tabSize: workspacePane.tabSize
-                scrollY: workspacePane.scrollY
-                availableHeight: editorScroll.availableHeight
-                viewHeight: workspacePane.height
-                containerItem: scrollContentContainer
-                editorScroll: editorScroll
-
-                onTitleChangedByUser: (t) => workspacePane.titleChangedByUser(t)
-                onPaneActivated: workspacePane.paneActivated()
-                onCloseRequested: workspacePane.closeRequested()
-                onDetachRequested: workspacePane.detachRequested()
-                onSaveRequested: workspacePane.saveRequested()
-                onNewRequested: workspacePane.newRequested()
-                onNewSplitRequested: workspacePane.newSplitRequested()
-                onToggleGraphRequested: workspacePane.toggleGraphRequested()
-                onToggleSplitRequested: workspacePane.toggleSplitRequested()
-                onOpenRequested: workspacePane.openRequested()
-                onOpenSplitRequested: workspacePane.openSplitRequested()
-                onCursorVisibilityRequested: workspacePane.requestEnsureCursorVisible()
-                onToggleHeaderFooterRequested: workspacePane.toggleHeaderFooter()
-                onToggleFooterRequested: workspacePane.toggleFooterOnly()
-                onToggleFooterModeRequested: workspacePane.toggleFooterMode()
-                onToggleHistoryRequested: workspacePane.toggleHistoryMode()
-                onToggleInfoRequested: workspacePane.toggleInfoMode()
-                onToggleSearchRequested: workspacePane.toggleSearchMode()
-                onTogglePathRequested: workspacePane.togglePathMode()
-                onToggleTabsRequested: workspacePane.toggleTabsMode()
-                onToggleHeaderRequested: workspacePane.toggleHeaderOnly()
-                onToggleCenteredModeRequested: workspacePane.isCenteredMode = !workspacePane.isCenteredMode
-                onTextChangedByUser: {
-                    Controller.handleTextChangedByUser(workspacePane, blockSyncTimer, activeFocus)
-                    statsUpdateTimer.restart()
+                EditorEmptyState {
+                    visible: workspacePane.isEmpty
                 }
-                onScrollRequested: (dy) => workspacePane.smoothScrollBy(dy)
-                onScrollToTopRequested: {
-                    if (editorScroll && editorScroll.contentItem) {
-                        editorScroll.contentItem.contentY = 0
+
+                EditorSheet {
+                    id: paperSheet
+                    barSize: workspacePane.barSize
+                    fileName: workspacePane.fileName
+                    fileUrl: workspacePane.fileUrl
+                    folderUrl: workspacePane.folderUrl
+                    isCenteredMode: workspacePane.isCenteredMode
+                    customSheetWidth: workspacePane.customSheetWidth
+                    minSheetWidth: workspacePane.minSheetWidth
+                    isSplitMode: workspacePane.isSplitMode
+                    isActivePane: workspacePane.isActivePane
+                    isEmpty: workspacePane.isEmpty
+                    customFontFamily: workspacePane.customFontFamily
+                    typewriterMode: workspacePane.typewriterMode
+                    focusMode: workspacePane.focusMode
+                    isHeaderPinned: workspacePane.isHeaderPinned
+                    showHeader: workspacePane.showHeader
+                    showLineDots: workspacePane.showLineDots
+                    tabSize: workspacePane.tabSize
+                    scrollY: workspacePane.scrollY
+                    availableHeight: editorScroll.availableHeight
+                    viewHeight: workspacePane.height
+                    containerItem: scrollContentContainer
+                    editorScroll: editorScroll
+
+                    onTitleChangedByUser: (t) => workspacePane.titleChangedByUser(t)
+                    onPaneActivated: workspacePane.paneActivated()
+                    onCloseRequested: workspacePane.closeRequested()
+                    onDetachRequested: workspacePane.detachRequested()
+                    onSaveRequested: workspacePane.saveRequested()
+                    onNewRequested: workspacePane.newRequested()
+                    onNewSplitRequested: workspacePane.newSplitRequested()
+                    onToggleGraphRequested: workspacePane.toggleGraphRequested()
+                    onToggleSplitRequested: workspacePane.toggleSplitRequested()
+                    onOpenRequested: workspacePane.openRequested()
+                    onOpenSplitRequested: workspacePane.openSplitRequested()
+                    onCursorVisibilityRequested: workspacePane.requestEnsureCursorVisible()
+                    onToggleHistoryRequested: workspacePane.toggleHistoryMode()
+                    onToggleInfoRequested: workspacePane.toggleInfoMode()
+                    onToggleSearchRequested: workspacePane.toggleSearchMode()
+                    onTogglePathRequested: workspacePane.togglePathMode()
+                    onShowFileNameRequested: workspacePane.showFileNameMode()
+                    onToggleTabsRequested: workspacePane.toggleTabsMode()
+                    onToggleHeaderRequested: workspacePane.toggleHeaderOnly()
+                    onToggleCenteredModeRequested: workspacePane.isCenteredMode = !workspacePane.isCenteredMode
+                    onTextChangedByUser: {
+                        Controller.handleTextChangedByUser(workspacePane, blockSyncTimer, activeFocus)
+                        statsUpdateTimer.restart()
                     }
+                    onScrollRequested: (dy) => workspacePane.smoothScrollBy(dy)
+                    onScrollToTopRequested: {
+                        if (editorScroll && editorScroll.contentItem) {
+                            editorScroll.contentItem.contentY = 0
+                        }
+                    }
+                    onFontSizeChanged: (sz) => Controller.handleFontSizeChanged(workspacePane, (typeof backend !== "undefined" ? backend : null), sz)
+                    onSyncNoticeRequested: (t) => workspacePane.showSyncNotice(t)
+                    onSheetWidthRequested: (w) => Controller.handleSheetWidthRequested(workspacePane, w)
+                    onSheetWidthCommitted: (w) => Controller.handleSheetWidthCommitted(workspacePane, (typeof backend !== "undefined" ? backend : null), w)
+                    onToggleFullWidthRequested: workspacePane.toggleFullWidth()
+                    onHeaderPinToggled: (pinned) => workspacePane.saveHeaderPinnedState(pinned)
                 }
-                onFontSizeChanged: (sz) => Controller.handleFontSizeChanged(workspacePane, (typeof backend !== "undefined" ? backend : null), sz)
-                onSyncNoticeRequested: (t) => workspacePane.showSyncNotice(t)
-                onSheetWidthRequested: (w) => Controller.handleSheetWidthRequested(workspacePane, w)
-                onSheetWidthCommitted: (w) => Controller.handleSheetWidthCommitted(workspacePane, (typeof backend !== "undefined" ? backend : null), w)
-                onToggleFullWidthRequested: workspacePane.toggleFullWidth()
-                onHeaderPinToggled: (pinned) => workspacePane.saveHeaderPinnedState(pinned)
             }
         }
-    }
 
-    // =========================================================================
-    // 3. ПОЛНОРАЗМЕРНЫЙ ГРАФ СВЯЗЕЙ (GraphView)
-    // =========================================================================
-    GraphView {
-        id: paneGraphView
-        visible: workspacePane.isGraphMode
-        embeddedInSheet: false
-        isLocalGraph: workspacePane.isLocalGraphMode
-        folderUrl: workspacePane.folderUrl
-        activeFileUrl: workspacePane.fileUrl
-        openFileUrls: workspacePane.openFileUrls
-        anchors.top: (workspacePane.showHeader && workspacePane.isGraphMode) ? paneHeader.bottom : parent.top
-        anchors.bottom: parent.bottom
-        anchors.horizontalCenter: parent.horizontalCenter
-        width: workspacePane.effectiveSheetWidth
+        // 2.2 Граф связей (GraphView)
+        GraphView {
+            id: paneGraphView
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: workspacePane.effectiveSheetWidth
+            visible: workspacePane.viewMode === "graph"
+            embeddedInSheet: false
+            isLocalGraph: workspacePane.isLocalGraphMode
+            folderUrl: workspacePane.folderUrl
+            activeFileUrl: workspacePane.fileUrl
+            openFileUrls: workspacePane.openFileUrls
 
-        onGraphPressed: workspacePane.paneActivated()
-        onActiveFocusChanged: {
-            if (activeFocus) {
+            onGraphPressed: workspacePane.paneActivated()
+            onActiveFocusChanged: {
+                if (activeFocus) {
+                    workspacePane.paneActivated()
+                }
+            }
+            onNodeClicked: (fUrl, lbl, type) => {
                 workspacePane.paneActivated()
+                workspacePane.nodeSelected(fUrl, lbl)
             }
-        }
-        onNodeClicked: (fUrl, lbl, type) => {
-            workspacePane.paneActivated()
-            workspacePane.nodeSelected(fUrl, lbl)
-        }
-        onCloseRequested: {
-            workspacePane.closeGraphRequested()
-        }
-    }
-
-    // =========================================================================
-    // 4. РЕЖИМ ИЕРАРХИИ БЛОКОВ / АУТЛАЙНЕР (DocumentOutliner)
-    // =========================================================================
-    DocumentOutliner {
-        id: paneOutliner
-        visible: workspacePane.isOutlineMode && !workspacePane.isGraphMode && !workspacePane.isEmpty
-        fileName: workspacePane.fileName
-        folderUrl: workspacePane.folderUrl
-        documentText: workspacePane.text
-        anchors.top: (workspacePane.showHeader && !workspacePane.isEmpty) ? paneHeader.bottom : parent.top
-        anchors.bottom: parent.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
-
-        onTextChangedByOutliner: (newText) => {
-            workspacePane.text = newText
-            if (workspacePane.editorArea) {
-                workspacePane.editorArea.text = newText
-            }
-            if (workspacePane.fileUrl && typeof backend !== "undefined" && backend) {
-                backend.save_file(workspacePane.fileUrl, newText)
-            }
-        }
-        onCloseRequested: {
-            workspacePane.isOutlineMode = false
-        }
-        onPaneActivated: workspacePane.paneActivated()
-        onOpenFileRequested: (fUrl, lbl) => {
-            workspacePane.isOutlineMode = false
-            workspacePane.nodeSelected(fUrl, lbl)
-        }
-        onJumpToHeadingRequested: (heading) => {
-            workspacePane.isOutlineMode = false
-            workspacePane.paneActivated()
-            if (!heading || !workspacePane.editorArea) return
-            var txt = workspacePane.editorArea.text || ""
-            var lines = txt.split("\n")
-            var targetPos = 0
-            var found = false
-            var cleanHeading = heading.trim().toLowerCase()
-            for (var i = 0; i < lines.length; i++) {
-                var l = lines[i].trim()
-                var match = l.match(/^(#{1,6})\s+(.+)$/)
-                if (match && match[2].trim().toLowerCase() === cleanHeading) {
-                    found = true
-                    break
-                }
-                targetPos += lines[i].length + 1
-            }
-            if (found) {
-                workspacePane.editorArea.cursorPosition = Math.min(targetPos, txt.length)
-                workspacePane.editorArea.forceActiveFocus()
-                workspacePane.requestEnsureCursorVisible()
+            onCloseRequested: {
+                workspacePane.closeGraphRequested()
             }
         }
     }
+
+
 
     // Правая полоса со скроллбаром документа
     EditorScrollbar {
         id: editorScrollbar
         editorScroll: editorScroll
         paperSheet: paperSheet
-        isEmpty: workspacePane.isEmpty || workspacePane.isGraphMode || workspacePane.isOutlineMode
+        isEmpty: workspacePane.isEmpty || workspacePane.isGraphMode
         hasHeader: workspacePane.showHeader
         isHeaderPinned: workspacePane.isHeaderPinned
         barSize: workspacePane.barSize
