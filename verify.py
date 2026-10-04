@@ -225,6 +225,11 @@ tags:
     ev_scrollbar = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.AltModifier, 37, 0x4B, 0)
     assert matcher.match_event(ev_scrollbar) == "toggle_scrollbar", "Alt+K/Alt+Л должен распознаваться как toggle_scrollbar"
 
+    # 13. Проверка toggle_line_dots: Alt+L (RU 'Д', scan 38, VK 0x4C)
+    assert "toggle_line_dots" in hks, "toggle_line_dots должен присутствовать в hotkeys"
+    ev_line_dots = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.AltModifier, 38, 0x4C, 0)
+    assert matcher.match_event(ev_line_dots) == "toggle_line_dots", "Alt+L/Alt+Д должен распознаваться как toggle_line_dots"
+
     # 7. Тест GraphService
     from services.graph.graph_service import GraphService
     with tempfile.TemporaryDirectory() as tmp_dir:

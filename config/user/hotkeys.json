@@ -130,6 +130,12 @@
 	"toggle_scrollbar": {
 		"keys": ["Alt+K"],
 		"description": "Показать / скрыть полосу прокрутки (Scrollbar)"
+	},
+
+	// Визуальное включение / отключение полосы точек строк (Line Dots / Gutter)
+	"toggle_line_dots": {
+		"keys": ["Alt+L"],
+		"description": "Показать / скрыть полосу точек и номеров строк (Line Dots / Gutter)"
 	}
 }
 

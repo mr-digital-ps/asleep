@@ -99,6 +99,10 @@ Item {
         workspacePane.showScrollbar = !workspacePane.showScrollbar
     }
 
+    function toggleLineDots() {
+        workspacePane.showLineDots = !workspacePane.showLineDots
+    }
+
     // Режим локального графа заметки
     property bool isLocalGraphMode: false
     readonly property bool isProjectTree: {
