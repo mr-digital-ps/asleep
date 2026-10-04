@@ -35,8 +35,7 @@ function pad2(n) {
 }
 
 // Формат времени: HH:MM:SS am/pm (12-часовой с секундами и am/pm в нижнем регистре, например 12:07:22 pm)
-function formatTime12(item) {
-    var d = parseSnapshotDate(item)
+function formatTime12FromDate(d) {
     if (!d) return "--:--:-- --"
     var hours = d.getHours()
     var minutes = d.getMinutes()
@@ -47,14 +46,23 @@ function formatTime12(item) {
     return pad2(h12) + ":" + pad2(minutes) + ":" + pad2(seconds) + " " + ampm
 }
 
-// Формат даты: DD/MM/YYYY (например 01/10/2026)
-function formatDateDMY(item) {
+function formatTime12(item) {
     var d = parseSnapshotDate(item)
+    return formatTime12FromDate(d)
+}
+
+// Формат даты: DD/MM/YYYY (например 01/10/2026)
+function formatDateDMYFromDate(d) {
     if (!d) return "--/--/----"
     var day = d.getDate()
     var month = d.getMonth() + 1
     var year = d.getFullYear()
     return pad2(day) + "/" + pad2(month) + "/" + year
+}
+
+function formatDateDMY(item) {
+    var d = parseSnapshotDate(item)
+    return formatDateDMYFromDate(d)
 }
 
 function formatSnapshotLabel(item) {

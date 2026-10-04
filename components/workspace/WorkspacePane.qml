@@ -452,9 +452,6 @@ Item {
                     }
                     onFontSizeChanged: (sz) => Controller.handleFontSizeChanged(workspacePane, (typeof backend !== "undefined" ? backend : null), sz)
                     onSyncNoticeRequested: (t) => workspacePane.showSyncNotice(t)
-                    onSheetWidthRequested: (w) => Controller.handleSheetWidthRequested(workspacePane, w)
-                    onSheetWidthCommitted: (w) => Controller.handleSheetWidthCommitted(workspacePane, (typeof backend !== "undefined" ? backend : null), w)
-                    onToggleFullWidthRequested: workspacePane.toggleFullWidth()
                     onHeaderPinToggled: (pinned) => workspacePane.saveHeaderPinnedState(pinned)
                 }
             }
@@ -487,6 +484,35 @@ Item {
             onCloseRequested: {
                 workspacePane.closeGraphRequested()
             }
+        }
+
+        // =========================================================================
+        // 2.3 Интерактивные границы изменения ширины листа (слева и справа)
+        // =========================================================================
+        SheetResizeHandle {
+            id: leftHandle
+            isLeft: true
+            containerItem: paneBody
+            x: (paneBody.width - workspacePane.effectiveSheetWidth) / 2.0 - width / 2.0
+            visible: workspacePane.isCenteredMode && !workspacePane.isEmpty && workspacePane.width > workspacePane.minSheetWidth
+            minWidth: workspacePane.minSheetWidth
+            maxWidth: paneBody.width
+            onSheetWidthRequested: (w) => Controller.handleSheetWidthRequested(workspacePane, w)
+            onSheetWidthCommitted: (w) => Controller.handleSheetWidthCommitted(workspacePane, (typeof backend !== "undefined" ? backend : null), w)
+            onDoubleClickedToggle: workspacePane.toggleFullWidth()
+        }
+
+        SheetResizeHandle {
+            id: rightHandle
+            isLeft: false
+            containerItem: paneBody
+            x: (paneBody.width + workspacePane.effectiveSheetWidth) / 2.0 - width / 2.0
+            visible: workspacePane.isCenteredMode && !workspacePane.isEmpty && workspacePane.width > workspacePane.minSheetWidth
+            minWidth: workspacePane.minSheetWidth
+            maxWidth: paneBody.width
+            onSheetWidthRequested: (w) => Controller.handleSheetWidthRequested(workspacePane, w)
+            onSheetWidthCommitted: (w) => Controller.handleSheetWidthCommitted(workspacePane, (typeof backend !== "undefined" ? backend : null), w)
+            onDoubleClickedToggle: workspacePane.toggleFullWidth()
         }
     }
 

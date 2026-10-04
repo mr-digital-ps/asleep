@@ -48,9 +48,6 @@ Rectangle {
     property alias editorCanvas: editorCanvas
     property alias editorArea: editorCanvas.editorArea
     property alias text: editorCanvas.text
-    property alias leftHandle: leftHandle
-    property alias rightHandle: rightHandle
-    readonly property bool isResizingSheet: (leftHandle && (leftHandle.containsMouse || leftHandle.pressed)) || (rightHandle && (rightHandle.containsMouse || rightHandle.pressed))
 
     // Чистый модульный расчет полной естественной высоты листа (Header + Content)
     readonly property real contentNaturalHeight: {
@@ -72,13 +69,11 @@ Rectangle {
     signal openRequested()
     signal openSplitRequested()
     signal cursorVisibilityRequested()
-    signal toggleHeaderFooterRequested()
-    signal toggleFooterRequested()
-    signal toggleFooterModeRequested()
     signal toggleHistoryRequested()
     signal toggleInfoRequested()
     signal toggleSearchRequested()
     signal togglePathRequested()
+    signal showFileNameRequested()
     signal toggleTabsRequested()
     signal toggleHeaderRequested()
     signal toggleCenteredModeRequested()
@@ -87,9 +82,6 @@ Rectangle {
     signal scrollToTopRequested()
     signal fontSizeChanged(int newSize)
     signal syncNoticeRequested(string title)
-    signal sheetWidthRequested(real newWidth)
-    signal sheetWidthCommitted(real finalWidth)
-    signal toggleFullWidthRequested()
     signal headerPinToggled(bool pinned)
 
     visible: !isEmpty
@@ -130,13 +122,11 @@ Rectangle {
 
         onPaneActivated: sheetRoot.paneActivated()
         onCursorVisibilityRequested: sheetRoot.cursorVisibilityRequested()
-        onToggleHeaderFooterRequested: sheetRoot.toggleHeaderFooterRequested()
-        onToggleFooterRequested: sheetRoot.toggleFooterRequested()
-        onToggleFooterModeRequested: sheetRoot.toggleFooterModeRequested()
         onToggleHistoryRequested: sheetRoot.toggleHistoryRequested()
         onToggleInfoRequested: sheetRoot.toggleInfoRequested()
         onToggleSearchRequested: sheetRoot.toggleSearchRequested()
         onTogglePathRequested: sheetRoot.togglePathRequested()
+        onShowFileNameRequested: sheetRoot.showFileNameRequested()
         onToggleTabsRequested: sheetRoot.toggleTabsRequested()
         onToggleHeaderRequested: sheetRoot.toggleHeaderRequested()
         onToggleCenteredModeRequested: sheetRoot.toggleCenteredModeRequested()
@@ -188,35 +178,5 @@ Rectangle {
         } else if (editorArea) {
             editorArea.readOnly = false
         }
-    }
-
-    // Интерактивная граница изменения ширины листа слева
-    SheetResizeHandle {
-        id: leftHandle
-        isLeft: true
-        containerItem: sheetRoot.containerItem ? sheetRoot.containerItem : (parent ? parent : null)
-        anchors.left: parent.left
-        anchors.leftMargin: -12
-        minWidth: sheetRoot.minSheetWidth
-        maxWidth: (sheetRoot.containerItem ? sheetRoot.containerItem.width : (parent ? parent.width : 2000))
-        forceVisible: sheetRoot.isResizingSheet
-        onSheetWidthRequested: (w) => sheetRoot.sheetWidthRequested(w)
-        onSheetWidthCommitted: (w) => sheetRoot.sheetWidthCommitted(w)
-        onDoubleClickedToggle: sheetRoot.toggleFullWidthRequested()
-    }
-
-    // Интерактивная граница изменения ширины листа справа
-    SheetResizeHandle {
-        id: rightHandle
-        isLeft: false
-        containerItem: sheetRoot.containerItem ? sheetRoot.containerItem : (parent ? parent : null)
-        anchors.right: parent.right
-        anchors.rightMargin: -12
-        minWidth: sheetRoot.minSheetWidth
-        maxWidth: (sheetRoot.containerItem ? sheetRoot.containerItem.width : (parent ? parent.width : 2000))
-        forceVisible: sheetRoot.isResizingSheet
-        onSheetWidthRequested: (w) => sheetRoot.sheetWidthRequested(w)
-        onSheetWidthCommitted: (w) => sheetRoot.sheetWidthCommitted(w)
-        onDoubleClickedToggle: sheetRoot.toggleFullWidthRequested()
     }
 }

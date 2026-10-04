@@ -10,6 +10,7 @@ RowLayout {
 
     property string folderUrl: ""
     property string fileUrl: ""
+    property string fileName: ""
     property string mode: "project" // "project" (для графа и структуры) или "note" (для отдельного файла)
     property string statsText: ""
     property var timelineList: []
@@ -20,25 +21,32 @@ RowLayout {
     property var daysList: TimelineCtrl.getDaysList(timelineList)
     property int currentDayIndex: TimelineCtrl.getDayIndexForSnapshot(currentSnapshotIndex, daysList, timelineList)
 
+    // Тикер реального времени для Live режима
+    property date currentNow: new Date()
+    Timer {
+        id: liveClockTimer
+        interval: 1000
+        repeat: true
+        running: !historyBarRoot.isHistoricalMode
+        triggeredOnStart: true
+        onTriggered: {
+            historyBarRoot.currentNow = new Date()
+        }
+    }
+
     // Активный снапшот или текущее время (для Live режима)
     readonly property var activeDayObj: (currentDayIndex >= 0 && currentDayIndex < daysList.length) ? daysList[currentDayIndex] : null
     readonly property string displayTimeText: {
         if (isHistoricalMode && activeDayObj) {
             return activeDayObj.timeStr || "--:--:-- --"
         }
-        if (daysList.length > 0) {
-            return daysList[daysList.length - 1].timeStr || "--:--:-- --"
-        }
-        return "--:--:-- --"
+        return TimelineCtrl.formatTime12FromDate(currentNow)
     }
     readonly property string displayDateText: {
         if (isHistoricalMode && activeDayObj) {
             return activeDayObj.dateStr || "--/--/----"
         }
-        if (daysList.length > 0) {
-            return daysList[daysList.length - 1].dateStr || "--/--/----"
-        }
-        return "--/--/----"
+        return TimelineCtrl.formatDateDMYFromDate(currentNow)
     }
 
     signal activated()
@@ -48,12 +56,13 @@ RowLayout {
     function reloadTimeline() {
         if (typeof backend === "undefined" || !backend) return
         var list = []
-        if (historyBarRoot.mode === "note" && historyBarRoot.fileUrl) {
+        var targetFile = historyBarRoot.fileUrl || historyBarRoot.fileName
+        if (historyBarRoot.mode === "note" && targetFile) {
             if (typeof backend.get_file_history_timeline === "function") {
-                list = backend.get_file_history_timeline(historyBarRoot.fileUrl, historyBarRoot.folderUrl) || []
+                list = backend.get_file_history_timeline(targetFile, historyBarRoot.folderUrl) || []
             }
             if (typeof backend.get_file_created_time === "function") {
-                var cInfo = backend.get_file_created_time(historyBarRoot.fileUrl, historyBarRoot.folderUrl)
+                var cInfo = backend.get_file_created_time(targetFile, historyBarRoot.folderUrl)
                 if (cInfo && cInfo.timestamp) {
                     var firstTs = (list.length > 0 && list[0].timestamp) ? list[0].timestamp : (Date.now() / 1000)
                     if (cInfo.timestamp < firstTs - 1) {
@@ -147,6 +156,11 @@ RowLayout {
     }
 
     onFolderUrlChanged: reloadTimeline()
+    onFileNameChanged: {
+        isHistoricalMode = false
+        isPlaying = false
+        reloadTimeline()
+    }
     onFileUrlChanged: {
         isHistoricalMode = false
         isPlaying = false
@@ -156,6 +170,9 @@ RowLayout {
         isHistoricalMode = false
         isPlaying = false
         reloadTimeline()
+    }
+    onVisibleChanged: {
+        if (visible) reloadTimeline()
     }
 
     Connections {
@@ -186,35 +203,7 @@ RowLayout {
         }
     }
 
-    // 1. Кнопка шага назад "‹"
-    Rectangle {
-        Layout.preferredWidth: 24
-        Layout.preferredHeight: 24
-        Layout.alignment: Qt.AlignVCenter
-        radius: 4
-        color: prevMouse.containsMouse ? Theme.bgHover : "transparent"
-        border.color: prevMouse.containsMouse ? Theme.borderHover : Theme.borderColor
-        border.width: 1
-
-        Text {
-            anchors.centerIn: parent
-            text: "‹"
-            font.pixelSize: 15
-            font.bold: true
-            color: historyBarRoot.currentDayIndex > 0 ? Theme.textPrimary : Theme.textMuted
-        }
-
-        MouseArea {
-            id: prevMouse
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            enabled: historyBarRoot.currentDayIndex > 0
-            onClicked: historyBarRoot.stepPrev()
-        }
-    }
-
-    // 2. Горизонтальный трек в стиле Git Graph (слева направо ->)
+    // Горизонтальный трек в стиле Git Graph (слева направо ->)
     Item {
         id: gitGraphTrack
         Layout.fillWidth: true
@@ -285,18 +274,18 @@ RowLayout {
                 readonly property bool isLiveNode: nodeItem.modelData && nodeItem.modelData.isLive
                 readonly property bool isCreationNode: nodeItem.modelData && nodeItem.modelData.isCreation
 
-                // Внешний контур узла (halo / git graph node)
+                // Внешний контур узла (halo / git graph node) — единообразный вид для всех, без зеленого цвета
                 Rectangle {
                     anchors.centerIn: parent
-                    width: nodeItem.isHighlighted ? 18 : (nodeItem.isHovered ? 14 : (nodeItem.isLiveNode ? 12 : 10))
+                    width: nodeItem.isHighlighted ? 18 : (nodeItem.isHovered ? 14 : 10)
                     height: width
                     radius: width / 2
                     color: nodeItem.isHighlighted
-                        ? (nodeItem.isLiveNode ? "#22c55e" : Theme.textPrimary)
-                        : (nodeItem.isHovered ? Theme.accentColor : (nodeItem.isLiveNode ? "#15803d" : Theme.bgPaper))
+                        ? Theme.textPrimary
+                        : (nodeItem.isHovered ? Theme.accentColor : Theme.bgPaper)
                     border.color: nodeItem.isHighlighted
-                        ? (nodeItem.isLiveNode ? "#4ade80" : Theme.textPrimary)
-                        : (nodeItem.isHovered ? Theme.accentColor : (nodeItem.isLiveNode ? "#22c55e" : Theme.textSecondary))
+                        ? Theme.textPrimary
+                        : (nodeItem.isHovered ? Theme.accentColor : Theme.textSecondary)
                     border.width: nodeItem.isHighlighted ? 2 : 1
 
                     Behavior on width { NumberAnimation { duration: 100 } }
@@ -306,11 +295,11 @@ RowLayout {
                     // Внутренняя точка для активного узла git graph
                     Rectangle {
                         anchors.centerIn: parent
-                        width: nodeItem.isHighlighted ? 6 : (nodeItem.isLiveNode ? 4 : 0)
+                        width: nodeItem.isHighlighted ? 6 : 0
                         height: width
                         radius: width / 2
-                        color: nodeItem.isHighlighted ? Theme.bgApp : "#4ade80"
-                        visible: nodeItem.isHighlighted || nodeItem.isLiveNode
+                        color: Theme.bgApp
+                        visible: nodeItem.isHighlighted
                     }
                 }
 
@@ -336,44 +325,12 @@ RowLayout {
         }
     }
 
-    // 3. Кнопка шага вперед "›"
-    Rectangle {
-        Layout.preferredWidth: 24
-        Layout.preferredHeight: 24
-        Layout.alignment: Qt.AlignVCenter
-        radius: 4
-        color: nextMouse.containsMouse ? Theme.bgHover : "transparent"
-        border.color: nextMouse.containsMouse ? Theme.borderHover : Theme.borderColor
-        border.width: 1
-
-        Text {
-            anchors.centerIn: parent
-            text: "›"
-            font.pixelSize: 15
-            font.bold: true
-            color: (historyBarRoot.isHistoricalMode && historyBarRoot.currentDayIndex < historyBarRoot.daysList.length - 1) ? Theme.textPrimary : Theme.textMuted
-        }
-
-        MouseArea {
-            id: nextMouse
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            enabled: historyBarRoot.isHistoricalMode
-            onClicked: historyBarRoot.stepNext()
-        }
-    }
-
-
-
-    // 5. Правый блок даты и времени (строго одинаковая ширина строк, как на референсе)
-    // Верх: HH:MM:SS am/pm (12:07:22 pm)
-    // Низ:  DD/MM/YYYY    (01/10/2026)
+    // Правый блок даты и времени (моноширинный, ровный по ширине и с одинаковым цветом шрифта)
     Column {
         id: timestampBlock
         Layout.alignment: Qt.AlignVCenter
-        Layout.preferredWidth: 84
-        spacing: 1
+        Layout.preferredWidth: 92
+        spacing: 2
 
         Text {
             id: timeLabel
@@ -383,7 +340,7 @@ RowLayout {
             font.family: "Consolas, 'Courier New', monospace"
             font.weight: Font.DemiBold
             horizontalAlignment: Text.AlignHCenter
-            color: Theme.textPrimary
+            color: Theme.textSecondary
         }
 
         Text {

@@ -13,7 +13,7 @@ MouseArea {
 
     property bool isLeft: true
     property var containerItem: null
-    property real minWidth: 380
+    property real minWidth: Theme.minSheetWidth
     property real maxWidth: 2000
     property bool forceVisible: false
     property bool isDragging: false
@@ -30,7 +30,7 @@ MouseArea {
 
     onPositionChanged: (mouse) => {
         if (handleRoot.isDragging || pressed) {
-            let container = containerItem ? containerItem : (parent ? parent.parent : null)
+            let container = containerItem ? containerItem : (parent ? parent : null)
             if (!container || container.width <= 0) return
             let pt = mapToItem(container, mouse.x, mouse.y)
             let centerX = container.width / 2.0
@@ -44,16 +44,20 @@ MouseArea {
 
     onReleased: (mouse) => {
         handleRoot.isDragging = false
-        if (parent) {
-            handleRoot.sheetWidthCommitted(parent.width)
+        if (containerItem) {
+            handleRoot.sheetWidthCommitted(clampedWidth(containerItem))
         }
     }
 
     onCanceled: {
         handleRoot.isDragging = false
-        if (parent) {
-            handleRoot.sheetWidthCommitted(parent.width)
+        if (containerItem) {
+            handleRoot.sheetWidthCommitted(clampedWidth(containerItem))
         }
+    }
+
+    function clampedWidth(container) {
+        return Math.max(minWidth, Math.min(container.width, maxWidth))
     }
 
     onDoubleClicked: {

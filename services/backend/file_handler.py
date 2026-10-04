@@ -43,15 +43,6 @@ class FileHandlerMixin:
                         safe_print(f"[Backend] Ошибка синхронизации структуры при watch_folder: {e}")
 
                 self._last_user_files_snapshot = self._get_user_files_snapshot()
-
-                # Первичный снимок состояния сессии в историю проекта
-                try:
-                    g_data = self.graph_service.build_graph(folder)
-                    snap = self.history_service.create_snapshot(folder, trigger="session_start", graph_data=g_data)
-                    if snap:
-                        self.historyUpdated.emit()
-                except Exception as e:
-                    safe_print(f"[Backend] Ошибка создания стартового снимка истории: {e}")
         except Exception as e:
             print(f"[Backend] Ошибка отслеживания папки: {e}")
 
@@ -117,16 +108,16 @@ class FileHandlerMixin:
                 except Exception:
                     pass
 
-            # Фоновая фиксация снимка истории проекта при сохранении файла
+            # Неявная фиксация контрольной точки дня в историю проекта (не чаще 1 раза в день)
             target_folder = self._current_folder or path.parent
             if target_folder and target_folder.is_dir():
                 try:
                     g_data = self.graph_service.build_graph(target_folder)
-                    snap = self.history_service.create_snapshot(target_folder, trigger="save", graph_data=g_data)
+                    snap = self.history_service.record_daily_snapshot(target_folder, file_path=str(path), graph_data=g_data)
                     if snap:
                         self.historyUpdated.emit()
                 except Exception as e:
-                    safe_print(f"[Backend] Ошибка сохранения снимка истории: {e}")
+                    safe_print(f"[Backend] Ошибка фиксации дневного снимка истории: {e}")
 
             self.folderFilesChanged.emit()
         return success

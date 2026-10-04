@@ -6,5 +6,4 @@ EditorFocusDimmer 1.0 EditorFocusDimmer.qml
 EditorEmptyState 1.0 EditorEmptyState.qml
 EditorGutter 1.0 EditorGutter.qml
 EditorScrollbar 1.0 EditorScrollbar.qml
-SheetResizeHandle 1.0 SheetResizeHandle.qml
 SyncNotice 1.0 SyncNotice.qml

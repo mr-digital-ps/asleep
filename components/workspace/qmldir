@@ -2,3 +2,4 @@ module components.workspace
 WorkspaceSplit 1.0 WorkspaceSplit.qml
 WorkspacePane 1.0 WorkspacePane.qml
 PaneHeader 1.0 PaneHeader.qml
+SheetResizeHandle 1.0 SheetResizeHandle.qml

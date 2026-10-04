@@ -30,13 +30,11 @@ RowLayout {
     signal closeRequested()
     signal detachRequested()
     signal syncNoticeRequested(string title)
-    signal toggleHeaderFooterRequested()
-    signal toggleFooterRequested()
-    signal toggleFooterModeRequested()
     signal toggleHistoryRequested()
     signal toggleInfoRequested()
     signal toggleSearchRequested()
     signal togglePathRequested()
+    signal showFileNameRequested()
     signal toggleTabsRequested()
     signal toggleHeaderRequested()
     signal toggleCenteredModeRequested()
@@ -203,9 +201,6 @@ RowLayout {
                     event.accepted = true
                     return
                 }
-            }
-            if (EditorKeys.isCloseKey(event)) {
-                event.accepted = true
             }
         }
 

@@ -18,6 +18,20 @@ class HistoryService:
         self.graph_service = graph_service
         self._last_fingerprints: dict[str, str] = {}  # folder_key -> fingerprint
 
+    def _get_last_fingerprint_from_db(self, folder: Path) -> str:
+        db_path = self._get_db_path(folder)
+        if not db_path.exists():
+            return ""
+        try:
+            conn = sqlite3.connect(str(db_path), timeout=5.0)
+            cursor = conn.cursor()
+            cursor.execute("SELECT fingerprint FROM snapshots ORDER BY id DESC LIMIT 1")
+            row = cursor.fetchone()
+            conn.close()
+            return row[0] if row and row[0] else ""
+        except Exception:
+            return ""
+
     def _get_db_path(self, folder: Path) -> Path:
         asleep_dir = folder / ".asleep"
         asleep_dir.mkdir(parents=True, exist_ok=True)
@@ -120,8 +134,14 @@ class HistoryService:
         files_data, fingerprint = self._compute_folder_files_state(folder)
 
         # Проверка дедупликации: если изменений нет и не форсировано — выходим
-        if not force and fingerprint and self._last_fingerprints.get(folder_key) == fingerprint:
-            return None
+        if not force and fingerprint:
+            last_fp = self._last_fingerprints.get(folder_key)
+            if not last_fp:
+                last_fp = self._get_last_fingerprint_from_db(folder)
+                if last_fp:
+                    self._last_fingerprints[folder_key] = last_fp
+            if last_fp == fingerprint:
+                return None
 
         # Сбор графа связей, если не передан явно
         if graph_data is None and self.graph_service:
@@ -201,6 +221,39 @@ class HistoryService:
                     conn.close()
                 except Exception:
                     pass
+
+    def record_daily_snapshot(self, folder: Path, file_path: str = "", graph_data: dict | None = None) -> dict | None:
+        """
+        Фиксирует неявный коммит текущего рабочего дня (максимум 1 снимок в календарный день на файл).
+        Если за сегодняшнюю дату уже был срез — повторный снимок не создается.
+        """
+        if not folder or not folder.exists() or not folder.is_dir():
+            return None
+
+        today_prefix = datetime.now().strftime("%d.%m.%Y")
+        today_iso_prefix = datetime.now().strftime("%Y-%m-%d")
+
+        db_path = self._get_db_path(folder)
+        if db_path.exists():
+            try:
+                conn = self._connect_db(folder)
+                cursor = conn.cursor()
+                # Проверяем, есть ли уже снимок за сегодняшнюю дату
+                cursor.execute("""
+                    SELECT id FROM snapshots
+                    WHERE (created_at LIKE ? OR created_at LIKE ?)
+                    LIMIT 1
+                """, (f"{today_prefix}%", f"{today_iso_prefix}%"))
+                exists = cursor.fetchone()
+                conn.close()
+                if exists:
+                    # За сегодняшний день срез уже зафиксирован
+                    return None
+            except Exception:
+                pass
+
+        desc = f"Рабочий день • {today_prefix}"
+        return self.create_snapshot(folder, trigger="daily", description=desc, graph_data=graph_data)
 
     def get_timeline(self, folder: Path, timeline_type: str = "work") -> list[dict]:
         """Возвращает хронологический список всех сохраненных снимков проекта"""
@@ -288,20 +341,54 @@ class HistoryService:
 
             result = []
             prev_hash = None
+            seen_dates = set()
+
             for r in rows:
                 snap_id, ts, created_at, trigger, t_type, desc, c_hash, blob_len = r
-                if c_hash != prev_hash:
-                    result.append({
-                        "id": snap_id,
-                        "timestamp": ts,
-                        "createdAt": created_at,
-                        "trigger": trigger,
-                        "timelineType": t_type,
-                        "description": desc or f"Правка {file_name}",
-                        "contentHash": c_hash,
-                        "fileSize": blob_len or 0
-                    })
+                if c_hash == prev_hash:
+                    continue
+
+                # Извлекаем дату (DD.MM.YYYY или YYYY-MM-DD)
+                d_part = created_at.split()[0].replace(",", "") if created_at else ""
+
+                # Явные срезы и ручные сохранения фиксируются как контрольные точки
+                is_compact_daily = trigger in ("daily", "session_start", "session_end")
+
+                # Если это неявный фоновый срез, склеиваем в рамках одной даты
+                if is_compact_daily and d_part in seen_dates:
+                    if result and result[-1].get("datePart") == d_part and result[-1].get("trigger") in ("daily", "session_start", "session_end"):
+                        result[-1] = {
+                            "id": snap_id,
+                            "timestamp": ts,
+                            "createdAt": created_at,
+                            "trigger": trigger,
+                            "timelineType": t_type,
+                            "description": desc or f"Правка {file_name}",
+                            "contentHash": c_hash,
+                            "fileSize": blob_len or 0,
+                            "datePart": d_part
+                        }
                     prev_hash = c_hash
+                    continue
+
+                seen_dates.add(d_part)
+                result.append({
+                    "id": snap_id,
+                    "timestamp": ts,
+                    "createdAt": created_at,
+                    "trigger": trigger,
+                    "timelineType": t_type,
+                    "description": desc or f"Правка {file_name}",
+                    "contentHash": c_hash,
+                    "fileSize": blob_len or 0,
+                    "datePart": d_part
+                })
+                prev_hash = c_hash
+
+            # Очищаем внутреннее служебное поле datePart перед возвратом
+            for item in result:
+                item.pop("datePart", None)
+
             return result
         except Exception as e:
             print(f"[HistoryService] Ошибка получения таймлайна файла: {e}")

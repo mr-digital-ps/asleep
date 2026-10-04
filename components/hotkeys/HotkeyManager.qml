@@ -1,5 +1,6 @@
 import QtQuick
 import QtQml
+import "./hotkey_matcher.js" as HotkeyMatcher
 
 Item {
     id: hotkeyRoot
@@ -32,152 +33,19 @@ Item {
         }
     }
 
-
-
-    function isCloseKey(event) {
-        if (!(event.modifiers & Qt.ControlModifier)) return false
-        // W key: Key_W, scan code 17, or Cyrillic 'ц'
-        if (event.key === Qt.Key_W || event.nativeScanCode === 17 || event.text === 'w' || event.text === 'W' || event.text === 'ц' || event.text === 'Ц' || event.key === 1062 || event.key === 1030) return true
-        return false
-    }
-
-    function isKeyG(event) {
-        // G (scan 34, Russian 'п')
-        return event.key === Qt.Key_G || event.nativeScanCode === 34 || event.text === 'g' || event.text === 'G' || event.text === 'п' || event.text === 'П' || event.key === 1087 || event.key === 1055
-    }
-
-    function isKeyU(event) {
-        // U (scan 22, Russian 'г')
-        return event.key === Qt.Key_U || event.nativeScanCode === 22 || event.text === 'u' || event.text === 'U' || event.text === 'г' || event.text === 'Г' || event.key === 1075 || event.key === 1043
-    }
-
-    function isKeyP(event) {
-        return event.key === Qt.Key_P || event.nativeScanCode === 25 || event.text === 'p' || event.text === 'P' || event.text === 'з' || event.text === 'З' || event.key === 1079 || event.key === 1047
-    }
-
-    function isKeyE(event) {
-        return event.key === Qt.Key_E || event.nativeScanCode === 18 || event.text === 'e' || event.text === 'E' || event.text === 'у' || event.text === 'У' || event.key === 1091 || event.key === 1059
-    }
-
-    function isKeyK(event) {
-        // K (scan 37, Russian 'л')
-        return event.key === Qt.Key_K || event.nativeScanCode === 37 || event.text === 'k' || event.text === 'K' || event.text === 'л' || event.text === 'Л' || event.key === 1051 || event.key === 1083
-    }
-
-    function isKeyH(event) {
-        // H (scan 35, Russian 'р')
-        return event.key === Qt.Key_H || event.nativeScanCode === 35 || event.text === 'h' || event.text === 'H' || event.text === 'р' || event.text === 'Р' || event.key === 1056 || event.key === 1088
-    }
-
-    function isKeyF(event) {
-        // F (scan 33, Russian 'а')
-        return event.key === Qt.Key_F || event.nativeScanCode === 33 || event.text === 'f' || event.text === 'F' || event.text === 'а' || event.text === 'А' || event.key === 1040 || event.key === 1072
-    }
-
-    function isKeyI(event) {
-        // I (scan 23, Russian 'ш')
-        return event.key === Qt.Key_I || event.nativeScanCode === 23 || event.text === 'i' || event.text === 'I' || event.text === 'ш' || event.text === 'Ш' || event.key === 1080 || event.key === 1048 || event.key === 1096 || event.key === 1064
-    }
-
-    function isKeyT(event) {
-        // T (scan 20, Russian 'е')
-        return event.key === Qt.Key_T || event.nativeScanCode === 20 || event.text === 't' || event.text === 'T' || event.text === 'е' || event.text === 'Е' || event.key === 1077 || event.key === 1045
-    }
-
     function handleKeyEvent(event) {
-        if (isCloseKey(event)) {
-            hotkeyRoot.closeActiveTabRequested()
+        // 1. Декларативный поиск совпадения по конфигу hotkeys.json
+        var matchedAction = HotkeyMatcher.matchAction(event, hotkeyRoot.flatHotkeysList)
+        if (matchedAction) {
+            if (matchedAction === "close_tab") {
+                hotkeyRoot.closeActiveTabRequested()
+            } else {
+                hotkeyRoot.actionTriggered(matchedAction)
+            }
             event.accepted = true
             return true
         }
 
-        // Локальные комбинации с Alt:
-        // Alt + H: история изменений (History)
-        // Alt + P: имя / полный путь к файлу (Path / Name)
-        // Alt + I: информация и статистика (Information)
-        // Alt + T: вкладки (Tabs)
-        // Alt + U: заголовок (Header)
-        // Alt + G: локальный граф
-        if ((event.modifiers & Qt.AltModifier) && !(event.modifiers & Qt.ControlModifier)) {
-            if (isKeyH(event)) {
-                hotkeyRoot.actionTriggered("toggle_history")
-                event.accepted = true
-                return true
-            }
-            if (isKeyG(event)) {
-                hotkeyRoot.actionTriggered("toggle_local_graph")
-                event.accepted = true
-                return true
-            }
-            if (isKeyP(event)) {
-                hotkeyRoot.actionTriggered("toggle_path")
-                event.accepted = true
-                return true
-            }
-            if (isKeyU(event)) {
-                hotkeyRoot.actionTriggered("toggle_header")
-                event.accepted = true
-                return true
-            }
-            if (isKeyI(event)) {
-                hotkeyRoot.actionTriggered("toggle_info")
-                event.accepted = true
-                return true
-            }
-            if (isKeyT(event)) {
-                hotkeyRoot.actionTriggered("toggle_tabs")
-                event.accepted = true
-                return true
-            }
-        }
-
-        // Глобальные комбинации с Ctrl:
-        // Ctrl + H: история изменений (History)
-        // Ctrl + F: поиск (Search)
-        // Ctrl + E: оглавление / аутлайнер (Outline)
-        // Ctrl + P: палитра / структура проекта (Structure)
-        // Ctrl + G: глобальный граф
-        if ((event.modifiers & Qt.ControlModifier) && !(event.modifiers & Qt.AltModifier)) {
-            if (isKeyH(event)) {
-                hotkeyRoot.actionTriggered("toggle_history")
-                event.accepted = true
-                return true
-            }
-            if (isKeyF(event) && !(event.modifiers & Qt.ShiftModifier)) {
-                hotkeyRoot.actionTriggered("toggle_search")
-                event.accepted = true
-                return true
-            }
-            if (isKeyG(event)) {
-                hotkeyRoot.actionTriggered("toggle_graph")
-                event.accepted = true
-                return true
-            }
-            if (isKeyP(event)) {
-                hotkeyRoot.actionTriggered("open_structure")
-                event.accepted = true
-                return true
-            }
-            if (isKeyE(event)) {
-                hotkeyRoot.actionTriggered("toggle_outline")
-                event.accepted = true
-                return true
-            }
-
-            // D key: Key_D (32, 'd', 'в'), or Russian letter 'Д' (Key_L / 38, 'д')
-            var isD = (event.key === Qt.Key_D || event.nativeScanCode === 32 || event.text === 'd' || event.text === 'D' || event.text === 'в' || event.text === 'В' || event.key === 1074 || event.key === 1042)
-            var isRuDe = (event.key === Qt.Key_L || event.nativeScanCode === 38 || event.text === 'д' || event.text === 'Д' || event.key === 1076 || event.key === 1044)
-            if (isD || isRuDe) {
-                hotkeyRoot.actionTriggered("detach_window")
-                event.accepted = true
-                return true
-            }
-        }
-        if (event.key === Qt.Key_F9) {
-            hotkeyRoot.actionTriggered("toggle_header_footer")
-            event.accepted = true
-            return true
-        }
         return false
     }
 }
