@@ -52,8 +52,8 @@ RowLayout {
         }
     }
 
-    Layout.preferredHeight: editorArea.implicitHeight
-    height: editorArea.implicitHeight
+    Layout.preferredHeight: editorArea.contentHeight
+    height: editorArea.contentHeight
 
     // Левая полоса 36px для нумерации строк и фокуса
     EditorGutter {

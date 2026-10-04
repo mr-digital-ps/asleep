@@ -50,15 +50,8 @@ Rectangle {
     property alias text: editorCanvas.text
 
     // Естественная высота текста документа
-    readonly property real singleLineHeight: (editorArea && editorArea.font.pixelSize > 0) ? (editorArea.font.pixelSize * 1.35) : 24
-    readonly property real docContentHeight: {
-        if (!editorArea) return 0
-        let lines = Math.max(1, editorArea.lineCount)
-        return lines * singleLineHeight
-    }
-    readonly property real contentNaturalHeight: {
-        return docContentHeight + 32
-    }
+    readonly property real docContentHeight: (editorArea && editorArea.contentHeight > 0) ? editorArea.contentHeight : 0
+    readonly property real contentNaturalHeight: docContentHeight + 32
 
     // Сигналы
     signal paneActivated()
