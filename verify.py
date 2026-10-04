@@ -140,7 +140,7 @@ tags:
     from services.system.hotkey_service import HotkeyService, GlobalHotkeyFilter, HotkeyMatcher
     hk_service = HotkeyService()
     hks = hk_service.get_hotkeys()
-    assert "toggle_header_footer" in hks, "toggle_header_footer должен присутствовать в hotkeys"
+    assert "toggle_header" in hks, "toggle_header должен присутствовать в hotkeys"
     flat_hks = hk_service.get_flat_shortcuts()
     assert len(flat_hks) > 0, "Flat shortcuts не должен быть пустым"
 
@@ -173,15 +173,11 @@ tags:
     assert matcher.match_event(ev_split_scan43) == "toggle_split", "Ctrl+\\ (scan 43) должен распознаваться"
     assert matcher.match_event(ev_split_scan86) == "toggle_split", "Ctrl+\\ (scan 86) должен распознаваться"
 
-    # 4. Проверка toggle_header_footer: F9 (scan 67)
+    # 4. Проверка toggle_header: F9 (scan 67) и Alt+U
     ev_f9 = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_F9, Qt.KeyboardModifier.NoModifier, 67, 0x78, 0)
-    assert matcher.match_event(ev_f9) == "toggle_header_footer", "F9 должен распознаваться"
-    if "Ctrl+Shift+H" in hks.get("toggle_header_footer", {}).get("keys", []):
-        ev_csh = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier, 35, 0x48, 0)
-        assert matcher.match_event(ev_csh) == "toggle_header_footer", "Ctrl+Shift+H (RU: scan 35) должен распознаваться"
-    elif "Ctrl+Shift+K" in hks.get("toggle_header_footer", {}).get("keys", []):
-        ev_csk = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier, 37, 0x4B, 0)
-        assert matcher.match_event(ev_csk) == "toggle_header_footer", "Ctrl+Shift+K должен распознаваться"
+    assert matcher.match_event(ev_f9) == "toggle_header", "F9 должен распознаваться как toggle_header"
+    ev_alt_u = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_U, Qt.KeyboardModifier.AltModifier, 22, 0x55, 0)
+    assert matcher.match_event(ev_alt_u) == "toggle_header", "Alt+U должен распознаваться как toggle_header"
 
     # 5. Проверка save_file: Ctrl+S (RU 'Ы', scan 31, VK 0x53)
     ev_save = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 31, 0x53, 0)
@@ -274,7 +270,7 @@ tags:
     assert backend is not None
     cfg_json = backend.get_current_config()
     assert "sheet_width" in cfg_json, "get_current_config должен возвращать JSON с настройками"
-    assert "toggle_header_footer" in backend.get_hotkeys(), "backend.get_hotkeys должен содержать действия"
+    assert "toggle_header" in backend.get_hotkeys(), "backend.get_hotkeys должен содержать toggle_header"
     assert "toggle_graph" in backend.get_hotkeys(), "backend.get_hotkeys должен содержать toggle_graph"
     assert len(backend.get_flat_shortcuts()) > 0, "backend.get_flat_shortcuts должен возвращать список"
     graph_cfg = backend.get_graph_config()
@@ -474,8 +470,6 @@ def test_qml():
         "components/editor/EditorSheet.qml",
         "components/editor/EditorCanvas.qml",
         "components/editor/EditorScrollbar.qml",
-        "components/outliner/DocumentOutliner.qml",
-        "components/outliner/OutlinerTreeItem.qml",
         "components/graph/GraphView.qml",
         "views/web.qml"
     ]:
@@ -589,7 +583,6 @@ def test_structure():
         "views/web_lifecycle.js",
         "views/window_controller.js",
         "components/editor/markdown_shortcuts.js",
-        "components/outliner/outliner_controller.js",
         "components/history/timeline_controller.js",
         "components/graph/graph_physics.js",
         "components/graph/graph_renderer.js",
@@ -615,9 +608,6 @@ def test_structure():
         "components/workspace/qmldir",
         "components/history/HistoryTimelineBar.qml",
         "components/history/qmldir",
-        "components/outliner/DocumentOutliner.qml",
-        "components/outliner/OutlinerTreeItem.qml",
-        "components/outliner/qmldir",
         "components/graph/GraphView.qml",
         "components/graph/qmldir",
         "views/web.qml",
