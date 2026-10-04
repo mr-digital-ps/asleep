@@ -60,9 +60,12 @@ Rectangle {
         return docContentHeight + 32
     }
 
-    // Запас оверскролла: рассчитывается от обратного, чтобы при максимальном скролле вверху оставалась видна 1 строка текста
+    // Запас оверскролла: активируется только для прокрутки, позволяя докрутить до последней строки
+    // При коротком документе, который целиком помещается в экран, запас оверскролла равен 0
     readonly property real overscrollPadding: {
         let minVisibleSpace = Theme.minVisibleLinesAtBottom * singleLineHeight
+        // Оверскролл нужен только в том объёме, чтобы поднять последнюю строку к верху
+        if (contentNaturalHeight <= 0 || sheetRoot.viewHeight <= 0) return 0
         return Math.max(0, sheetRoot.viewHeight - 16 - minVisibleSpace)
     }
 
