@@ -1,5 +1,5 @@
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Controls.Basic
 import "../theme"
 
 Item {
@@ -9,6 +9,7 @@ Item {
     property var paperSheet: null
     property bool isEmpty: false
     property int barSize: 36
+    property real sheetWidth: 800
     signal activated()
 
     width: barSize
@@ -18,10 +19,10 @@ Item {
     property real bottomMargin: 16
 
     anchors.top: editorScroll ? editorScroll.top : (parent ? parent.top : undefined)
-    anchors.topMargin: 16
+    anchors.topMargin: topMargin
     anchors.bottom: editorScroll ? editorScroll.bottom : (parent ? parent.bottom : undefined)
-    anchors.bottomMargin: 16
-    x: paperSheet ? Math.round(paperSheet.x + paperSheet.width - barSize) : 0
+    anchors.bottomMargin: bottomMargin
+    x: parent ? Math.round((parent.width + sheetWidth) / 2.0 - barSize) : 0
     z: 30
     readonly property real totalHeight: (editorScroll && editorScroll.contentItem) ? editorScroll.contentItem.contentHeight : 0
     readonly property real viewHeight: editorScroll ? editorScroll.availableHeight : 1

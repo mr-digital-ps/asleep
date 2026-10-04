@@ -171,7 +171,7 @@ Item {
     signal fileDragEnded(string url, string name, real gx, real gy)
     signal openStructureRequested()
 
-    readonly property bool isResizingSheet: paperSheet ? paperSheet.isResizingSheet : false
+    readonly property bool isResizingSheet: (leftHandle && (leftHandle.containsMouse || leftHandle.isDragging)) || (rightHandle && (rightHandle.containsMouse || rightHandle.isDragging))
 
     function stripExt(name) {
         return Controller.stripExt(name)
@@ -360,8 +360,9 @@ Item {
                 id: scrollContentContainer
                 width: editorScroll.availableWidth
                 readonly property real contentH: paperSheet ? paperSheet.contentNaturalHeight : 0
-                readonly property real typewriterOverscroll: (editorArea && editorArea.lineCount > 1) ? Math.max(0, editorScroll.height - 100) : 0
-                height: Math.max(editorScroll.height, contentH + typewriterOverscroll)
+                readonly property real typewriterOverscroll: (editorArea && editorArea.lineCount > 1) ? Math.max(0, editorScroll.availableHeight - 100) : 0
+                implicitHeight: Math.max(editorScroll.availableHeight, contentH + typewriterOverscroll)
+                height: implicitHeight
 
                 MouseArea {
                     anchors.fill: parent
@@ -485,44 +486,49 @@ Item {
                 workspacePane.closeGraphRequested()
             }
         }
-
-        // =========================================================================
-        // 2.3 Интерактивные границы изменения ширины листа (слева и справа)
-        // =========================================================================
-        SheetResizeHandle {
-            id: leftHandle
-            isLeft: true
-            containerItem: paneBody
-            x: (paneBody.width - workspacePane.effectiveSheetWidth) / 2.0 - width / 2.0
-            visible: workspacePane.isCenteredMode && !workspacePane.isEmpty && workspacePane.width > workspacePane.minSheetWidth
-            minWidth: workspacePane.minSheetWidth
-            maxWidth: paneBody.width
-            onSheetWidthRequested: (w) => Controller.handleSheetWidthRequested(workspacePane, w)
-            onSheetWidthCommitted: (w) => Controller.handleSheetWidthCommitted(workspacePane, (typeof backend !== "undefined" ? backend : null), w)
-            onDoubleClickedToggle: workspacePane.toggleFullWidth()
-        }
-
-        SheetResizeHandle {
-            id: rightHandle
-            isLeft: false
-            containerItem: paneBody
-            x: (paneBody.width + workspacePane.effectiveSheetWidth) / 2.0 - width / 2.0
-            visible: workspacePane.isCenteredMode && !workspacePane.isEmpty && workspacePane.width > workspacePane.minSheetWidth
-            minWidth: workspacePane.minSheetWidth
-            maxWidth: paneBody.width
-            onSheetWidthRequested: (w) => Controller.handleSheetWidthRequested(workspacePane, w)
-            onSheetWidthCommitted: (w) => Controller.handleSheetWidthCommitted(workspacePane, (typeof backend !== "undefined" ? backend : null), w)
-            onDoubleClickedToggle: workspacePane.toggleFullWidth()
-        }
     }
 
+    // =========================================================================
+    // 3. Интерактивные границы изменения ширины листа на ВСЮ высоту панели
+    // =========================================================================
+    SheetResizeHandle {
+        id: leftHandle
+        isLeft: true
+        containerItem: workspacePane
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        x: (workspacePane.width - workspacePane.effectiveSheetWidth) / 2.0 - width / 2.0
+        visible: workspacePane.isCenteredMode && !workspacePane.isEmpty && workspacePane.width > workspacePane.minSheetWidth
+        forceVisible: workspacePane.isResizingSheet
+        minWidth: workspacePane.minSheetWidth
+        maxWidth: workspacePane.width
+        onSheetWidthRequested: (w) => Controller.handleSheetWidthRequested(workspacePane, w)
+        onSheetWidthCommitted: (w) => Controller.handleSheetWidthCommitted(workspacePane, (typeof backend !== "undefined" ? backend : null), w)
+        onDoubleClickedToggle: workspacePane.toggleFullWidth()
+    }
 
+    SheetResizeHandle {
+        id: rightHandle
+        isLeft: false
+        containerItem: workspacePane
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        x: (workspacePane.width + workspacePane.effectiveSheetWidth) / 2.0 - width / 2.0
+        visible: workspacePane.isCenteredMode && !workspacePane.isEmpty && workspacePane.width > workspacePane.minSheetWidth
+        forceVisible: workspacePane.isResizingSheet
+        minWidth: workspacePane.minSheetWidth
+        maxWidth: workspacePane.width
+        onSheetWidthRequested: (w) => Controller.handleSheetWidthRequested(workspacePane, w)
+        onSheetWidthCommitted: (w) => Controller.handleSheetWidthCommitted(workspacePane, (typeof backend !== "undefined" ? backend : null), w)
+        onDoubleClickedToggle: workspacePane.toggleFullWidth()
+    }
 
     // Правая полоса со скроллбаром документа
     EditorScrollbar {
         id: editorScrollbar
         editorScroll: editorScroll
         paperSheet: paperSheet
+        sheetWidth: workspacePane.effectiveSheetWidth
         isEmpty: workspacePane.isEmpty || workspacePane.isGraphMode
         hasHeader: workspacePane.showHeader
         isHeaderPinned: workspacePane.isHeaderPinned
@@ -530,3 +536,4 @@ Item {
         onActivated: workspacePane.paneActivated()
     }
 }
+ 
