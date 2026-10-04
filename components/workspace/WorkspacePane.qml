@@ -20,7 +20,6 @@ Item {
     property bool isActivePane: false
     property bool isEmpty: false
     property bool isReceivingExternalSync: false
-    property string customFontFamily: Theme.defaultFontFamily
     property bool typewriterMode: false
     property bool focusMode: false
     property bool isHeaderPinned: false
@@ -400,7 +399,6 @@ Item {
                     isSplitMode: workspacePane.isSplitMode
                     isActivePane: workspacePane.isActivePane
                     isEmpty: workspacePane.isEmpty
-                    customFontFamily: workspacePane.customFontFamily
                     typewriterMode: workspacePane.typewriterMode
                     focusMode: workspacePane.focusMode
                     isHeaderPinned: workspacePane.isHeaderPinned

@@ -5,9 +5,6 @@
 	// Ширина текстового листа (px). По умолчанию: 800
 	"sheet_width": 1000,
 
-	// Шрифт текста
-	"font_family": "Fira Code, Segoe UI, Inter, -apple-system, sans-serif",
-
 	// Размер шрифта текста в пикселях. По умолчанию: 15
 	"font_size": 15,
 

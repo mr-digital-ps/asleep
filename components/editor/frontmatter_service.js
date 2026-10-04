@@ -14,9 +14,6 @@ function applyEditorConfig(mainBar, editorArea, cfg, backend) {
     if (typeof cfg.editor.sheet_width === "number" && cfg.editor.sheet_width > 0) {
         mainBar.customSheetWidth = cfg.editor.sheet_width
     }
-    if (typeof cfg.editor.font_family === "string" && cfg.editor.font_family.length > 0) {
-        mainBar.customFontFamily = cfg.editor.font_family
-    }
     if (typeof cfg.editor.font_size === "number" && cfg.editor.font_size > 0) {
         editorArea.font.pixelSize = cfg.editor.font_size
     }

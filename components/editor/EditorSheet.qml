@@ -15,7 +15,6 @@ Rectangle {
     property bool isSplitMode: false
     property bool isActivePane: false
     property bool isEmpty: false
-    property string customFontFamily: "Segoe UI, Inter, -apple-system, sans-serif"
     property bool typewriterMode: false
     property bool focusMode: false
     property bool isHeaderPinned: false
@@ -112,7 +111,6 @@ Rectangle {
         barSize: sheetRoot.barSize
         showLineDots: sheetRoot.showLineDots
         tabSize: sheetRoot.tabSize
-        customFontFamily: sheetRoot.customFontFamily
         hasHeader: sheetRoot.showHeader
         hasFooter: false
 

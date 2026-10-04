@@ -13,7 +13,6 @@ RowLayout {
     property int barSize: 36
     property bool showLineDots: true
     property int tabSize: 4
-    property string customFontFamily: "Segoe UI, Inter, -apple-system, sans-serif"
     property real availableHeight: 600
     property bool hasHeader: true
     property bool hasFooter: true
@@ -76,7 +75,6 @@ RowLayout {
         topPadding: 6
         bottomPadding: 0
 
-        font.family: canvasRoot.customFontFamily
         font.pixelSize: 15
         wrapMode: TextArea.Wrap
         selectByMouse: true
