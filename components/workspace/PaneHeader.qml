@@ -93,7 +93,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         color: Theme.bgHeader
-        visible: headerRoot.isPinned || headerRoot.isGraphMode
+        visible: headerRoot.isPinned
     }
 
     MouseArea {
@@ -174,10 +174,10 @@ Item {
             }
 
             // 3. РЕЖИМ TITLE (по умолчанию)
-            // 3.1 Текстовый заголовок документа (редактируемый)
+            // Текстовый заголовок документа (редактируемый)
             TextField {
                 id: titleField
-                visible: headerRoot.headerMode === "title" && !headerRoot.isGraphMode
+                visible: headerRoot.headerMode === "title"
                 objectName: "titleField"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -273,67 +273,6 @@ Item {
                     focus = false
                 }
             }
-
-            // 3.2 Заголовок графа связей
-            RowLayout {
-                id: graphTitleArea
-                visible: headerRoot.headerMode === "title" && headerRoot.isGraphMode
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                spacing: 8
-
-                Text {
-                    text: (headerRoot.isLocalGraphMode ? "🕸 Локальный граф: " : "🕸 ") + (headerRoot.fileName ? headerRoot.stripExt(headerRoot.fileName) : "Граф связей")
-                    font.pixelSize: 17
-                    font.bold: true
-                    color: Theme.textPrimary
-                    elide: Text.ElideRight
-                    Layout.alignment: Qt.AlignVCenter
-                }
-
-                Rectangle {
-                    visible: headerRoot.isLocalGraphMode
-                    Layout.preferredHeight: 20
-                    Layout.preferredWidth: localBadgeText.implicitWidth + 12
-                    Layout.alignment: Qt.AlignVCenter
-                    radius: 4
-                    color: Theme.bgApp
-                    border.color: Theme.borderColor
-                    border.width: 1
-
-                    Text {
-                        id: localBadgeText
-                        anchors.centerIn: parent
-                        text: "Локальный (1-hop)"
-                        font.pixelSize: 10
-                        color: Theme.textSecondary
-                    }
-                }
-
-                MouseArea {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    acceptedButtons: Qt.LeftButton
-                    cursorShape: Qt.ArrowCursor
-                    onPressed: (mouse) => {
-                        headerRoot.paneActivated()
-                        let win = Window.window
-                        if (win && typeof win.startSystemMove === "function") {
-                            win.startSystemMove()
-                        }
-                    }
-                    onDoubleClicked: {
-                        let win = Window.window
-                        if (win) {
-                            if (win.visibility === Window.Maximized) {
-                                win.showNormal()
-                            } else {
-                                win.showMaximized()
-                            }
-                        }
-                    }
-                }
-            }
         }
 
         // =====================================================================
@@ -353,10 +292,10 @@ Item {
                 width: parent.width
                 height: 2
                 radius: 1
-                color: (headerRoot.isPinned || headerRoot.isGraphMode)
+                color: headerRoot.isPinned
                     ? (headerDividerMouse.containsMouse ? Theme.textPrimary : Theme.textSecondary)
                     : (headerDividerMouse.containsMouse ? Theme.borderFocus : Theme.borderColor)
-                opacity: (headerRoot.isPinned || headerRoot.isGraphMode) ? 0.9 : 0.6
+                opacity: headerRoot.isPinned ? 0.9 : 0.6
                 Behavior on color { ColorAnimation { duration: 150 } }
                 Behavior on opacity { NumberAnimation { duration: 150 } }
             }
@@ -365,11 +304,9 @@ Item {
                 id: headerDividerMouse
                 anchors.fill: parent
                 hoverEnabled: true
-                cursorShape: headerRoot.isGraphMode ? Qt.ArrowCursor : Qt.PointingHandCursor
+                cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                    if (!headerRoot.isGraphMode) {
-                        headerRoot.pinToggled()
-                    }
+                    headerRoot.pinToggled()
                 }
             }
         }
