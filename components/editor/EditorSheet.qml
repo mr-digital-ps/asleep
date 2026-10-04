@@ -86,7 +86,7 @@ Rectangle {
 
     visible: !isEmpty
     width: isCenteredMode ? Math.min(parent.width, Math.max(minSheetWidth, customSheetWidth)) : parent.width
-    height: Math.max(availableHeight, contentNaturalHeight)
+    height: contentNaturalHeight
     y: 0
     anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
     anchors.top: parent ? parent.top : undefined

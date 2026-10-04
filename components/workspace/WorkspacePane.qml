@@ -528,10 +528,14 @@ Item {
         editorScroll: editorScroll
         paperSheet: paperSheet
         sheetWidth: workspacePane.effectiveSheetWidth
-        isEmpty: workspacePane.isEmpty || workspacePane.isGraphMode
-        hasHeader: workspacePane.showHeader
-        isHeaderPinned: workspacePane.isHeaderPinned
         barSize: workspacePane.barSize
+        width: workspacePane.barSize
+        anchors.top: parent.top
+        anchors.topMargin: (workspacePane.showHeader && workspacePane.isHeaderPinned) ? 76 : 16
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 16
+        x: Math.round((workspacePane.width + workspacePane.effectiveSheetWidth) / 2.0 - workspacePane.barSize)
+        isEmpty: workspacePane.isEmpty || workspacePane.isGraphMode
         onActivated: workspacePane.paneActivated()
     }
 }

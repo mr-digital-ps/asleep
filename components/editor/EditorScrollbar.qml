@@ -12,17 +12,6 @@ Item {
     property real sheetWidth: 800
     signal activated()
 
-    width: barSize
-    property bool hasHeader: true
-    property bool isHeaderPinned: false
-    property real topMargin: (hasHeader && isHeaderPinned) ? 76 : 16
-    property real bottomMargin: 16
-
-    anchors.top: parent ? parent.top : undefined
-    anchors.topMargin: topMargin
-    anchors.bottom: parent ? parent.bottom : undefined
-    anchors.bottomMargin: bottomMargin
-    x: parent ? Math.round((parent.width + sheetWidth) / 2.0 - barSize) : 0
     z: 30
     readonly property real totalHeight: (editorScroll && editorScroll.contentItem) ? editorScroll.contentItem.contentHeight : 0
     readonly property real viewHeight: editorScroll ? editorScroll.availableHeight : 1
