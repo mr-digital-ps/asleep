@@ -8,6 +8,7 @@ Item {
 
     property var editorArea: null
     property int barSize: 36
+    property bool showDots: true
     signal activated()
 
     width: barSize
@@ -55,6 +56,7 @@ Item {
     Canvas {
         id: gutterCanvas
         anchors.fill: parent
+        visible: gutterItem.showDots
         property real lastCursorY: -1
 
         Component.onCompleted: requestPaint()

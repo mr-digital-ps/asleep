@@ -57,10 +57,10 @@ RowLayout {
     // Левая полоса 36px для нумерации строк и фокуса
     EditorGutter {
         id: editorGutter
-        visible: canvasRoot.showLineDots
         barSize: canvasRoot.barSize
+        showDots: canvasRoot.showLineDots
         editorArea: editorArea
-        Layout.preferredWidth: visible ? barSize : 0
+        Layout.preferredWidth: barSize
         Layout.fillHeight: true
         onActivated: canvasRoot.paneActivated()
     }
