@@ -1,6 +1,4 @@
 import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
 import "../theme"
 
 Rectangle {
@@ -150,8 +148,8 @@ Rectangle {
             _liveDraftText = editorArea.text
         }
         if (typeof backend.get_history_file_content === "function") {
-            var targetPath = fileUrl ? fileUrl : fileName
-            var snapText = backend.get_history_file_content(folderUrl, snapshotId, targetPath)
+            let targetPath = sheetRoot.fileUrl ? sheetRoot.fileUrl : sheetRoot.fileName
+            let snapText = backend.get_history_file_content(sheetRoot.folderUrl, snapshotId, targetPath)
             if (typeof snapText === "string" && editorArea) {
                 editorArea.text = snapText
                 editorArea.readOnly = true
@@ -166,8 +164,8 @@ Rectangle {
                 editorArea.readOnly = false
             }
             _liveDraftText = undefined
-        } else if (fileUrl && typeof backend !== "undefined" && backend) {
-            var liveText = backend.read_file(fileUrl)
+        } else if (sheetRoot.fileUrl && typeof backend !== "undefined" && backend) {
+            let liveText = backend.read_file(sheetRoot.fileUrl)
             if (editorArea && typeof liveText === "string") {
                 editorArea.text = liveText
                 editorArea.readOnly = false

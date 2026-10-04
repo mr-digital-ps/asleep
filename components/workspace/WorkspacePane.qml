@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Layouts
 import "../editor/block_sync.js" as BlockSync
 import "./pane_controller.js" as Controller
 import "../editor"
@@ -243,9 +242,9 @@ Item {
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton
         onPressed: (mouse) => {
-            if (paperSheet && paperSheet.titleField && paperSheet.titleField.activeFocus) return
+            if (paneHeader && paneHeader.titleField && paneHeader.titleField.activeFocus) return
             workspacePane.paneActivated()
-            var win = workspacePane.targetWindow
+            let win = workspacePane.targetWindow
             if (win && typeof win.startSystemMove === "function") {
                 win.startSystemMove()
             }
@@ -296,7 +295,7 @@ Item {
         onSnapshotSelected: (snapshotId) => {
             if (workspacePane.isGraphMode) {
                 if (typeof backend !== "undefined" && backend && typeof backend.get_history_snapshot_graph === "function" && paneGraphView) {
-                    var gData = backend.get_history_snapshot_graph(workspacePane.folderUrl, snapshotId)
+                    let gData = backend.get_history_snapshot_graph(workspacePane.folderUrl, snapshotId)
                     paneGraphView.loadHistoricalGraph(gData)
                 }
             } else if (paperSheet) {
