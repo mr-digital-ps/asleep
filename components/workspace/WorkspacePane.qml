@@ -281,6 +281,7 @@ Item {
         contentRightPadding: editorArea ? editorArea.rightPadding : 0
         statsText: workspacePane.isGraphMode ? workspacePane.graphStatsText : workspacePane.statsString
         visible: workspacePane.showHeader && (!workspacePane.isEmpty || workspacePane.isGraphMode)
+        z: 10
 
         // Когда закреплен или в режиме графа — y: 0.
         // Когда откреплен — уезжает вверх со скроллом листа:
