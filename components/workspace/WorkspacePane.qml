@@ -412,7 +412,7 @@ Item {
                     tabSize: workspacePane.tabSize
                     scrollY: workspacePane.scrollY
                     availableHeight: editorScroll.availableHeight
-                    viewHeight: workspacePane.height
+                    viewHeight: editorScroll.availableHeight
                     containerItem: scrollContentContainer
                     editorScroll: editorScroll
 

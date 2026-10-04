@@ -7,7 +7,6 @@ import "../history"
 Item {
     id: headerRoot
     height: 70
-    z: 20
 
     property string fileName: ""
     property string fileUrl: ""
