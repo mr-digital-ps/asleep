@@ -233,25 +233,17 @@ Item {
         syncNotice.showNotice(title)
     }
 
-    TapHandler {
-        gesturePolicy: TapHandler.WithinBounds
-        onTapped: {
-            if (paperSheet && paperSheet.titleField && paperSheet.titleField.activeFocus) return
-            workspacePane.paneActivated()
-        }
-    }
-
     readonly property real effectiveSheetWidth: isCenteredMode ? Math.min(width, Math.max(minSheetWidth, customSheetWidth)) : width
 
     // =========================================================================
-    // 0. ФОН ПАНЕЛИ: перетаскивание окна за пустые места в ЛЮБОМ режиме
-    //    (объявлен первым → лежит под шапкой, листом, графом и аутлайнером)
+    // 0. ФОН ПАНЕЛИ: активация и перетаскивание окна за пустые места в ЛЮБОМ режиме
     // =========================================================================
     MouseArea {
         id: paneBackgroundDrag
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton
-        onPressed: {
+        onPressed: (mouse) => {
+            if (paperSheet && paperSheet.titleField && paperSheet.titleField.activeFocus) return
             workspacePane.paneActivated()
             var win = workspacePane.targetWindow
             if (win && typeof win.startSystemMove === "function") {
