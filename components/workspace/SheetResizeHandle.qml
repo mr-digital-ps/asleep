@@ -14,7 +14,7 @@ MouseArea {
     property bool isLeft: true
     property var containerItem: null
     property real minWidth: Theme.minSheetWidth
-    property real maxWidth: 2000
+    property real maxWidth: Theme.maxSheetWidth
     property bool forceVisible: false
     property bool isDragging: false
 

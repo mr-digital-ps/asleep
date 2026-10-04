@@ -46,10 +46,12 @@ Item {
 
     // 6. Размеры и геометрия (Geometry Tokens)
     property int barSize: 36
-    property int headerCompactHeight: 40
-    property int headerExpandedHeight: 76
+    property int headerHeight: 70
+    property int headerTitleFontSize: 18
     property real defaultSheetWidth: 800
     property real minSheetWidth: 380
+    property real maxSheetWidth: 2000
+    property int defaultFontSize: 15
     property int defaultTabSize: 4
     property real defaultLineHeightPercent: 135.0
 

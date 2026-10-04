@@ -75,7 +75,7 @@ RowLayout {
         topPadding: 6
         bottomPadding: 0
 
-        font.pixelSize: 15
+        font.pixelSize: Theme.defaultFontSize
         wrapMode: TextArea.Wrap
         selectByMouse: true
         color: Theme.textPrimary

@@ -6,7 +6,7 @@ import "../history"
 
 Item {
     id: headerRoot
-    height: 70
+    height: Theme.headerHeight
 
     property string fileName: ""
     property string fileUrl: ""
@@ -188,7 +188,7 @@ Item {
                 topPadding: 6
                 bottomPadding: 6
                 text: headerRoot.showPath && headerRoot.fileUrl ? headerRoot.fileUrl.replace(/^file:\/\/\/?/, "") : headerRoot.stripExt(headerRoot.fileName)
-                font.pixelSize: 18
+                font.pixelSize: Theme.headerTitleFontSize
                 font.bold: true
                 color: (headerRoot.isSplitMode && !headerRoot.isActivePane) ? Theme.textSecondary : Theme.textPrimary
                 placeholderText: "Без названия"
