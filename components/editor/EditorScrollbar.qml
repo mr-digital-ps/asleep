@@ -83,8 +83,8 @@ Item {
             color: customVBar.pressed ? Theme.textSelected : (customVBar.hovered ? Theme.scrollbarHover : Theme.scrollbarThumb)
             anchors.horizontalCenter: parent.horizontalCenter
 
-            Behavior on implicitWidth { NumberAnimation { duration: 100 } }
-            Behavior on color { ColorAnimation { duration: 120 } }
+            Behavior on implicitWidth { NumberAnimation { duration: Theme.animDurationFast } }
+            Behavior on color { ColorAnimation { duration: Theme.animDurationNormal } }
         }
 
         background: Rectangle {

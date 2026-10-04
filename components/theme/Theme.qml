@@ -52,8 +52,13 @@ Item {
     property real minSheetWidth: 380
     property real maxSheetWidth: 2000
     property int defaultFontSize: 15
+    property real sheetPadding: 16
     property int defaultTabSize: 4
     property real defaultLineHeightPercent: 135.0
+
+    // 7. Тайминги и анимации (Animation Timings)
+    property int animDurationFast: 100
+    property int animDurationNormal: 150
 
     // Применение настроек из объекта темы (автоматический маппинг snake_case -> camelCase)
     function applyConfig(cfg) {

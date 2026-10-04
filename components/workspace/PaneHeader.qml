@@ -296,8 +296,8 @@ Item {
                     ? (headerDividerMouse.containsMouse ? Theme.textPrimary : Theme.textSecondary)
                     : (headerDividerMouse.containsMouse ? Theme.borderFocus : Theme.borderColor)
                 opacity: headerRoot.isPinned ? 0.9 : 0.6
-                Behavior on color { ColorAnimation { duration: 150 } }
-                Behavior on opacity { NumberAnimation { duration: 150 } }
+                Behavior on color { ColorAnimation { duration: Theme.animDurationNormal } }
+                Behavior on opacity { NumberAnimation { duration: Theme.animDurationNormal } }
             }
 
             MouseArea {

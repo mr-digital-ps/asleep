@@ -25,7 +25,7 @@ Item {
         border.color: (targetWindow && targetWindow.active) ? frame.activeColor : frame.inactiveColor
 
         Behavior on border.color {
-            ColorAnimation { duration: 150 }
+            ColorAnimation { duration: Theme.animDurationNormal }
         }
     }
 

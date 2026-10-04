@@ -47,9 +47,9 @@ Rectangle {
     property alias text: editorCanvas.text
 
     // Естественная высота текста документа
-    readonly property real contentTopMargin: sheetRoot.showHeader ? Theme.headerHeight : 16
+    readonly property real contentTopMargin: sheetRoot.showHeader ? Theme.headerHeight : Theme.sheetPadding
     readonly property real docContentHeight: (editorArea && editorArea.contentHeight > 0) ? editorArea.contentHeight : 0
-    readonly property real contentNaturalHeight: docContentHeight + contentTopMargin + 16
+    readonly property real contentNaturalHeight: docContentHeight + contentTopMargin + Theme.sheetPadding
 
     // Сигналы
     signal paneActivated()
@@ -90,7 +90,7 @@ Rectangle {
 
     opacity: (isSplitMode && !isActivePane) ? 0.55 : 1.0
     Behavior on opacity {
-        NumberAnimation { duration: 150 }
+        NumberAnimation { duration: Theme.animDurationNormal }
     }
 
     // Фокус-режим: затемнение неактивных строк
