@@ -49,11 +49,12 @@ Rectangle {
     property alias editorArea: editorCanvas.editorArea
     property alias text: editorCanvas.text
 
-    // Чистый модульный расчет полной естественной высоты листа (Header + Content)
+    // Чистый модульный расчет полной естественной высоты листа (Header + Content + Overscroll)
+    readonly property real overscrollPadding: Math.round(availableHeight * 0.45)
     readonly property real contentNaturalHeight: {
         var hHeader = (sheetRoot.showHeader && !sheetRoot.isHeaderPinned) ? 70 : 0
         var hContent = (editorArea && editorArea.contentHeight > 0) ? editorArea.contentHeight : 0
-        return hHeader + hContent + 40
+        return hHeader + hContent + 40 + overscrollPadding
     }
 
     // Сигналы
