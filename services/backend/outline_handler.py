@@ -27,7 +27,8 @@ class OutlineHandlerMixin:
         """Разбирает пользовательский диалект сценария/заметок (блоки, трансклюзия, ссылки)."""
         try:
             from services.content.document_outline import parse_user_dialect
-            return parse_user_dialect(text)
+            res = parse_user_dialect(text)
+            return dict(res)
         except Exception as e:
             safe_print(f"[Backend] Ошибка парсинга диалекта: {e}")
             return {"blocks": [], "local_calls": [], "external_calls": [], "wikilinks": [], "free_text": "", "errors": [str(e)]}

@@ -449,7 +449,7 @@ def test_qml():
     os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
     from PyQt6.QtWidgets import QApplication
     from PyQt6.QtQml import QQmlApplicationEngine, QQmlComponent
-    from PyQt6.QtCore import QUrl
+    from PyQt6.QtCore import QUrl, QObject
     from web import Backend
 
     app = QApplication.instance() or QApplication(sys.argv)
@@ -481,7 +481,7 @@ def test_qml():
     engine.load(QUrl.fromLocalFile(str(qml_path)))
     objects = engine.rootObjects()
     assert len(objects) > 0, "Не удалось создать корневое окно QML!"
-    loader = objects[0].findChild(object, "hotLoader")
+    loader = objects[0].findChild(QObject, "hotLoader")
     assert loader is not None and loader.property("item") is not None, "web.qml не загрузился внутри Loader!"
     web_item = loader.property("item")
 

@@ -374,7 +374,7 @@ class GraphService:
         self._graph_cache[folder_key] = result
         return copy.deepcopy(result)
 
-    def generate_graph_markdown(self, folder_path: Path, graph_data: dict = None) -> str:
+    def generate_graph_markdown(self, folder_path: Path, graph_data: dict | None = None) -> str:
         """
         Генерирует человекочитаемый Markdown-документ со структурой всех связей папки.
         Каждая заметка представлена разделом H2 с вики-ссылкой [[Имя заметки]],
@@ -436,7 +436,7 @@ class GraphService:
 
         return "\n".join(lines).strip() + "\n"
 
-    def sync_graph_markdown_file(self, folder_path: Path, graph_data: dict = None) -> Path:
+    def sync_graph_markdown_file(self, folder_path: Path, graph_data: dict | None = None) -> Path | None:
         """
         Синхронизирует Markdown-проекцию графа в файл _Граф связей.md.
         Записывает изменения на диск только если содержимое файла действительно изменилось.

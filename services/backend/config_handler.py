@@ -109,7 +109,7 @@ class ConfigHandlerMixin:
 
     @pyqtSlot(result=bool)
     @pyqtSlot(QObject, result=bool)
-    def toggle_live_preview(self, editor_area_item: QObject = None) -> bool:
+    def toggle_live_preview(self, editor_area_item: QObject | None = None) -> bool:
         """Переключает режим Live Preview ⟷ Source Mode"""
         try:
             if editor_area_item:
@@ -143,7 +143,7 @@ class ConfigHandlerMixin:
     @pyqtSlot(int)
     def update_font_size(self, font_size: int):
         """Сохраняет текущий размер шрифта в конфигурацию сессии и папку"""
-        sz = int(font_size)
+        sz = font_size
         if "editor" in self.config_service.current_config:
             self.config_service.current_config["editor"]["font_size"] = sz
         save_session_config({"font_size": sz})
@@ -165,22 +165,22 @@ class ConfigHandlerMixin:
     @pyqtSlot(bool)
     def save_header_pinned(self, pinned: bool):
         """Сохраняет состояние закрепления верхнего заголовка в сессию"""
-        save_session_config({"header_pinned": bool(pinned)})
+        save_session_config({"header_pinned": pinned})
 
     @pyqtSlot(bool)
     def save_footer_pinned(self, pinned: bool):
         """Сохраняет состояние закрепления нижнего статус-бара в сессию"""
-        save_session_config({"footer_pinned": bool(pinned)})
+        save_session_config({"footer_pinned": pinned})
 
     @pyqtSlot(bool)
     def save_header_visible(self, visible: bool):
         """Сохраняет видимость верхнего заголовка в сессию"""
-        save_session_config({"header_visible": bool(visible)})
+        save_session_config({"header_visible": visible})
 
     @pyqtSlot(bool)
     def save_footer_visible(self, visible: bool):
         """Сохраняет видимость нижнего статус-бара в сессию"""
-        save_session_config({"footer_visible": bool(visible)})
+        save_session_config({"footer_visible": visible})
 
     @pyqtSlot(result="QVariantMap")
     def get_session_config(self) -> dict:
@@ -232,7 +232,7 @@ class ConfigHandlerMixin:
             tf_str = str(tf).strip().lower()
             if tf_str in ("auto", ""):
                 rate = self.get_screen_refresh_rate()
-                return int(round(rate)) if rate > 0 else 60
+                return round(rate) if rate > 0 else 60
             if tf_str in ("unlimited", "-1", "none", "off", "max", "0"):
                 return 0
             val = int(tf)

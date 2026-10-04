@@ -60,7 +60,7 @@ class Backend(
 
         self.folder_watcher = QFileSystemWatcher(self)
         self.folder_watcher.directoryChanged.connect(self._on_directory_changed)
-        self._current_folder: Path = None
+        self._current_folder: Path | None = None
         self._is_syncing_files = False
         self._last_config_mtime: int = 0
         self._last_user_files_snapshot: dict = {}
@@ -177,7 +177,7 @@ class Backend(
 
     @pyqtSlot(float, float, QObject, QObject, result="QVariantMap")
     @pyqtSlot(float, float, QObject, result="QVariantMap")
-    def find_target_window_at(self, gx: float, gy: float, exclude_win: QObject = None, exclude_win2: QObject = None) -> dict:
+    def find_target_window_at(self, gx: float, gy: float, exclude_win: QObject | None = None, exclude_win2: QObject | None = None) -> dict:
         return self.window_manager.find_target_window_at(gx, gy, exclude_win, exclude_win2)
 
     @pyqtSlot(QObject, str)
