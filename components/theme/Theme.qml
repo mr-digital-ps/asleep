@@ -53,6 +53,7 @@ Item {
     property int defaultTabSize: 4
     property real defaultLineHeightPercent: 135.0
     property string defaultFontFamily: "Segoe UI, Inter, -apple-system, sans-serif"
+    property int minVisibleLinesAtBottom: 1
 
     // Применение настроек из объекта темы (автоматический маппинг snake_case -> camelCase)
     function applyConfig(cfg) {

@@ -50,7 +50,13 @@ Rectangle {
     property alias text: editorCanvas.text
 
     // Чистый модульный расчет полной естественной высоты листа (Header + Content + Overscroll)
-    readonly property real overscrollPadding: Math.round(availableHeight * 0.45)
+    // Расчет от обратного: при максимальном скролле внизу экрана всегда видна хотя бы 1 строка
+    readonly property real singleLineHeight: (editorArea && editorArea.font.pixelSize > 0) ? (editorArea.font.pixelSize * 1.35) : 24
+    readonly property real overscrollPadding: {
+        let reservedTop = (sheetRoot.showHeader && !sheetRoot.isHeaderPinned) ? 70 : 16
+        let minVisibleSpace = Theme.minVisibleLinesAtBottom * singleLineHeight
+        return Math.max(0, sheetRoot.viewHeight - reservedTop - minVisibleSpace)
+    }
     readonly property real contentNaturalHeight: {
         var hHeader = (sheetRoot.showHeader && !sheetRoot.isHeaderPinned) ? 70 : 0
         var hContent = (editorArea && editorArea.contentHeight > 0) ? editorArea.contentHeight : 0
