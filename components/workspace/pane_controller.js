@@ -101,26 +101,7 @@ function toggleFullWidth(mainBar, editorScroll, backend) {
     }
 }
 
-function toggleHeaderFooter(mainBar, backend) {
-    if (mainBar.showHeader || mainBar.showFooter) {
-        mainBar.showHeader = false
-        mainBar.showFooter = false
-    } else {
-        mainBar.showHeader = true
-        mainBar.showFooter = true
-    }
-    if (backend) {
-        if (typeof backend.save_header_visible === "function") backend.save_header_visible(mainBar.showHeader)
-        if (typeof backend.save_footer_visible === "function") backend.save_footer_visible(mainBar.showFooter)
-    }
-}
 
-function toggleFooterOnly(mainBar, backend) {
-    mainBar.showFooter = !mainBar.showFooter
-    if (backend && typeof backend.save_footer_visible === "function") {
-        backend.save_footer_visible(mainBar.showFooter)
-    }
-}
 
 function toggleHeaderOnly(mainBar, backend) {
     mainBar.showHeader = !mainBar.showHeader
@@ -245,15 +226,6 @@ function handleBlockSyncTriggered(mainBar, editorArea, backend, BlockSync) {
     }
 }
 
-function handleBackgroundDragPressed(mouse, mainBar, state) {
-    if (mouse.button === Qt.LeftButton) {
-        mainBar.paneActivated()
-        var win = mainBar.targetWindow
-        if (win && typeof win.startSystemMove === "function") {
-            win.startSystemMove()
-        }
-    }
-}
 
 function initMainBar(mainBar, editorArea, backend) {
     if (backend && typeof backend.get_current_config === "function") {

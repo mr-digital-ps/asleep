@@ -10,36 +10,35 @@ import "../theme"
 Item {
     id: workspacePane
 
-    // Свойства панели
-    property int barSize: 36
+    // Свойства панели (Config-First: читаются из Theme)
+    property int barSize: Theme.barSize
     property string fileName: "Новый документ"
     property string fileUrl: ""
     property bool isCenteredMode: true
-    property real customSheetWidth: 800
-    property real minSheetWidth: 380
+    property real customSheetWidth: Theme.defaultSheetWidth
+    property real minSheetWidth: Theme.minSheetWidth
     property bool isSplitMode: false
     property bool isActivePane: false
     property bool isEmpty: false
     property bool isReceivingExternalSync: false
-    property string customFontFamily: "Segoe UI, Inter, -apple-system, sans-serif"
+    property string customFontFamily: Theme.defaultFontFamily
     property bool typewriterMode: false
     property bool focusMode: false
     property bool isHeaderPinned: false
     property bool showHeader: true
-    property real editorLineHeightPercent: 135.0
+    property real editorLineHeightPercent: Theme.defaultLineHeightPercent
     property bool showLineDots: true
-    property int tabSize: 4
+    property int tabSize: Theme.defaultTabSize
     readonly property var targetWindow: Window.window
 
     // Режимы рабочей области (paneBody): "editor" | "graph"
-    property string viewMode: isGraphMode ? "graph" : "editor"
+    // isGraphMode приходит снаружи из WorkspaceSplit через reactive binding.
+    // Прямое присвоение запрещено (HOTKEYS.md, Причина 1 и 5), иначе разрушается связь.
     property bool isGraphMode: false
+    readonly property string viewMode: isGraphMode ? "graph" : "editor"
+
     onIsGraphModeChanged: {
         Controller.handleGraphModeChanged(workspacePane, editorScroll, paneGraphView, editorArea, smoothScrollAnim)
-    }
-    onViewModeChanged: {
-        if (viewMode === "graph" && !isGraphMode) isGraphMode = true
-        else if (viewMode === "editor" && isGraphMode) isGraphMode = false
     }
 
     property string folderUrl: ""
@@ -379,7 +378,15 @@ Item {
                     hoverEnabled: true
                     preventStealing: true
 
-                    onPressed: (mouse) => Controller.handleBackgroundDragPressed(mouse, workspacePane, this)
+                    onPressed: (mouse) => {
+                        if (mouse.button === Qt.LeftButton) {
+                            workspacePane.paneActivated()
+                            var win = workspacePane.targetWindow
+                            if (win && typeof win.startSystemMove === "function") {
+                                win.startSystemMove()
+                            }
+                        }
+                    }
                     onDoubleClicked: {
                         var win = workspacePane.targetWindow
                         if (win) {

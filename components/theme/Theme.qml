@@ -48,6 +48,11 @@ Item {
     property int barSize: 36
     property int headerCompactHeight: 40
     property int headerExpandedHeight: 76
+    property int defaultSheetWidth: 800
+    property int minSheetWidth: 380
+    property int defaultTabSize: 4
+    property real defaultLineHeightPercent: 135.0
+    property string defaultFontFamily: "Segoe UI, Inter, -apple-system, sans-serif"
 
     // Применение настроек из объекта темы (автоматический маппинг snake_case -> camelCase)
     function applyConfig(cfg) {

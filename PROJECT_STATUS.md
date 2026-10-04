@@ -37,5 +37,7 @@
 - [x] Fix: двойной toggle графа в `WorkspaceSplit` устранён (один вызов `toggleGraph()`)
 - [x] Fix: binding loop `height` в `scrollContentContainer` (замена `availableHeight` → `height`)
 - [x] Реализован парсер пользовательского диалекта `user_dialect_parser.py` с тестами (блоки с пробелами, запрет точек в имени, трансклюзия, вики-ссылки, экранирование в коде)
+- [x] Устранён хардкод размеров/шрифтов в `WorkspacePane.qml`: вынесены токены в `Theme.qml` (Правило 5: Config-First)
+- [x] Устранены прокси-контроллеры JS для драга окна: прямое декларативное поведение в QML (Правило 3)
 - [x] 100% тестов в verify.py пройдены
 
