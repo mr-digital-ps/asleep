@@ -149,20 +149,22 @@ class GlobalHotkeyFilter(QObject):
     def _on_hotkeys_changed(self, hotkeys: dict):
         self.matcher = HotkeyMatcher(hotkeys)
 
-    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
-        evt_type = event.type()
-        if evt_type == QEvent.Type.KeyPress:
+    def eventFilter(self, a0: QObject | None, a1: QEvent | None) -> bool:
+        if not a1:
+            return super().eventFilter(a0, a1)
+        evt_type = a1.type()
+        if evt_type == QEvent.Type.KeyPress and isinstance(a1, QKeyEvent):
             # Пропускаем нажатия самих клавиш-модификаторов (Ctrl, Alt, Shift, Meta) без символа
-            if event.key() in (Qt.Key.Key_Control, Qt.Key.Key_Shift, Qt.Key.Key_Alt, Qt.Key.Key_Meta):
-                return super().eventFilter(watched, event)
+            if a1.key() in (Qt.Key.Key_Control.value, Qt.Key.Key_Shift.value, Qt.Key.Key_Alt.value, Qt.Key.Key_Meta.value):
+                return super().eventFilter(a0, a1)
 
-            action = self.matcher.match_event(event)
+            action = self.matcher.match_event(a1)
             if action:
-                mods = event.modifiers()
+                mods = a1.modifiers()
                 has_ctrl = bool(mods & Qt.KeyboardModifier.ControlModifier)
                 has_alt = bool(mods & Qt.KeyboardModifier.AltModifier)
                 if action in ("toggle_history_playback", "play_history_from_start") and not (has_alt or has_ctrl):
-                    return super().eventFilter(watched, event)
+                    return super().eventFilter(a0, a1)
 
                 if has_alt:
                     self._consumed_alt = True
@@ -170,18 +172,18 @@ class GlobalHotkeyFilter(QObject):
                 print(f"[Hotkey] Действие: {action}")
                 if hasattr(self.backend, "actionRequested"):
                     self.backend.actionRequested.emit(action)
-                event.accept()
+                a1.accept()
                 return True
 
-        elif evt_type == QEvent.Type.KeyRelease:
-            if event.key() == Qt.Key.Key_Alt and self._consumed_alt:
+        elif evt_type == QEvent.Type.KeyRelease and isinstance(a1, QKeyEvent):
+            if a1.key() == Qt.Key.Key_Alt.value and self._consumed_alt:
                 self._consumed_alt = False
-                event.accept()
+                a1.accept()
                 return True
-            if not (event.modifiers() & Qt.KeyboardModifier.AltModifier):
+            if not (a1.modifiers() & Qt.KeyboardModifier.AltModifier):
                 self._consumed_alt = False
 
-        return super().eventFilter(watched, event)
+        return super().eventFilter(a0, a1)
 
 
 def load_default_hotkeys(project_root: Path | None = None) -> dict:

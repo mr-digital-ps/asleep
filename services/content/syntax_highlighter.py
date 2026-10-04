@@ -158,6 +158,10 @@ class MarkdownHighlighter(QSyntaxHighlighter):
         self.fmt_brace.setForeground(QColor("#888888"))
         self.fmt_brace.setFontWeight(QFont.Weight.Bold)
 
+        # 12. Списки (- item, * item, 1. item)
+        self.fmt_list = QTextCharFormat()
+        self.fmt_list.setForeground(QColor("#d19a66"))
+
     def _init_rules(self):
         # Регулярные выражения
         self.re_brace = QRegularExpression(r"[{}]")
@@ -203,7 +207,7 @@ class MarkdownHighlighter(QSyntaxHighlighter):
         self.rehighlight()
         return self.live_preview_enabled
 
-    def highlightBlock(self, text: str):
+    def highlightBlock(self, text: str | None):
         if not text:
             self.setCurrentBlockState(self.STATE_NORMAL)
             return

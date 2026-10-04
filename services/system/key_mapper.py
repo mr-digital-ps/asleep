@@ -122,8 +122,12 @@ def parse_shortcut_spec(spec: str) -> tuple[bool, bool, bool, set[int], set[int]
             scan_codes.add(m['scan'])
             vks.add(m['vk'])
             chars.add(m['ru'])
-            for qtr in m['qt_ru']:
-                qt_keys.add(qtr)
+            q_ru = m['qt_ru']
+            if isinstance(q_ru, (list, tuple, set)):
+                for qtr in q_ru:
+                    qt_keys.add(qtr)
+            elif isinstance(q_ru, int):
+                qt_keys.add(q_ru)
 
         # Буквы латиницы (A-Z)
         if len(up) == 1 and 'A' <= up <= 'Z':
@@ -141,8 +145,12 @@ def parse_shortcut_spec(spec: str) -> tuple[bool, bool, bool, set[int], set[int]
             qt_key_enum = getattr(Qt.Key, f"Key_{lat_char}", None)
             if qt_key_enum is not None:
                 qt_keys.add(qt_key_enum.value)
-            for qtr in m['qt_ru']:
-                qt_keys.add(qtr)
+            q_ru = m['qt_ru']
+            if isinstance(q_ru, (list, tuple, set)):
+                for qtr in q_ru:
+                    qt_keys.add(qtr)
+            elif isinstance(q_ru, int):
+                qt_keys.add(q_ru)
 
         # Цифры (0-9)
         elif len(up) == 1 and '0' <= up <= '9':

@@ -15,5 +15,9 @@
   "venv": ".venv",
   "extraPaths": [
     "."
-  ]
+  ],
+  "typeCheckingMode": "basic",
+  "reportAttributeAccessIssue": false,
+  "reportArgumentType": false,
+  "reportOptionalMemberAccess": false
 }

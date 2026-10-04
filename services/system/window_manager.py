@@ -43,7 +43,7 @@ class WindowManager:
         self._windows = [(w, r) for w, r in self._windows if self._is_valid_qobject(w) and w != win]
         print(f"[WindowManager] Окно разрегистрировано. Осталось активных окон: {len(self._windows)}")
 
-    def find_target_window_at(self, gx: float, gy: float, exclude_win: QObject = None, exclude_win2: QObject = None) -> dict:
+    def find_target_window_at(self, gx: float, gy: float, exclude_win: QObject | None = None, exclude_win2: QObject | None = None) -> dict:
         """
         Проверяет, над каким окном приложения находится курсор (gx, gy).
         Возвращает информацию о целевом окне и зону сброса (left, right, center).

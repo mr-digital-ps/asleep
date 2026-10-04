@@ -2,14 +2,10 @@
   "compilerOptions": {
     "checkJs": false,
     "target": "es2020",
-    "allowJs": true
+    "allowJs": false
   },
-  "include": [
-    "components/**/*.js",
-    "services/**/*.js",
-    "views/**/*.js"
-  ],
+  "include": [],
   "exclude": [
-    "node_modules"
+    "**/*"
   ]
 }

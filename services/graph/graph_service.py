@@ -1,4 +1,5 @@
 import copy
+import json
 import re
 from pathlib import Path
 from PyQt6.QtCore import QUrl
@@ -168,7 +169,7 @@ class GraphService:
                 pass
         return copy.deepcopy(self._node_positions.get(folder_key, {}))
 
-    def invalidate_cache(self, folder_path: Path = None):
+    def invalidate_cache(self, folder_path: Path | None = None):
         """Инвалидирует кеш графа для указанной папки или всего сервиса"""
         if folder_path:
             k = str(folder_path.resolve())
@@ -178,7 +179,7 @@ class GraphService:
             self._graph_cache.clear()
             self._config_cache.clear()
 
-    def get_config(self, folder_path: Path = None) -> dict:
+    def get_config(self, folder_path: Path | None = None) -> dict:
         """
         Каскадная загрузка конфигурации графа:
         1. config/default/graph.json
