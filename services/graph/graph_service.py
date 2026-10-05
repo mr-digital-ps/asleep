@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 from PyQt6.QtCore import QUrl
 from services.storage.config_service import parse_json_with_comments, compile_safe_regex, ConfigService
+from services.content.document_outline import parse_user_dialect
 
 DEFAULT_WIKILINK_REGEX = re.compile(r'\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]')
 DEFAULT_MD_LINK_REGEX = re.compile(r'\[([^\]]+)\]\(([^)]+\.(?:md|markdown|txt))\)', re.IGNORECASE)
@@ -263,7 +264,10 @@ class GraphService:
                 "val": 1
             }
 
-        # 2. Второй проход: анализируем контент каждого файла
+        # 2. Второй проход: анализируем контент каждого файла через диалект
+        all_blocks_defs = {}  # (file_norm, block_norm) -> {"id": block_node_id, "name": b["name"], "fileUrl": file_url}
+        transclusion_calls = []  # (source_file_url, target_file_norm, target_block_norm)
+
         for stem_norm, f_info in files_data.items():
             p = f_info["path"]
             file_url = f_info["fileUrl"]
@@ -273,19 +277,20 @@ class GraphService:
             except Exception:
                 continue
 
-            # А. Поиск вики-ссылок [[Имя заметки]]
-            for m in wl_regex.finditer(content):
-                target_name = m.group(1).strip()
-                target_norm = target_name.lower()
+            # Разбор диалекта (блоки, трансклюзии, вики-ссылки)
+            parsed = parse_user_dialect(content)
+
+            # А. Вики-ссылки [[Имя заметки]] из диалекта
+            for target_name in parsed["wikilinks"]:
+                target_norm = target_name.strip().lower()
                 if target_norm in files_data:
                     target_url = files_data[target_norm]["fileUrl"]
                     if target_url != file_url:
-                        edge_key = tuple(sorted([file_url, target_url]))
                         links_set.add((file_url, target_url, "link"))
                         nodes_map[file_url]["val"] += 1
                         nodes_map[target_url]["val"] += 1
 
-            # Б. Поиск стандартных Markdown ссылок [текст](файл.md)
+            # Б. Стандартные Markdown ссылки [текст](файл.md) как fallback
             for m in md_regex.finditer(content):
                 raw_target = m.group(2).strip()
                 target_stem = Path(raw_target).stem.strip().lower()
@@ -296,16 +301,30 @@ class GraphService:
                         nodes_map[file_url]["val"] += 1
                         nodes_map[target_url]["val"] += 1
 
-            # В. Поиск H1-блоков (# Заголовок)
-            for m in h_regex.finditer(content):
-                h_text = m.group(1).strip()
-                h_norm = h_text.lower()
-                if h_norm not in file_blocks:
-                    file_blocks[h_norm] = []
-                if file_url not in file_blocks[h_norm]:
-                    file_blocks[h_norm].append((file_url, h_text))
+            # В. Определение именованных блоков файла: Имя { ... }
+            for b in parsed["blocks"]:
+                b_name = b["name"]
+                b_norm = b["name_norm"]
+                block_id = f"block:{stem_norm}:{b_norm}"
+                all_blocks_defs[(stem_norm, b_norm)] = {
+                    "id": block_id,
+                    "name": b_name,
+                    "fileUrl": file_url,
+                    "stem_norm": stem_norm
+                }
 
-            # Г. Поиск тегов (#тег)
+            # Г. Локальные вызовы Блок() в пределах этого файла
+            for lc in parsed["local_calls"]:
+                t_b_norm = lc["target_block"].strip().lower()
+                transclusion_calls.append((file_url, stem_norm, t_b_norm))
+
+            # Д. Внешние вызовы Файл.Блок()
+            for ec in parsed["external_calls"]:
+                t_f_norm = ec["target_file"].strip().lower()
+                t_b_norm = ec["target_block"].strip().lower()
+                transclusion_calls.append((file_url, t_f_norm, t_b_norm))
+
+            # Е. Поиск тегов (#тег)
             for m in tag_regex.finditer(content):
                 tag_name = m.group(1).strip()
                 tag_norm = tag_name.lower()
@@ -314,25 +333,44 @@ class GraphService:
                 if file_url not in file_tags[tag_norm]:
                     file_tags[tag_norm].append((file_url, tag_name))
 
-        # 3. Добавляем связи по общим H1-блокам (трансклюзия)
-        for h_norm, occurrences in file_blocks.items():
-            if len(occurrences) >= block_min:
-                # Если блок встречается в block_min+ файлах, связываем эти файлы между собой
-                block_id = f"block:{h_norm}"
-                display_title = occurrences[0][1]
-                nodes_map[block_id] = {
-                    "id": block_id,
-                    "label": f"#{display_title}",
-                    "fileUrl": "",
-                    "type": "block",
-                    "color": "#2a2a2a",
-                    "val": len(occurrences) + 1
-                }
-                for f_url, _ in occurrences:
-                    links_set.add((f_url, block_id, "transclusion"))
-                    nodes_map[f_url]["val"] += 1
+        # 3. Добавляем блоки и связи трансклюзии (пунктирные)
+        # Блок отображается в графе, если он определен или трансклюдирован
+        active_block_keys = set()
+        for src_url, t_f_norm, t_b_norm in transclusion_calls:
+            b_key = (t_f_norm, t_b_norm)
+            if b_key in all_blocks_defs:
+                active_block_keys.add(b_key)
 
-        # 4. Добавляем теги, если они связывают хотя бы tag_min файлов
+        for b_key in active_block_keys:
+            b_info = all_blocks_defs[b_key]
+            b_id = b_info["id"]
+            owner_url = b_info["fileUrl"]
+
+            if b_id not in nodes_map:
+                nodes_map[b_id] = {
+                    "id": b_id,
+                    "label": b_info["name"],
+                    "fileUrl": owner_url,
+                    "sourceFileUrl": owner_url,
+                    "type": "block",
+                    "color": "#424242",
+                    "val": 2
+                }
+                # Структурная связь от файла-владельца к блоку
+                links_set.add((owner_url, b_id, "link"))
+                nodes_map[owner_url]["val"] += 1
+
+        # Создаем направленные трансклюзии вызовов
+        for src_url, t_f_norm, t_b_norm in transclusion_calls:
+            b_key = (t_f_norm, t_b_norm)
+            if b_key in all_blocks_defs:
+                b_info = all_blocks_defs[b_key]
+                b_id = b_info["id"]
+                links_set.add((src_url, b_id, "transclusion"))
+                nodes_map[src_url]["val"] += 1
+                nodes_map[b_id]["val"] += 1
+
+        # 4. Добавляем теги, если они связывают хотя бы tag_min файлов (хабы)
         for tag_norm, occurrences in file_tags.items():
             if len(occurrences) >= tag_min:
                 tag_id = f"tag:{tag_norm}"
@@ -342,7 +380,7 @@ class GraphService:
                     "label": f"#{display_tag}",
                     "fileUrl": "",
                     "type": "tag",
-                    "color": "#323232",
+                    "color": "#4c4c4c",
                     "val": len(occurrences)
                 }
                 for f_url, _ in occurrences:

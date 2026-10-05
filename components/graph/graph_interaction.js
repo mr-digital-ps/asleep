@@ -114,6 +114,26 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer, forcedW, fo
     var pureNodes = JSON.parse(JSON.stringify(data.nodes))
     var pureLinks = JSON.parse(JSON.stringify(data.links || []))
 
+    // Фильтрация слоев (отключенные слои полностью исключаются из симуляции физики)
+    var showBlocks = (graphRoot.showBlocks !== false)
+    var showTags = (graphRoot.showTags !== false)
+
+    if (!showBlocks || !showTags) {
+        var allowedNodeIds = {}
+        pureNodes = pureNodes.filter(function(n) {
+            if (n.type === "block" && !showBlocks) return false
+            if (n.type === "tag" && !showTags) return false
+            allowedNodeIds[n.id] = true
+            return true
+        })
+
+        pureLinks = pureLinks.filter(function(lk) {
+            var srcId = (typeof lk.source === "object" && lk.source !== null) ? lk.source.id : lk.source
+            var tgtId = (typeof lk.target === "object" && lk.target !== null) ? lk.target.id : lk.target
+            return !!(allowedNodeIds[srcId] && allowedNodeIds[tgtId])
+        })
+    }
+
     // Фильтрация для режима локального графа (Local Graph) текущей заметки (1-hop connections)
     var localTargetNode = null
     if (graphRoot.isLocalGraph && graphRoot.activeFileUrl) {

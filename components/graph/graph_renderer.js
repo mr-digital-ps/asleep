@@ -110,18 +110,36 @@ function renderGraph(ctx, width, height, sim, state) {
         if (!s || !t) continue
 
         var isConnectedToHover = hasHover && (s.id === hoveredNode.id || t.id === hoveredNode.id)
+        var isTransclusion = (l.type === "transclusion")
+
         ctx.beginPath()
+        if (isTransclusion) {
+            ctx.setLineDash([4, 4])
+        } else {
+            ctx.setLineDash([])
+        }
         ctx.moveTo(s.x, s.y)
         ctx.lineTo(t.x, t.y)
 
         if (isConnectedToHover) {
             ctx.strokeStyle = linkHoverCol
-            ctx.lineWidth = 1.3
+            ctx.lineWidth = isTransclusion ? 1.1 : 1.3
         } else {
             ctx.strokeStyle = linkCol
-            ctx.lineWidth = 0.8
+            ctx.lineWidth = isTransclusion ? 0.7 : 0.8
         }
         ctx.stroke()
+    }
+    ctx.setLineDash([]) // сброс пунктира
+
+    // Вспомогательная функция рисования ромба (для тегов)
+    function drawDiamond(cx, cy, r) {
+        ctx.beginPath()
+        ctx.moveTo(cx, cy - r * 1.2)
+        ctx.lineTo(cx + r * 1.2, cy)
+        ctx.lineTo(cx, cy + r * 1.2)
+        ctx.lineTo(cx - r * 1.2, cy)
+        ctx.closePath()
     }
 
     // 2. Отрисовка узлов
@@ -148,63 +166,114 @@ function renderGraph(ctx, width, height, sim, state) {
         ctx.save()
         ctx.globalAlpha = nodeAlpha
 
-        var baseFill = (n.type === "block" ? nodeColorBlock : (n.type === "tag" ? nodeColorTag : nodeColorFile))
-        var baseStroke = borderColor
+        var baseRadius = n.radius || 4.5
+        var nType = n.type || "file"
 
         // Маркер активного файла ("Вы здесь") или соседнего открытого файла
         if (isActivePlayer) {
             ctx.beginPath()
-            ctx.arc(n.x, n.y, (n.radius || 4.5) + 2.6, 0, 2 * Math.PI)
+            ctx.arc(n.x, n.y, baseRadius + 2.8, 0, 2 * Math.PI)
             ctx.strokeStyle = textSecondary
             ctx.lineWidth = 1.2
             ctx.stroke()
         } else if (isOpenAdjacent) {
             ctx.beginPath()
-            ctx.arc(n.x, n.y, (n.radius || 4.5) + 2.6, 0, 2 * Math.PI)
+            ctx.arc(n.x, n.y, baseRadius + 2.8, 0, 2 * Math.PI)
             ctx.strokeStyle = accentColor
             ctx.lineWidth = 1.3
             ctx.stroke()
         }
 
-        ctx.beginPath()
-        ctx.arc(n.x, n.y, n.radius || 4.5, 0, 2 * Math.PI)
-
-        if (isDragged) {
-            ctx.fillStyle = bgActive
-            ctx.fill()
-            ctx.strokeStyle = textSecondary
-            ctx.lineWidth = 1.4
-            ctx.stroke()
-        } else if (isHover) {
-            ctx.fillStyle = borderHover
-            ctx.fill()
-            ctx.strokeStyle = textSecondary
-            ctx.lineWidth = 1.4
-            ctx.stroke()
-        } else if (isActivePlayer) {
-            ctx.fillStyle = textSecondary
-            ctx.fill()
-            ctx.strokeStyle = borderColor
-            ctx.lineWidth = 1.0
-            ctx.stroke()
-        } else if (isOpenAdjacent) {
-            ctx.fillStyle = bgActive
-            ctx.fill()
-            ctx.strokeStyle = accentColor
-            ctx.lineWidth = 1.3
-            ctx.stroke()
-        } else if (isConnected) {
-            ctx.fillStyle = bgActive
-            ctx.fill()
-            ctx.strokeStyle = borderHover
-            ctx.lineWidth = 1.2
-            ctx.stroke()
+        // Отрисовка геометрической фигуры в зависимости от типа узла:
+        // - file: сплошной круг
+        // - block: полый круг с четким контуром (outline ring)
+        // - tag: ромб (diamond)
+        if (nType === "tag") {
+            drawDiamond(n.x, n.y, baseRadius)
+            if (isDragged || isHover) {
+                ctx.fillStyle = borderHover
+                ctx.fill()
+                ctx.strokeStyle = textPrimary
+                ctx.lineWidth = 1.4
+                ctx.stroke()
+            } else if (isConnected) {
+                ctx.fillStyle = bgActive
+                ctx.fill()
+                ctx.strokeStyle = borderHover
+                ctx.lineWidth = 1.2
+                ctx.stroke()
+            } else {
+                ctx.fillStyle = bgHover
+                ctx.fill()
+                ctx.strokeStyle = borderColor
+                ctx.lineWidth = 1.0
+                ctx.stroke()
+            }
+        } else if (nType === "block") {
+            ctx.beginPath()
+            ctx.arc(n.x, n.y, baseRadius, 0, 2 * Math.PI)
+            if (isDragged || isHover) {
+                ctx.fillStyle = bgActive
+                ctx.fill()
+                ctx.strokeStyle = textPrimary
+                ctx.lineWidth = 1.6
+                ctx.stroke()
+            } else if (isConnected) {
+                ctx.fillStyle = bgHover
+                ctx.fill()
+                ctx.strokeStyle = textSecondary
+                ctx.lineWidth = 1.4
+                ctx.stroke()
+            } else {
+                // Полый контурный блок
+                ctx.fillStyle = "transparent"
+                ctx.fill()
+                ctx.strokeStyle = borderHover
+                ctx.lineWidth = 1.2
+                ctx.stroke()
+            }
         } else {
-            ctx.fillStyle = baseFill
-            ctx.fill()
-            ctx.strokeStyle = baseStroke
-            ctx.lineWidth = 1.0
-            ctx.stroke()
+            // Файлы (сплошные круги)
+            ctx.beginPath()
+            ctx.arc(n.x, n.y, baseRadius, 0, 2 * Math.PI)
+
+            if (isDragged) {
+                ctx.fillStyle = bgActive
+                ctx.fill()
+                ctx.strokeStyle = textSecondary
+                ctx.lineWidth = 1.4
+                ctx.stroke()
+            } else if (isHover) {
+                ctx.fillStyle = borderHover
+                ctx.fill()
+                ctx.strokeStyle = textSecondary
+                ctx.lineWidth = 1.4
+                ctx.stroke()
+            } else if (isActivePlayer) {
+                ctx.fillStyle = textSecondary
+                ctx.fill()
+                ctx.strokeStyle = borderColor
+                ctx.lineWidth = 1.0
+                ctx.stroke()
+            } else if (isOpenAdjacent) {
+                ctx.fillStyle = bgActive
+                ctx.fill()
+                ctx.strokeStyle = accentColor
+                ctx.lineWidth = 1.3
+                ctx.stroke()
+            } else if (isConnected) {
+                ctx.fillStyle = bgActive
+                ctx.fill()
+                ctx.strokeStyle = borderHover
+                ctx.lineWidth = 1.2
+                ctx.stroke()
+            } else {
+                ctx.fillStyle = nodeColorFile
+                ctx.fill()
+                ctx.strokeStyle = borderColor
+                ctx.lineWidth = 1.0
+                ctx.stroke()
+            }
         }
 
         // Текстовая подпись узла
