@@ -21,6 +21,7 @@ Rectangle {
     property real panX: 0
     property real panY: 0
     property string searchQuery: ""
+    property string statsText: ""
 
     onShowBlocksChanged: reloadGraph()
     onShowTagsChanged: reloadGraph()
@@ -35,6 +36,7 @@ Rectangle {
     signal nodeClicked(string fileUrl, string label, string nodeType)
     signal closeRequested()
     signal graphPressed()
+    signal toggleInfoRequested()
 
     focus: true
     Keys.onPressed: (event) => Interaction.handleKey(graphRoot, event)
@@ -257,60 +259,4 @@ Rectangle {
         }
     }
 
-    // Монохромные переключатели слоев графа (HUD в правом нижнем углу)
-    Row {
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        anchors.margins: 16
-        spacing: 6
-        z: 30
-
-        Rectangle {
-            width: blockBtnText.implicitWidth + 14
-            height: 24
-            radius: 12
-            color: graphRoot.showBlocks ? Theme.bgActive : "transparent"
-            border.color: graphRoot.showBlocks ? Theme.borderHover : Theme.borderColor
-            border.width: 1
-
-            Text {
-                id: blockBtnText
-                anchors.centerIn: parent
-                text: "○ Блоки"
-                font.pixelSize: 10
-                font.weight: graphRoot.showBlocks ? Font.DemiBold : Font.Normal
-                color: graphRoot.showBlocks ? Theme.textPrimary : Theme.textMuted
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: graphRoot.showBlocks = !graphRoot.showBlocks
-            }
-        }
-
-        Rectangle {
-            width: tagBtnText.implicitWidth + 14
-            height: 24
-            radius: 12
-            color: graphRoot.showTags ? Theme.bgActive : "transparent"
-            border.color: graphRoot.showTags ? Theme.borderHover : Theme.borderColor
-            border.width: 1
-
-            Text {
-                id: tagBtnText
-                anchors.centerIn: parent
-                text: "◇ Теги"
-                font.pixelSize: 10
-                font.weight: graphRoot.showTags ? Font.DemiBold : Font.Normal
-                color: graphRoot.showTags ? Theme.textPrimary : Theme.textMuted
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: graphRoot.showTags = !graphRoot.showTags
-            }
-        }
-    }
 }

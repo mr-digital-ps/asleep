@@ -726,20 +726,6 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Mark
                 barSearch.toggleSearchMode()
             }
             break
-        case "show_path":
-            var barShowPath = getActiveBar(root, splitLayout)
-            if (barShowPath && typeof barShowPath.togglePathMode === "function") {
-                barShowPath.togglePathMode()
-            } else if (barShowPath && typeof barShowPath.showPathMode === "function") {
-                barShowPath.showPathMode()
-            }
-            break
-        case "show_filename":
-            var barShowName = getActiveBar(root, splitLayout)
-            if (barShowName && typeof barShowName.showFileNameMode === "function") {
-                barShowName.showFileNameMode()
-            }
-            break
         case "toggle_path":
             var barPath = getActiveBar(root, splitLayout)
             if (barPath && typeof barPath.togglePathMode === "function") {
@@ -1084,7 +1070,60 @@ function handleGlobalKeyEvent(root, splitLayout, hotkeyManager, backend, event) 
     return false
 }
 
-function handleNodeSelected(root, splitLayout, fUrl, lbl, backend) {
+function handleNodeSelected(root, splitLayout, fUrl, lbl, nodeType, backend) {
     if (!root || !splitLayout) return
-    openFileFromFolder(root, fUrl, lbl, false, backend)
+    // Для узла-блока lbl — это имя блока, а не имя файла!
+    // Извлекаем настоящее имя файла из fUrl:
+    var fileName = lbl
+    if (nodeType === "block" && fUrl) {
+        var clean = fUrl.replace(/\\/g, "/").replace(/\/$/, "")
+        var slashIdx = clean.lastIndexOf("/")
+        if (slashIdx !== -1) {
+            fileName = clean.substring(slashIdx + 1)
+            try {
+                fileName = decodeURIComponent(fileName)
+            } catch(e) {}
+        }
+    }
+    openFileFromFolder(root, fUrl, fileName, false, backend)
+
+    if (nodeType === "block" && lbl) {
+        Qt.callLater(function() {
+            var activeBar = getActiveBar(root, splitLayout)
+            if (!activeBar) return
+
+            // Принудительно включаем режим полного пути (Папка.Файл.Блок)
+            if (typeof activeBar.showPathMode === "function") {
+                activeBar.showPathMode()
+            }
+
+            if (!activeBar.editorArea) return
+            var text = activeBar.editorArea.text || ""
+            if (!text) return
+
+            // Регулярное выражение для поиска объявления блока: Имя Блока {
+            var escapedLbl = lbl.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            var regex = new RegExp("^([ \t]*" + escapedLbl + "[ \t]*\\{)", "mi")
+            var match = regex.exec(text)
+
+            // Если не нашел строго в начале строки, ищем первое вхождение "Имя {"
+            if (!match) {
+                var simpleRegex = new RegExp("(" + escapedLbl + "[ \t]*\\{)", "i")
+                match = simpleRegex.exec(text)
+            }
+
+            if (match) {
+                var targetPos = match.index + match[0].length
+                if (targetPos < text.length && text.charAt(targetPos) === '\r') targetPos++
+                if (targetPos < text.length && text.charAt(targetPos) === '\n') targetPos++
+                activeBar.editorArea.cursorPosition = targetPos
+                activeBar.activeBlockName = lbl.trim()
+                if (typeof activeBar.ensureCursorVisible === "function") {
+                    activeBar.ensureCursorVisible()
+                }
+            } else {
+                activeBar.activeBlockName = lbl.trim()
+            }
+        })
+    }
 }

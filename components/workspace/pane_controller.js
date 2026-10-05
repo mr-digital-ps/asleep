@@ -26,25 +26,36 @@ function formatBreadcrumbTitle(folderUrl, currentFolderName, fileUrl, fileName, 
     var fileBase = stripExt(fileName) || "Новый документ"
     var folderBase = currentFolderName || ""
 
-    if (!folderBase && folderUrl) {
-        var cleanFolder = folderUrl.replace(/^file:\/\/\/?/, "").replace(/\\/g, "/")
-        var folderParts = cleanFolder.split("/").filter(function(p) { return p.length > 0 })
-        if (folderParts.length > 0) {
-            folderBase = folderParts[folderParts.length - 1]
+    var cleanFolder = ""
+    if (folderUrl) {
+        try {
+            cleanFolder = decodeURIComponent(folderUrl).replace(/^file:\/\/\/?/, "").replace(/\\/g, "/")
+        } catch(e) {
+            cleanFolder = folderUrl.replace(/^file:\/\/\/?/, "").replace(/\\/g, "/")
+        }
+        if (!folderBase) {
+            var folderParts = cleanFolder.split("/").filter(function(p) { return p.length > 0 })
+            if (folderParts.length > 0) {
+                folderBase = folderParts[folderParts.length - 1]
+            }
         }
     }
 
     // Если есть относительный путь файла внутри папки
     var subPath = ""
     if (folderUrl && fileUrl) {
-        var fRoot = folderUrl.replace(/^file:\/\/\/?/, "").replace(/\\/g, "/").toLowerCase()
-        var fFull = fileUrl.replace(/^file:\/\/\/?/, "").replace(/\\/g, "/").toLowerCase()
+        var cleanFile = ""
+        try {
+            cleanFile = decodeURIComponent(fileUrl).replace(/^file:\/\/\/?/, "").replace(/\\/g, "/")
+        } catch(e) {
+            cleanFile = fileUrl.replace(/^file:\/\/\/?/, "").replace(/\\/g, "/")
+        }
+        var fRoot = cleanFolder.toLowerCase()
+        var fFull = cleanFile.toLowerCase()
         if (fFull.indexOf(fRoot) === 0) {
-            var rel = fileUrl.replace(/^file:\/\/\/?/, "").replace(/\\/g, "/").substring(fRoot.length)
-            rel = rel.replace(/^\//, "")
+            var rel = cleanFile.substring(cleanFolder.length).replace(/^\//, "")
             var relParts = rel.split("/").filter(function(p) { return p.length > 0 })
             if (relParts.length > 1) {
-                // Имеются подпапки
                 var midDirs = relParts.slice(0, -1)
                 subPath = midDirs.join(".")
             }

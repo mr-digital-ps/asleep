@@ -98,9 +98,11 @@ function renderGraph(ctx, width, height, sim, state) {
     var labelHoverCol = vis.labelHoverColor || textPrimary
     var labelFontSize = (typeof vis.labelFontSize === "number") ? vis.labelFontSize : 10
 
-    var nodeColorFile = (vis.nodeColorFile && vis.nodeColorFile !== "#4da6ff") ? vis.nodeColorFile : (theme.bgActive ? theme.bgActive.toString() : "#383838")
-    var nodeColorBlock = (vis.nodeColorBlock && vis.nodeColorBlock !== "#bb9af7") ? vis.nodeColorBlock : (theme.bgHover ? theme.bgHover.toString() : "#2a2a2a")
-    var nodeColorTag = (vis.nodeColorTag && vis.nodeColorTag !== "#e0af68") ? vis.nodeColorTag : (theme.bgHover ? theme.bgHover.toString() : "#323232")
+    // Единый монохромный цвет узлов для всех типов (различие задаётся исключительно геометрической формой)
+    var nodeBaseColor = (vis.nodeColorFile && vis.nodeColorFile !== "#4da6ff") ? vis.nodeColorFile : (theme.bgActive ? theme.bgActive.toString() : "#383838")
+    var nodeColorFile = nodeBaseColor
+    var nodeColorBlock = nodeBaseColor
+    var nodeColorTag = nodeBaseColor
 
     // 1. Отрисовка связей (ребер)
     for (var i = 0; i < links.length; i++) {
@@ -244,7 +246,7 @@ function renderGraph(ctx, width, height, sim, state) {
                 ctx.lineWidth = 1.2
                 ctx.stroke()
             } else {
-                ctx.fillStyle = bgHover
+                ctx.fillStyle = nodeColorTag
                 ctx.fill()
                 ctx.strokeStyle = borderColor
                 ctx.lineWidth = 1.0
@@ -256,19 +258,19 @@ function renderGraph(ctx, width, height, sim, state) {
                 ctx.fillStyle = borderHover
                 ctx.fill()
                 ctx.strokeStyle = textPrimary
-                ctx.lineWidth = 1.5
+                ctx.lineWidth = 1.4
                 ctx.stroke()
             } else if (isConnected) {
                 ctx.fillStyle = bgActive
                 ctx.fill()
                 ctx.strokeStyle = borderHover
-                ctx.lineWidth = 1.3
+                ctx.lineWidth = 1.2
                 ctx.stroke()
             } else {
-                ctx.fillStyle = bgHover
+                ctx.fillStyle = nodeColorBlock
                 ctx.fill()
-                ctx.strokeStyle = borderHover
-                ctx.lineWidth = 1.1
+                ctx.strokeStyle = borderColor
+                ctx.lineWidth = 1.0
                 ctx.stroke()
             }
         } else {
@@ -276,16 +278,10 @@ function renderGraph(ctx, width, height, sim, state) {
             ctx.beginPath()
             ctx.arc(n.x, n.y, baseRadius, 0, 2 * Math.PI)
 
-            if (isDragged) {
-                ctx.fillStyle = bgActive
-                ctx.fill()
-                ctx.strokeStyle = textSecondary
-                ctx.lineWidth = 1.4
-                ctx.stroke()
-            } else if (isHover) {
+            if (isDragged || isHover) {
                 ctx.fillStyle = borderHover
                 ctx.fill()
-                ctx.strokeStyle = textSecondary
+                ctx.strokeStyle = textPrimary
                 ctx.lineWidth = 1.4
                 ctx.stroke()
             } else if (isActivePlayer) {

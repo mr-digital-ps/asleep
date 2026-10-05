@@ -206,7 +206,7 @@ Rectangle {
         currentFolderUrl: root.currentFolderUrl
         currentFolderName: root.currentFolderName
 
-        onNodeSelected: (fUrl, lbl) => WebLifecycle.handleNodeSelected(root, splitLayout, fUrl, lbl, backend)
+        onNodeSelected: (fUrl, lbl, nodeType) => WebLifecycle.handleNodeSelected(root, splitLayout, fUrl, lbl, nodeType, backend)
 
         onPrimaryTitleChanged: (newTitle) => root.renameTab(root.primaryTabIndex, newTitle)
         onSecondaryTitleChanged: (newTitle) => root.renameTab(root.secondaryTabIndex, newTitle)

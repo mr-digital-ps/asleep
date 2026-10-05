@@ -43,7 +43,7 @@ Item {
     property string folderUrl: ""
     property string currentFolderName: ""
     property var openFileUrls: []
-    readonly property string graphStatsText: paneGraphView ? paneGraphView.getGraphStats() : ""
+    readonly property string graphStatsText: paneGraphView ? (paneGraphView.statsText || paneGraphView.getGraphStats()) : ""
 
     function toggleHistoryMode() {
         if (paneHeader) {
@@ -173,7 +173,7 @@ Item {
     signal toggleSplitRequested()
     signal openRequested()
     signal openSplitRequested()
-    signal nodeSelected(string fileUrl, string label)
+    signal nodeSelected(string fileUrl, string label, string nodeType)
     signal closeGraphRequested()
     signal fileDragStarted(string url, string name, real gx, real gy)
     signal fileDragMoved(real gx, real gy)
@@ -508,7 +508,10 @@ Item {
             }
             onNodeClicked: (fUrl, lbl, type) => {
                 workspacePane.paneActivated()
-                workspacePane.nodeSelected(fUrl, lbl)
+                workspacePane.nodeSelected(fUrl, lbl, type)
+            }
+            onToggleInfoRequested: {
+                workspacePane.toggleInfoMode()
             }
             onCloseRequested: {
                 workspacePane.closeGraphRequested()

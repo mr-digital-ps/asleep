@@ -134,7 +134,7 @@ Item {
     signal toggleGraphRequested()
     signal toggleLocalGraphRequested()
     signal toggleSplitRequested()
-    signal nodeSelected(string fileUrl, string label)
+    signal nodeSelected(string fileUrl, string label, string nodeType)
     signal closeGraphRequested()
     signal openStructureRequested()
 
@@ -183,9 +183,9 @@ Item {
                 splitLayout.isPrimaryGraphVisible = false
                 splitLayout.closeGraphRequested()
             }
-            onNodeSelected: (fUrl, lbl) => {
+            onNodeSelected: (fUrl, lbl, type) => {
                 splitLayout.isPrimaryGraphVisible = false
-                splitLayout.nodeSelected(fUrl, lbl)
+                splitLayout.nodeSelected(fUrl, lbl, type)
             }
             onOpenStructureRequested: splitLayout.openStructureRequested()
         }
@@ -265,9 +265,9 @@ Item {
                 splitLayout.isSecondaryGraphVisible = false
                 splitLayout.closeGraphRequested()
             }
-            onNodeSelected: (fUrl, lbl) => {
+            onNodeSelected: (fUrl, lbl, type) => {
                 splitLayout.isSecondaryGraphVisible = false
-                splitLayout.nodeSelected(fUrl, lbl)
+                splitLayout.nodeSelected(fUrl, lbl, type)
             }
             onOpenStructureRequested: splitLayout.openStructureRequested()
         }

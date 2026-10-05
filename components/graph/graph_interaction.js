@@ -152,8 +152,8 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer, forcedW, fo
             var localConnectedIds = {}
             localConnectedIds[targetId] = true
 
-            // Собираем все 1-hop связи текущей заметки (входящие и исходящие)
-            var filteredLinks = []
+            // 1. Собираем прямые 1-hop связи текущей заметки (входящие и исходящие)
+            var bridgeHubIds = {}
             for (var k = 0; k < pureLinks.length; k++) {
                 var lk = pureLinks[k]
                 var srcId = (typeof lk.source === "object" && lk.source !== null) ? lk.source.id : lk.source
@@ -161,9 +161,31 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer, forcedW, fo
                 if (srcId === targetId || tgtId === targetId) {
                     localConnectedIds[srcId] = true
                     localConnectedIds[tgtId] = true
+
+                    // Запоминаем соседние узлы, которые являются Блоками или Тегами
+                    var otherId = (srcId === targetId) ? tgtId : srcId
+                    bridgeHubIds[otherId] = true
                 }
             }
 
+            // 2. Раскрываем все соединения блоков и тегов (показываем все файлы, подключенные к этим блокам/тегам)
+            for (var h = 0; h < pureNodes.length; h++) {
+                var candNode = pureNodes[h]
+                if (bridgeHubIds[candNode.id] && (candNode.type === "block" || candNode.type === "tag")) {
+                    for (var l = 0; l < pureLinks.length; l++) {
+                        var hubLk = pureLinks[l]
+                        var hSrc = (typeof hubLk.source === "object" && hubLk.source !== null) ? hubLk.source.id : hubLk.source
+                        var hTgt = (typeof hubLk.target === "object" && hubLk.target !== null) ? hubLk.target.id : hubLk.target
+                        if (hSrc === candNode.id || hTgt === candNode.id) {
+                            localConnectedIds[hSrc] = true
+                            localConnectedIds[hTgt] = true
+                        }
+                    }
+                }
+            }
+
+            // 3. Формируем итоговые ребра и узлы локального подграфа
+            var filteredLinks = []
             for (var m = 0; m < pureLinks.length; m++) {
                 var lk2 = pureLinks[m]
                 var srcId2 = (typeof lk2.source === "object" && lk2.source !== null) ? lk2.source.id : lk2.source
@@ -246,6 +268,7 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer, forcedW, fo
 
     var sim = Physics.initSimulation(pureNodes, pureLinks, canW, canH, config)
     graphRoot.sim = sim
+    graphRoot.statsText = getGraphStats(sim, graphRoot.isLocalGraph)
 
     // 1. Полный расчет равновесия в памяти JS:
     var warmupTicks = anyMissing ? 400 : 0
@@ -615,6 +638,18 @@ function handleKey(graphRoot, event) {
                    event.text === 'q' || event.text === 'Q' || event.text === 'й' || event.text === 'Й')
         if (isG || isRuGe || isW || isQ) {
             graphRoot.closeRequested()
+            event.accepted = true
+            return true
+        }
+    }
+
+    if (event.modifiers & Qt.AltModifier) {
+        // Alt+I — переключение информации/статистики (EN: I / RU: Ш, scan 23)
+        var isI = (event.key === Qt.Key_I || event.nativeScanCode === 23 ||
+                   event.key === 1096 || event.key === 1064 ||
+                   event.text === 'i' || event.text === 'I' || event.text === 'ш' || event.text === 'Ш')
+        if (isI) {
+            graphRoot.toggleInfoRequested()
             event.accepted = true
             return true
         }
