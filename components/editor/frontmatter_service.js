@@ -55,7 +55,6 @@ function initSessionConfig(mainBar, backend) {
         if (sess) {
             if (typeof sess.header_pinned === "boolean") mainBar.isHeaderPinned = sess.header_pinned
             if (typeof sess.header_visible === "boolean") mainBar.showHeader = sess.header_visible
-            if (typeof sess.header_height === "number" && sess.header_height >= 40 && sess.header_height <= 400) mainBar.headerHeight = sess.header_height
             if (typeof sess.show_scrollbar === "boolean") mainBar.showScrollbar = sess.show_scrollbar
             if (typeof sess.show_line_dots === "boolean") mainBar.showLineDots = sess.show_line_dots
         }

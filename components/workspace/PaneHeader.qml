@@ -6,10 +6,7 @@ import "../history"
 
 Item {
     id: headerRoot
-    height: customHeight > 0 ? customHeight : Theme.headerHeight
-
-    property real customHeight: Theme.headerHeight
-    signal heightChangedByUser(real newHeight)
+    height: Theme.headerHeight
 
     property string fileName: ""
     property string fileUrl: ""
@@ -136,7 +133,8 @@ Item {
             Layout.topMargin: 12
             Layout.leftMargin: headerRoot.barSize
             Layout.rightMargin: headerRoot.barSize
-            Layout.fillHeight: true
+            Layout.preferredHeight: 44
+            Layout.maximumHeight: 44
             Layout.minimumHeight: 44
             spacing: 8
 
@@ -306,35 +304,9 @@ Item {
                 id: headerDividerMouse
                 anchors.fill: parent
                 hoverEnabled: true
-                cursorShape: Qt.SizeVerCursor
-                property real dragStartY: 0
-                property real startHeight: 0
-                property bool isDragging: false
-
-                onPressed: (mouse) => {
-                    dragStartY = mouse.y
-                    startHeight = headerRoot.height
-                    isDragging = true
-                }
-
-                onPositionChanged: (mouse) => {
-                    if (isDragging) {
-                        var delta = mouse.y - dragStartY
-                        var newH = Math.max(48, Math.min(360, startHeight + delta))
-                        headerRoot.customHeight = newH
-                    }
-                }
-
-                onReleased: {
-                    if (isDragging) {
-                        isDragging = false
-                        headerRoot.heightChangedByUser(headerRoot.height)
-                    }
-                }
-
-                onDoubleClicked: {
-                    headerRoot.customHeight = Theme.headerHeight
-                    headerRoot.heightChangedByUser(Theme.headerHeight)
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    headerRoot.pinToggled()
                 }
             }
         }

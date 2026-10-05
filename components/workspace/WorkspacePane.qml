@@ -28,7 +28,6 @@ Item {
     property real editorLineHeightPercent: Theme.defaultLineHeightPercent
     property bool showLineDots: true
     property int tabSize: Theme.defaultTabSize
-    property real headerHeight: Theme.headerHeight
     readonly property var targetWindow: Window.window
 
     // Режимы рабочей области (paneBody): "editor" | "graph"
@@ -275,7 +274,6 @@ Item {
     PaneHeader {
         id: paneHeader
         barSize: workspacePane.barSize
-        customHeight: workspacePane.headerHeight
         anchors.horizontalCenter: parent.horizontalCenter
         width: workspacePane.effectiveSheetWidth
         fileName: workspacePane.fileName
@@ -301,12 +299,6 @@ Item {
             ? 0
             : -Math.min(paneHeader.height, workspacePane.scrollY)
 
-        onHeightChangedByUser: (newH) => {
-            workspacePane.headerHeight = newH
-            if (typeof backend !== "undefined" && backend && typeof backend.save_header_height === "function") {
-                backend.save_header_height(Math.round(newH))
-            }
-        }
         onTitleCommitted: (newTitle) => workspacePane.titleChangedByUser(newTitle)
         onPaneActivated: workspacePane.paneActivated()
         onPinToggled: {
@@ -422,7 +414,6 @@ Item {
                     focusMode: workspacePane.focusMode
                     isHeaderPinned: workspacePane.isHeaderPinned
                     showHeader: workspacePane.showHeader
-                    headerHeight: workspacePane.headerHeight
                     showLineDots: workspacePane.showLineDots
                     tabSize: workspacePane.tabSize
                     scrollY: workspacePane.scrollY

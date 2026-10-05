@@ -19,7 +19,6 @@
   // Состояние хедера
   "header_pinned": true,
   "header_visible": true,
-  "header_height": 70,
 
   // Визуальное отображение служебных элементов редактора
   "show_scrollbar": true,
