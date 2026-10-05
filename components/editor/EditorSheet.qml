@@ -23,6 +23,7 @@ Rectangle {
     property int tabSize: 4
     property real scrollY: 0
     property string statsString: "0 слов · 0 знаков"
+    property real headerHeight: Theme.headerHeight
     property real availableHeight: 600
     property real viewHeight: availableHeight
     property var containerItem: null
@@ -47,7 +48,7 @@ Rectangle {
     property alias text: editorCanvas.text
 
     // Естественная высота текста документа
-    readonly property real contentTopMargin: sheetRoot.showHeader ? Theme.headerHeight : Theme.sheetPadding
+    readonly property real contentTopMargin: sheetRoot.showHeader ? sheetRoot.headerHeight : Theme.sheetPadding
     readonly property real docContentHeight: (editorArea && editorArea.contentHeight > 0) ? editorArea.contentHeight : 0
     readonly property real contentNaturalHeight: docContentHeight + contentTopMargin + Theme.sheetPadding
 

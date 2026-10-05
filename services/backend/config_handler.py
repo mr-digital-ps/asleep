@@ -172,6 +172,11 @@ class ConfigHandlerMixin:
         """Сохраняет видимость верхнего заголовка в сессию"""
         save_session_config({"header_visible": visible})
 
+    @pyqtSlot(int)
+    def save_header_height(self, height: int):
+        """Сохраняет пользовательскую высоту верхнего заголовка в сессию"""
+        save_session_config({"header_height": height})
+
     @pyqtSlot(bool)
     def save_show_scrollbar(self, show: bool):
         """Сохраняет отображение скроллбара в сессию"""
