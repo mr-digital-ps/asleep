@@ -13,7 +13,7 @@ from services.history.history_service import HistoryService
 from services.content.outline_service import OutlineService
 from services.core.document_session import DocumentSession
 
-from services.backend.app_initializer import safe_print
+from services.backend.app_initializer import safe_print, configure_app_font
 from services.backend.file_handler import FileHandlerMixin
 from services.backend.config_handler import ConfigHandlerMixin
 from services.backend.outline_handler import OutlineHandlerMixin
@@ -120,6 +120,7 @@ class Backend(
         elif "hotkey" in name:
             self.hotkey_service._reload_timer.start()
         elif "theme" in name:
+            configure_app_font()
             self.themeConfigChanged.emit()
         elif "editor" in name:
             self.config_service.load_folder_config(self._current_folder)

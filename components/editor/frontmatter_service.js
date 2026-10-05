@@ -17,6 +17,9 @@ function applyEditorConfig(mainBar, editorArea, cfg, backend) {
     if (typeof cfg.editor.font_size === "number" && cfg.editor.font_size > 0) {
         editorArea.font.pixelSize = cfg.editor.font_size
     }
+    if (typeof cfg.editor.font_family === "string" && cfg.editor.font_family.trim().length > 0) {
+        editorArea.font.family = cfg.editor.font_family.trim()
+    }
     if (typeof cfg.editor.padding_left === "number") {
         editorArea.leftPadding = cfg.editor.padding_left
     }

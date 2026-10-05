@@ -116,13 +116,11 @@ class MarkdownHighlighter(QSyntaxHighlighter):
         self.fmt_inline_code = QTextCharFormat()
         self.fmt_inline_code.setForeground(QColor("#e5c07b"))
         self.fmt_inline_code.setBackground(QColor("#21252b"))
-        self.fmt_inline_code.setFontFamily("Consolas, Courier New, monospace")
 
         # 6. Блок кода (```...```)
         self.fmt_code_block = QTextCharFormat()
         self.fmt_code_block.setForeground(QColor("#abb2bf"))
         self.fmt_code_block.setBackground(QColor("#1e2227"))
-        self.fmt_code_block.setFontFamily("Consolas, Courier New, monospace")
 
         # 7. Цитата (> quote)
         self.fmt_quote = QTextCharFormat()

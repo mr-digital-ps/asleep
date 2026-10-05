@@ -25,6 +25,7 @@ Item {
     // 3. Редактор текста (Editor Canvas)
     property color cursorColor: "#e0e0e0"
     property color selectionColor: "#282828"
+    property real selectionRadius: 5
     property color lineHighlight: "#0effffff"
     property color gutterText: "#505050"
     property color gutterActive: "#999999"
@@ -52,6 +53,7 @@ Item {
     property real minSheetWidth: 380
     property real maxSheetWidth: 2000
     property int defaultFontSize: 15
+    property string fontFamily: "Fira Code"
     property real sheetPadding: 16
     property int defaultTabSize: 4
     property real defaultLineHeightPercent: 135.0

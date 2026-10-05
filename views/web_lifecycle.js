@@ -831,12 +831,6 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Mark
                 root.toggleProjectStructure()
             }
             break
-        case "toggle_history":
-            var barHist = getActiveBar(root, splitLayout)
-            if (barHist && typeof barHist.toggleHistoryMode === "function") {
-                barHist.toggleHistoryMode()
-            }
-            break
         case "toggle_history_playback":
             var barPlay = getActiveBar(root, splitLayout)
             if (barPlay && typeof barPlay.toggleHistoryPlayback === "function") {

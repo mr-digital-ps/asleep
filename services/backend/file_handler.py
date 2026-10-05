@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from PyQt6.QtCore import pyqtSlot, QUrl
 from services.storage.file_service import save_session_config
-from services.backend.app_initializer import safe_print
+from services.backend.app_initializer import safe_print, configure_app_font
 
 
 class FileHandlerMixin:
@@ -94,6 +94,7 @@ class FileHandlerMixin:
             elif "hotkey" in fn:
                 self.hotkey_service._reload_timer.start()
             elif "theme" in fn:
+                configure_app_font()
                 self.themeConfigChanged.emit()
             elif "editor" in fn:
                 self.config_service.load_folder_config(self._current_folder)

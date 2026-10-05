@@ -76,11 +76,12 @@ RowLayout {
         bottomPadding: 0
 
         font.pixelSize: Theme.defaultFontSize
+        font.family: Theme.fontFamily
         wrapMode: TextArea.Wrap
         selectByMouse: true
         color: Theme.textPrimary
-        selectionColor: Theme.selectionColor
-        selectedTextColor: Theme.textSelected
+        selectionColor: "transparent"
+        selectedTextColor: Theme.textPrimary
         placeholderText: "Начните вводить текст..."
         placeholderTextColor: Theme.textMuted
 
@@ -97,6 +98,12 @@ RowLayout {
         }
 
         background: Item {
+            // Эстетичный оверлей скруглённого блочного выделения (как в современных IDE)
+            SelectionHighlightOverlay {
+                id: selectionHighlightOverlay
+                editorArea: editorArea
+            }
+
             Rectangle {
                 id: currentLineHighlight
                 visible: editorArea.activeFocus && editorArea.cursorRectangle.height > 0 && (editorArea.selectionStart === editorArea.selectionEnd)

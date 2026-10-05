@@ -30,3 +30,36 @@ def configure_surface_format():
         QSurfaceFormat.setDefaultFormat(fmt)
     except Exception as e:
         safe_print(f"[Graphics] Ошибка настройки QSurfaceFormat: {e}")
+
+
+from PyQt6.QtGui import QFontDatabase, QSurfaceFormat, QGuiApplication, QFont
+
+
+def configure_app_font(app=None):
+    """Единый шрифт приложения из config theme.json → font_family.
+    Все элементы UI и QML наследуют его глобально через QApplication.setFont."""
+    try:
+        if app is None:
+            app = QGuiApplication.instance()
+        if app is None:
+            return
+
+        cfg = ConfigService().get_theme_config()
+        family = str(cfg.get("font_family", "")).strip()
+        if not family:
+            return
+
+        available = {f.lower(): f for f in QFontDatabase.families()}
+        matched_family = available.get(family.lower(), family)
+
+        font = app.font()
+        font.setFamily(matched_family)
+        font.setStyleHint(QFont.StyleHint.Monospace)
+        app.setFont(font)
+        if family.lower() not in available:
+            safe_print(f"[Font] Предупреждение: шрифт '{family}' не найден в Windows. Qt использует моноширинный fallback.")
+        else:
+            safe_print(f"[Font] Глобальный шрифт приложения установлен: {matched_family}")
+    except Exception as e:
+        safe_print(f"[Font] Ошибка установки шрифта: {e}")
+

@@ -337,7 +337,7 @@ RowLayout {
             width: parent.width
             text: historyBarRoot.displayTimeText
             font.pixelSize: 11
-            font.family: "Consolas, 'Courier New', monospace"
+            font.family: Theme.fontFamily
             font.weight: Font.DemiBold
             horizontalAlignment: Text.AlignHCenter
             color: Theme.textSecondary
@@ -348,7 +348,7 @@ RowLayout {
             width: parent.width
             text: historyBarRoot.displayDateText
             font.pixelSize: 11
-            font.family: "Consolas, 'Courier New', monospace"
+            font.family: Theme.fontFamily
             font.weight: Font.Normal
             horizontalAlignment: Text.AlignHCenter
             color: Theme.textSecondary

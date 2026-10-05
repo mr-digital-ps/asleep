@@ -25,9 +25,8 @@ Item {
     property real contentRightPadding: 0
     property string statsText: ""
 
-    // Режим работы хедера: "title" (по умолчанию) | "history" (Git Graph таймлайн) | "info" (статистика) | "search" | "path" | "tabs"
+    // Режим работы хедера: "title" (по умолчанию, полное имя Папка.Файл[.Блок]) | "history" (Git Graph таймлайн) | "info" (статистика) | "search" | "tabs"
     property string headerMode: "title"
-    property bool showPath: false
 
     property alias titleField: titleField
 
@@ -38,52 +37,65 @@ Item {
     signal snapshotSelected(int snapshotId)
     signal liveRequested()
 
-    function setMode(mode) {
-        if (headerMode === mode) {
-            headerMode = "title"
-        } else {
-            headerMode = mode
-            if (mode === "history" && headerHistoryBar) {
-                headerHistoryBar.reloadTimeline()
+    // Стек истории режимов хедера (LIFO)
+    property var modeStack: []
+
+    function switchMode(targetMode) {
+        if (headerMode === targetMode) {
+            // Если нажат хоткей своего же режима:
+            // Достаём из стека последний открытый предыдущий режим (отличный от текущего)
+            let prev = "title"
+            while (modeStack.length > 0) {
+                let candidate = modeStack.pop()
+                if (candidate && candidate !== targetMode) {
+                    prev = candidate
+                    break
+                }
             }
+            headerMode = prev
+        } else {
+            // Переход в другой режим: сохраняем текущий в стек
+            if (headerMode) {
+                modeStack.push(headerMode)
+            }
+            headerMode = targetMode
+        }
+
+        if (headerMode === "history" && headerHistoryBar) {
+            headerHistoryBar.reloadTimeline()
         }
     }
 
     function toggleHistoryMode() {
-        setMode("history")
+        switchMode("history")
     }
 
     function toggleInfoMode() {
-        setMode("info")
+        switchMode("info")
     }
 
     function toggleSearchMode() {
-        setMode("search")
-    }
-
-    // Путь / имя файла — часть режима "title": при вызове из history/info/search/tabs
-    // сначала возвращаем заголовок, иначе переключение идёт в скрытом поле.
-    function showPathMode() {
-        headerMode = "title"
-        showPath = true
-    }
-
-    function showFileNameMode() {
-        headerMode = "title"
-        showPath = false
+        switchMode("search")
     }
 
     function togglePathMode() {
+        switchMode("title")
+    }
+
+    function showPathMode() {
         if (headerMode !== "title") {
-            headerMode = "title"
-            showPath = true
-        } else {
-            showPath = !showPath
+            switchMode("title")
+        }
+    }
+
+    function showFileNameMode() {
+        if (headerMode !== "title") {
+            switchMode("title")
         }
     }
 
     function toggleTabsMode() {
-        setMode("tabs")
+        switchMode("tabs")
     }
 
     function stripExt(name) {
@@ -188,7 +200,7 @@ Item {
                 rightPadding: headerRoot.contentRightPadding
                 topPadding: 6
                 bottomPadding: 6
-                text: headerRoot.showPath ? (headerRoot.breadcrumbTitle ? headerRoot.breadcrumbTitle : headerRoot.stripExt(headerRoot.fileName)) : headerRoot.stripExt(headerRoot.fileName)
+                text: headerRoot.breadcrumbTitle ? headerRoot.breadcrumbTitle : headerRoot.stripExt(headerRoot.fileName)
                 font.pixelSize: Theme.headerTitleFontSize
                 font.bold: true
                 color: (headerRoot.isSplitMode && !headerRoot.isActivePane) ? Theme.textSecondary : Theme.textPrimary
@@ -202,22 +214,20 @@ Item {
 
                 Connections {
                     target: headerRoot
-                    function onShowPathChanged() {
-                        titleField.text = headerRoot.showPath ? (headerRoot.breadcrumbTitle ? headerRoot.breadcrumbTitle : headerRoot.stripExt(headerRoot.fileName)) : headerRoot.stripExt(headerRoot.fileName)
-                    }
                     function onBreadcrumbTitleChanged() {
                         if (!titleField.activeFocus) {
-                            titleField.text = headerRoot.showPath ? (headerRoot.breadcrumbTitle ? headerRoot.breadcrumbTitle : headerRoot.stripExt(headerRoot.fileName)) : headerRoot.stripExt(headerRoot.fileName)
+                            titleField.text = headerRoot.breadcrumbTitle ? headerRoot.breadcrumbTitle : headerRoot.stripExt(headerRoot.fileName)
                         }
                     }
                     function onFileNameChanged() {
                         if (!titleField.activeFocus) {
-                            titleField.text = headerRoot.showPath ? (headerRoot.breadcrumbTitle ? headerRoot.breadcrumbTitle : headerRoot.stripExt(headerRoot.fileName)) : headerRoot.stripExt(headerRoot.fileName)
+                            titleField.text = headerRoot.breadcrumbTitle ? headerRoot.breadcrumbTitle : headerRoot.stripExt(headerRoot.fileName)
                         }
                     }
                 }
 
                 property string originalText: ""
+                property bool isUserEdited: false
 
                 Timer {
                     id: titleDebounceTimer
@@ -227,16 +237,19 @@ Item {
                 }
 
                 onTextEdited: {
+                    titleField.isUserEdited = true
                     titleDebounceTimer.restart()
                 }
 
                 function commitTitle() {
                     titleDebounceTimer.stop()
-                    let clean = headerRoot.stripExt(text.trim())
-                    if (!clean) {
-                        clean = "Новый документ"
-                        text = clean
-                    }
+                    if (!titleField.isUserEdited) return
+                    titleField.isUserEdited = false
+                    // Если пользователь редактирует имя в строке хлебных крошек, извлекаем имя файла
+                    let raw = text.trim()
+                    let parts = raw.split(".").filter(function(p) { return p.length > 0 })
+                    let clean = parts.length > 0 ? headerRoot.stripExt(parts[parts.length - 1]) : "Новый документ"
+                    if (!clean) clean = "Новый документ"
                     if (clean !== headerRoot.stripExt(headerRoot.fileName)) {
                         headerRoot.titleCommitted(clean)
                     }
@@ -244,6 +257,7 @@ Item {
 
                 onActiveFocusChanged: {
                     if (activeFocus) {
+                        isUserEdited = false
                         originalText = text
                         headerRoot.paneActivated()
                         if (text === "Новый документ") {
