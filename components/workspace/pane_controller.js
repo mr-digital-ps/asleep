@@ -22,6 +22,46 @@ function stripExt(name) {
     return name.replace(/\.md$/i, "")
 }
 
+function formatBreadcrumbTitle(folderUrl, currentFolderName, fileUrl, fileName, activeBlockName) {
+    var fileBase = stripExt(fileName) || "Новый документ"
+    var folderBase = currentFolderName || ""
+
+    if (!folderBase && folderUrl) {
+        var cleanFolder = folderUrl.replace(/^file:\/\/\/?/, "").replace(/\\/g, "/")
+        var folderParts = cleanFolder.split("/").filter(function(p) { return p.length > 0 })
+        if (folderParts.length > 0) {
+            folderBase = folderParts[folderParts.length - 1]
+        }
+    }
+
+    // Если есть относительный путь файла внутри папки
+    var subPath = ""
+    if (folderUrl && fileUrl) {
+        var fRoot = folderUrl.replace(/^file:\/\/\/?/, "").replace(/\\/g, "/").toLowerCase()
+        var fFull = fileUrl.replace(/^file:\/\/\/?/, "").replace(/\\/g, "/").toLowerCase()
+        if (fFull.indexOf(fRoot) === 0) {
+            var rel = fileUrl.replace(/^file:\/\/\/?/, "").replace(/\\/g, "/").substring(fRoot.length)
+            rel = rel.replace(/^\//, "")
+            var relParts = rel.split("/").filter(function(p) { return p.length > 0 })
+            if (relParts.length > 1) {
+                // Имеются подпапки
+                var midDirs = relParts.slice(0, -1)
+                subPath = midDirs.join(".")
+            }
+        }
+    }
+
+    var parts = []
+    if (folderBase) parts.push(folderBase)
+    if (subPath) parts.push(subPath)
+    parts.push(fileBase)
+    if (activeBlockName && activeBlockName.trim().length > 0) {
+        parts.push(activeBlockName.trim())
+    }
+
+    return parts.join(".")
+}
+
 function updateConfigParameterInText(fileName, text, key, value) {
     return Frontmatter.updateConfigParameterInText(fileName, text, key, value)
 }

@@ -227,6 +227,32 @@ Item {
         }
     }
 
+    property string activeBlockName: ""
+
+    // Отслеживание текущего активного блока по положению курсора
+    Connections {
+        target: editorArea
+        function onCursorPositionChanged() {
+            if (workspacePane.isGraphMode) return
+            var b = BlockSync.getCurrentBlockInfo(editorArea, (typeof backend !== "undefined" ? backend : null))
+            var bName = (b && b.heading) ? b.heading : ""
+            if (workspacePane.activeBlockName !== bName) {
+                workspacePane.activeBlockName = bName
+            }
+        }
+    }
+
+    readonly property string breadcrumbTitle: {
+        if (workspacePane.isGraphMode || workspacePane.isEmpty) return ""
+        return Controller.formatBreadcrumbTitle(
+            workspacePane.folderUrl,
+            workspacePane.currentFolderName,
+            workspacePane.fileUrl,
+            workspacePane.fileName,
+            workspacePane.activeBlockName
+        )
+    }
+
     Timer {
         id: blockSyncTimer
         interval: 350
@@ -279,6 +305,7 @@ Item {
         fileName: workspacePane.fileName
         fileUrl: workspacePane.fileUrl
         folderUrl: workspacePane.folderUrl
+        breadcrumbTitle: workspacePane.breadcrumbTitle
         isProjectTree: workspacePane.isProjectTree
         isSplitMode: workspacePane.isSplitMode
         isActivePane: workspacePane.isActivePane

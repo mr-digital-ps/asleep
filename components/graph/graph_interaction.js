@@ -619,6 +619,30 @@ function handleKey(graphRoot, event) {
             return true
         }
     }
+
+    // Горячие клавиши переключения слоев графа:
+    // B / Alt+B (Blocks / Именованные блоки, русская 'и'/'И', scan 48)
+    var isKeyB = (event.key === Qt.Key_B || event.nativeScanCode === 48 ||
+                  event.text === 'b' || event.text === 'B' ||
+                  event.text === 'и' || event.text === 'И' ||
+                  event.key === 1080 || event.key === 1048)
+    if (isKeyB && !(event.modifiers & Qt.ControlModifier)) {
+        graphRoot.showBlocks = !graphRoot.showBlocks
+        event.accepted = true
+        return true
+    }
+
+    // T / Alt+T (Tags / Теги, русская 'е'/'Е', scan 20)
+    var isKeyT = (event.key === Qt.Key_T || event.nativeScanCode === 20 ||
+                  event.text === 't' || event.text === 'T' ||
+                  event.text === 'е' || event.text === 'Е' ||
+                  event.key === 1077 || event.key === 1045)
+    if (isKeyT && !(event.modifiers & Qt.ControlModifier)) {
+        graphRoot.showTags = !graphRoot.showTags
+        event.accepted = true
+        return true
+    }
+
     return false
 }
 

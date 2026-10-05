@@ -132,13 +132,54 @@ function renderGraph(ctx, width, height, sim, state) {
     }
     ctx.setLineDash([]) // сброс пунктира
 
-    // Вспомогательная функция рисования ромба (для тегов)
-    function drawDiamond(cx, cy, r) {
+    // Вспомогательная функция рисования сглаженного многоугольника (пентагон для блоков)
+    function drawSmoothPentagon(cx, cy, r, cornerRadius) {
+        var sides = 5
+        var cr = cornerRadius || (r * 0.28)
+        var points = []
+        // Вершины пентагона, развернутого вверх (-PI/2)
+        for (var p = 0; p < sides; p++) {
+            var angle = -Math.PI / 2 + (p * 2 * Math.PI / sides)
+            points.push({
+                x: cx + r * 1.15 * Math.cos(angle),
+                y: cy + r * 1.15 * Math.sin(angle)
+            })
+        }
+
         ctx.beginPath()
-        ctx.moveTo(cx, cy - r * 1.2)
-        ctx.lineTo(cx + r * 1.2, cy)
-        ctx.lineTo(cx, cy + r * 1.2)
-        ctx.lineTo(cx - r * 1.2, cy)
+        for (var k = 0; k < sides; k++) {
+            var p1 = points[k]
+            var p2 = points[(k + 1) % sides]
+            var p0 = points[(k - 1 + sides) % sides]
+            if (k === 0) {
+                // Стартуем из середины первого ребра
+                ctx.moveTo((p0.x + p1.x) / 2, (p0.y + p1.y) / 2)
+            }
+            ctx.arcTo(p1.x, p1.y, p2.x, p2.y, cr)
+        }
+        ctx.closePath()
+    }
+
+    // Вспомогательная функция рисования сглаженного ромба (для тегов)
+    function drawSmoothDiamond(cx, cy, r, cornerRadius) {
+        var cr = cornerRadius || (r * 0.28)
+        var dPoints = [
+            { x: cx, y: cy - r * 1.25 },
+            { x: cx + r * 1.25, y: cy },
+            { x: cx, y: cy + r * 1.25 },
+            { x: cx - r * 1.25, y: cy }
+        ]
+
+        ctx.beginPath()
+        for (var d = 0; d < 4; d++) {
+            var dp1 = dPoints[d]
+            var dp2 = dPoints[(d + 1) % 4]
+            var dp0 = dPoints[(d - 1 + 4) % 4]
+            if (d === 0) {
+                ctx.moveTo((dp0.x + dp1.x) / 2, (dp0.y + dp1.y) / 2)
+            }
+            ctx.arcTo(dp1.x, dp1.y, dp2.x, dp2.y, cr)
+        }
         ctx.closePath()
     }
 
@@ -186,10 +227,10 @@ function renderGraph(ctx, width, height, sim, state) {
 
         // Отрисовка геометрической фигуры в зависимости от типа узла:
         // - file: сплошной круг
-        // - block: полый круг с четким контуром (outline ring)
-        // - tag: ромб (diamond)
+        // - block: сглаженный пентагон (smooth pentagon)
+        // - tag: сглаженный ромб (smooth diamond)
         if (nType === "tag") {
-            drawDiamond(n.x, n.y, baseRadius)
+            drawSmoothDiamond(n.x, n.y, baseRadius)
             if (isDragged || isHover) {
                 ctx.fillStyle = borderHover
                 ctx.fill()
@@ -210,26 +251,24 @@ function renderGraph(ctx, width, height, sim, state) {
                 ctx.stroke()
             }
         } else if (nType === "block") {
-            ctx.beginPath()
-            ctx.arc(n.x, n.y, baseRadius, 0, 2 * Math.PI)
+            drawSmoothPentagon(n.x, n.y, baseRadius)
             if (isDragged || isHover) {
-                ctx.fillStyle = bgActive
+                ctx.fillStyle = borderHover
                 ctx.fill()
                 ctx.strokeStyle = textPrimary
-                ctx.lineWidth = 1.6
+                ctx.lineWidth = 1.5
                 ctx.stroke()
             } else if (isConnected) {
-                ctx.fillStyle = bgHover
-                ctx.fill()
-                ctx.strokeStyle = textSecondary
-                ctx.lineWidth = 1.4
-                ctx.stroke()
-            } else {
-                // Полый контурный блок
-                ctx.fillStyle = "transparent"
+                ctx.fillStyle = bgActive
                 ctx.fill()
                 ctx.strokeStyle = borderHover
-                ctx.lineWidth = 1.2
+                ctx.lineWidth = 1.3
+                ctx.stroke()
+            } else {
+                ctx.fillStyle = bgHover
+                ctx.fill()
+                ctx.strokeStyle = borderHover
+                ctx.lineWidth = 1.1
                 ctx.stroke()
             }
         } else {

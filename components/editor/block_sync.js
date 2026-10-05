@@ -52,7 +52,14 @@ function getCurrentBlockInfo(editor, backend) {
                         }
                     }
                 }
-                return null
+                return {
+                    heading: b.name,
+                    headingNorm: b.name.toLowerCase(),
+                    content: "",
+                    blockStart: b.start,
+                    contentStart: contentStart,
+                    contentEnd: contentEnd
+                }
             }
 
             return {

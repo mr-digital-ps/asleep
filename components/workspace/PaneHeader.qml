@@ -11,6 +11,7 @@ Item {
     property string fileName: ""
     property string fileUrl: ""
     property string folderUrl: ""
+    property string breadcrumbTitle: ""
     property bool isProjectTree: false
     property bool isSplitMode: false
     property bool isActivePane: false
@@ -187,7 +188,7 @@ Item {
                 rightPadding: headerRoot.contentRightPadding
                 topPadding: 6
                 bottomPadding: 6
-                text: headerRoot.showPath && headerRoot.fileUrl ? headerRoot.fileUrl.replace(/^file:\/\/\/?/, "") : headerRoot.stripExt(headerRoot.fileName)
+                text: headerRoot.showPath && headerRoot.fileUrl ? headerRoot.fileUrl.replace(/^file:\/\/\/?/, "") : (headerRoot.breadcrumbTitle ? headerRoot.breadcrumbTitle : headerRoot.stripExt(headerRoot.fileName))
                 font.pixelSize: Theme.headerTitleFontSize
                 font.bold: true
                 color: (headerRoot.isSplitMode && !headerRoot.isActivePane) ? Theme.textSecondary : Theme.textPrimary
@@ -202,16 +203,21 @@ Item {
                 Connections {
                     target: headerRoot
                     function onShowPathChanged() {
-                        titleField.text = headerRoot.showPath && headerRoot.fileUrl ? headerRoot.fileUrl.replace(/^file:\/\/\/?/, "") : headerRoot.stripExt(headerRoot.fileName)
+                        titleField.text = headerRoot.showPath && headerRoot.fileUrl ? headerRoot.fileUrl.replace(/^file:\/\/\/?/, "") : (headerRoot.breadcrumbTitle ? headerRoot.breadcrumbTitle : headerRoot.stripExt(headerRoot.fileName))
+                    }
+                    function onBreadcrumbTitleChanged() {
+                        if (!titleField.activeFocus) {
+                            titleField.text = headerRoot.showPath && headerRoot.fileUrl ? headerRoot.fileUrl.replace(/^file:\/\/\/?/, "") : (headerRoot.breadcrumbTitle ? headerRoot.breadcrumbTitle : headerRoot.stripExt(headerRoot.fileName))
+                        }
                     }
                     function onFileNameChanged() {
                         if (!titleField.activeFocus) {
-                            titleField.text = headerRoot.showPath && headerRoot.fileUrl ? headerRoot.fileUrl.replace(/^file:\/\/\/?/, "") : headerRoot.stripExt(headerRoot.fileName)
+                            titleField.text = headerRoot.showPath && headerRoot.fileUrl ? headerRoot.fileUrl.replace(/^file:\/\/\/?/, "") : (headerRoot.breadcrumbTitle ? headerRoot.breadcrumbTitle : headerRoot.stripExt(headerRoot.fileName))
                         }
                     }
                     function onFileUrlChanged() {
                         if (!titleField.activeFocus) {
-                            titleField.text = headerRoot.showPath && headerRoot.fileUrl ? headerRoot.fileUrl.replace(/^file:\/\/\/?/, "") : headerRoot.stripExt(headerRoot.fileName)
+                            titleField.text = headerRoot.showPath && headerRoot.fileUrl ? headerRoot.fileUrl.replace(/^file:\/\/\/?/, "") : (headerRoot.breadcrumbTitle ? headerRoot.breadcrumbTitle : headerRoot.stripExt(headerRoot.fileName))
                         }
                     }
                 }
