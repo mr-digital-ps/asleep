@@ -52,13 +52,25 @@ Rectangle {
         }
     }
     onShowBlockEdgesChanged: {
-        if (canvas) canvas.requestPaint()
+        if (historicalData) {
+            Interaction.loadHistoricalGraph(graphRoot, canvas, historicalData, Physics, animTimer)
+        } else {
+            reloadGraph()
+        }
     }
     onShowTagEdgesChanged: {
-        if (canvas) canvas.requestPaint()
+        if (historicalData) {
+            Interaction.loadHistoricalGraph(graphRoot, canvas, historicalData, Physics, animTimer)
+        } else {
+            reloadGraph()
+        }
     }
     onShowLinkEdgesChanged: {
-        if (canvas) canvas.requestPaint()
+        if (historicalData) {
+            Interaction.loadHistoricalGraph(graphRoot, canvas, historicalData, Physics, animTimer)
+        } else {
+            reloadGraph()
+        }
     }
 
     property var graphConfig: ({})

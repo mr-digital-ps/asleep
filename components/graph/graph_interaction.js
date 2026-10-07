@@ -118,13 +118,23 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer, forcedW, fo
     var showBlocks = (graphRoot.showBlocks !== false)
     var showTags = (graphRoot.showTags !== false)
     var showLinks = (graphRoot.showLinks !== false)
+    var showBlockEdges = (graphRoot.showBlockEdges !== false)
+    var showTagEdges = (graphRoot.showTagEdges !== false)
+    var showLinkEdges = (graphRoot.showLinkEdges !== false)
 
-    // Если отключены обычные ссылки между заметками, исключаем ребра типа "link" между файлами
-    if (!showLinks) {
-        pureLinks = pureLinks.filter(function(lk) {
-            return lk.type !== "link"
-        })
-    }
+    // Исключаем рёбра из физической симуляции, если отключены соответствующие связи (сущность или только рёбра)
+    pureLinks = pureLinks.filter(function(lk) {
+        if (lk.type === "link") {
+            return showLinks && showLinkEdges
+        }
+        if (lk.type === "block" || lk.type === "transclusion") {
+            return showBlocks && showBlockEdges
+        }
+        if (lk.type === "tag") {
+            return showTags && showTagEdges
+        }
+        return true
+    })
 
     if (!showBlocks || !showTags) {
         var allowedNodeIds = {}
@@ -462,12 +472,22 @@ function loadHistoricalGraph(graphRoot, canvas, graphData, Physics, animTimer) {
     var showBlocks = (graphRoot.showBlocks !== false)
     var showTags = (graphRoot.showTags !== false)
     var showLinks = (graphRoot.showLinks !== false)
+    var showBlockEdges = (graphRoot.showBlockEdges !== false)
+    var showTagEdges = (graphRoot.showTagEdges !== false)
+    var showLinkEdges = (graphRoot.showLinkEdges !== false)
 
-    if (!showLinks) {
-        pureLinks = pureLinks.filter(function(lk) {
-            return lk.type !== "link"
-        })
-    }
+    pureLinks = pureLinks.filter(function(lk) {
+        if (lk.type === "link") {
+            return showLinks && showLinkEdges
+        }
+        if (lk.type === "block" || lk.type === "transclusion") {
+            return showBlocks && showBlockEdges
+        }
+        if (lk.type === "tag") {
+            return showTags && showTagEdges
+        }
+        return true
+    })
 
     if (!showBlocks || !showTags) {
         var allowedNodeIds = {}
