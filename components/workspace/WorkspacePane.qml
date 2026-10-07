@@ -563,6 +563,10 @@ Item {
                     isEmpty: workspacePane.isEmpty
                     isHeaderPinned: workspacePane.isHeaderPinned
                     showHeader: workspacePane.showHeader
+                    showLineDots: workspacePane.showLineDots
+                    editorFontSize: paperSheet && paperSheet.editorArea ? paperSheet.editorArea.font.pixelSize : Theme.defaultFontSize
+                    lineHeightPercent: workspacePane.editorLineHeightPercent
+                    backendInstance: (typeof backend !== "undefined" ? backend : null)
                     availableHeight: paneBody.height
                     viewHeight: paneBody.height
                     sourceText: paperSheet ? paperSheet.text : ""

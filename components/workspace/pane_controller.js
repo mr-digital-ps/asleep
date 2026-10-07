@@ -238,10 +238,19 @@ function handleGraphModeChanged(mainBar, editorScroll, sheetGraphView, editorAre
 }
 
 function handleLiveModeChanged(mainBar, editorArea) {
-    if (!mainBar.isLiveMode && mainBar.isActivePane && editorArea) {
+    if (!mainBar.isLiveMode && editorArea) {
         Qt.callLater(function() {
-            if (mainBar.isActivePane && editorArea) {
+            if (editorArea) {
                 editorArea.forceActiveFocus()
+                if (typeof mainBar.requestEnsureCursorVisible === "function") {
+                    mainBar.requestEnsureCursorVisible()
+                }
+            }
+        })
+    } else if (mainBar.isLiveMode && mainBar.liveSheet) {
+        Qt.callLater(function() {
+            if (mainBar.liveSheet && typeof mainBar.liveSheet.focusFirstOrCurrent === "function") {
+                mainBar.liveSheet.focusFirstOrCurrent(editorArea ? editorArea.cursorPosition : 0)
             }
         })
     }

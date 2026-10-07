@@ -84,12 +84,17 @@ class ConfigHandlerMixin:
                 qtdoc = doc_wrapper.textDocument()
                 if not hasattr(qtdoc, "_highlighter") or qtdoc._highlighter is None:
                     hl = MarkdownHighlighter(qtdoc)
+                    hl.live_preview_enabled = True
                     qtdoc._highlighter = hl
                     highlighters = self._get_highlighters()
                     highlighters.append(hl)
                     cur_pos = editor_area_item.property("cursorPosition") or 0
                     hl.set_cursor_position(cur_pos)
+                    hl.rehighlight()
                     safe_print("[Backend] MarkdownHighlighter успешно подключен (Live Preview активен)")
+                else:
+                    qtdoc._highlighter.live_preview_enabled = True
+                    qtdoc._highlighter.rehighlight()
         except Exception as e:
             safe_print(f"[Backend] Ошибка подключения MarkdownHighlighter: {e}")
 

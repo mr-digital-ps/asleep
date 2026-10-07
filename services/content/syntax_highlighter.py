@@ -145,11 +145,21 @@ class MarkdownHighlighter(QSyntaxHighlighter):
         self.fmt_hr.setForeground(QColor("#4b5263"))
         self.fmt_hr.setFontWeight(QFont.Weight.Bold)
 
-        # 10. Теги (#тег) — точечное подчеркивание (Dotted Underline)
+        # 10. Теги (#тег) и ссылки ([[заметка]], [текст](url)) — единая монохромная эстетика
         self.fmt_tag = QTextCharFormat()
-        self.fmt_tag.setForeground(QColor("#ffffff"))
-        self.fmt_tag.setUnderlineStyle(QTextCharFormat.UnderlineStyle.DotLine)
-        self.fmt_tag.setUnderlineColor(QColor("#ffffff"))
+        self.fmt_tag.setForeground(QColor("#d4d4d4"))
+        self.fmt_tag.setFontUnderline(True)
+        self.fmt_tag.setUnderlineColor(QColor("#737373"))
+
+        self.fmt_wikilink = QTextCharFormat()
+        self.fmt_wikilink.setForeground(QColor("#d4d4d4"))
+        self.fmt_wikilink.setFontUnderline(True)
+        self.fmt_wikilink.setUnderlineColor(QColor("#737373"))
+
+        self.fmt_link = QTextCharFormat()
+        self.fmt_link.setForeground(QColor("#d4d4d4"))
+        self.fmt_link.setFontUnderline(True)
+        self.fmt_link.setUnderlineColor(QColor("#737373"))
 
         # 11. Фигурные скобки блоков { и }
         self.fmt_brace = QTextCharFormat()
@@ -302,18 +312,21 @@ class MarkdownHighlighter(QSyntaxHighlighter):
                 self.setFormat(m_start, 2, self.fmt_conceal)
                 self.setFormat(m_start + m_len - 2, 2, self.fmt_conceal)
 
-        # 9. Ссылки [text](url) и вики-ссылки [[заметка]] (скрытие маркеров разметки только в Live Preview)
-        if lp and not is_active:
-            it_link = self.re_link.globalMatch(text)
-            while it_link.hasNext():
-                match = it_link.next()
+        # 9. Ссылки [text](url) и вики-ссылки [[заметка]]
+        it_link = self.re_link.globalMatch(text)
+        while it_link.hasNext():
+            match = it_link.next()
+            self.setFormat(match.capturedStart(), match.capturedLength(), self.fmt_link)
+            if lp and not is_active:
                 self.setFormat(match.capturedStart(1), 1, self.fmt_conceal)
                 self.setFormat(match.capturedEnd(1) - 1, 1, self.fmt_conceal)
                 self.setFormat(match.capturedStart(3), match.capturedLength(3), self.fmt_conceal)
 
-            it_wiki = self.re_wikilink.globalMatch(text)
-            while it_wiki.hasNext():
-                match = it_wiki.next()
+        it_wiki = self.re_wikilink.globalMatch(text)
+        while it_wiki.hasNext():
+            match = it_wiki.next()
+            self.setFormat(match.capturedStart(), match.capturedLength(), self.fmt_wikilink)
+            if lp and not is_active:
                 self.setFormat(match.capturedStart(1), match.capturedLength(1), self.fmt_conceal)
                 self.setFormat(match.capturedStart(3), match.capturedLength(3), self.fmt_conceal)
 

@@ -8,134 +8,215 @@ Rectangle {
 
     property string blockName: ""
     property string blockContent: ""
-    property bool isFolded: false
-    property bool isFocused: blockTextArea.activeFocus
+    property int fontSize: Theme.defaultFontSize
+    property bool showLineDots: true
+    property real lineHeightPercent: Theme.defaultLineHeightPercent
+    property var backendInstance: null
+    property bool isFocused: blockTextArea.activeFocus || blockNameInput.activeFocus
 
+    signal blockNameEdited(string newName)
     signal blockContentEdited(string newContent)
-    signal foldToggled()
     signal activated()
+    signal requestPreviousSegment()
+    signal requestNextSegment()
+    signal openWikiLinkRequested(string target)
+
+    function tryOpenLink(txt, pos) {
+        if (!txt) return false
+        // Ищем вхождение [[заметка]] в окрестности позиции курсора
+        let re = /\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g
+        let match
+        while ((match = re.exec(txt)) !== null) {
+            if (pos >= match.index && pos <= match.index + match[0].length) {
+                blockItemRoot.openWikiLinkRequested(match[1].trim())
+                return true
+            }
+        }
+        return false
+    }
+
+    function focusTop() {
+        blockNameInput.forceActiveFocus()
+        blockNameInput.cursorPosition = 0
+    }
+
+    function focusBottom() {
+        blockTextArea.forceActiveFocus()
+        blockTextArea.cursorPosition = blockTextArea.text.length
+    }
 
     width: parent ? parent.width : Theme.defaultSheetWidth
-    height: isFolded ? headerRow.height + 12 : (headerRow.height + blockContentArea.height + 18)
+    readonly property bool isEmptyBlock: blockItemRoot.blockContent.length === 0 && !blockTextArea.activeFocus
+    height: contentCol.height + (isEmptyBlock ? 8 : 12)
+
+    function applyLineHeight() {
+        if (backendInstance && typeof backendInstance.set_editor_line_height === "function") {
+            backendInstance.set_editor_line_height(blockTextArea, lineHeightPercent)
+        }
+    }
+
+    function attachHighlighter() {
+        if (backendInstance && typeof backendInstance.attach_highlighter === "function") {
+            backendInstance.attach_highlighter(blockTextArea)
+        }
+    }
+
+    onLineHeightPercentChanged: applyLineHeight()
+    onBackendInstanceChanged: {
+        applyLineHeight()
+        attachHighlighter()
+    }
 
     color: Theme.bgHover
-    border.color: isFocused ? Theme.borderFocus : Theme.borderColor
-    border.width: 1
     radius: 6
 
-    Behavior on border.color { ColorAnimation { duration: Theme.animDurationNormal } }
-    Behavior on height { NumberAnimation { duration: Theme.animDurationNormal } }
+    // Точка строки в гаттере слева — строго по центру заголовка блока
+    Rectangle {
+        visible: blockItemRoot.showLineDots
+        x: -Theme.barSize / 2 - width / 2
+        y: contentCol.y + blockNameInput.y + Math.round((blockNameInput.height - height) / 2)
+        width: 4
+        height: 4
+        radius: 2
+        color: Theme.gutterText
+    }
 
     Column {
-        anchors.fill: parent
-        anchors.margins: 6
-        spacing: 4
+        id: contentCol
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.margins: blockItemRoot.isEmptyBlock ? 4 : 6
+        spacing: blockItemRoot.isEmptyBlock ? 0 : 4
 
-        // Заголовок блока и контрол сворачивания
-        RowLayout {
-            id: headerRow
+        // Редактируемый заголовок блока
+        TextInput {
+            id: blockNameInput
             width: parent.width
-            height: 24
-            spacing: 6
+            text: blockItemRoot.blockName
+            color: Theme.textPrimary
+            font.family: Theme.fontFamily
+            font.pixelSize: blockItemRoot.fontSize
+            font.bold: false
+            selectionColor: Theme.selectionColor
+            selectedTextColor: Theme.textSelected
+            selectByMouse: true
 
-            // Иконка/кнопка сворачивания
-            Rectangle {
-                width: 18
-                height: 18
-                radius: 3
-                color: foldBtnMouse.containsMouse ? Theme.bgActive : "transparent"
-                Layout.alignment: Qt.AlignVCenter
+            onActiveFocusChanged: {
+                if (activeFocus) blockItemRoot.activated()
+            }
 
-                Text {
-                    anchors.centerIn: parent
-                    text: blockItemRoot.isFolded ? "▸" : "▾"
-                    color: Theme.textSecondary
-                    font.pixelSize: 11
-                }
-
-                MouseArea {
-                    id: foldBtnMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        blockItemRoot.isFolded = !blockItemRoot.isFolded
-                        blockItemRoot.foldToggled()
-                    }
+            onTextChanged: {
+                if (text !== blockItemRoot.blockName) {
+                    blockItemRoot.blockName = text
+                    blockItemRoot.blockNameEdited(text)
                 }
             }
 
-            // Метка имени блока (без синтаксического шума фигурных скобок)
-            Text {
-                text: blockItemRoot.blockName
-                color: Theme.textPrimary
-                font.family: Theme.fontFamily
-                font.pixelSize: 13
-                font.bold: true
-                Layout.fillWidth: true
-                Layout.alignment: Qt.AlignVCenter
-                elide: Text.ElideRight
+            Keys.onUpPressed: (event) => {
+                blockItemRoot.requestPreviousSegment()
+                event.accepted = true
             }
 
-            // Индикатор типа блока (бейдж)
-            Rectangle {
-                implicitWidth: badgeText.implicitWidth + 8
-                implicitHeight: 16
-                radius: 3
-                color: Theme.bgPaper
-                border.color: Theme.borderColor
-                border.width: 1
-                Layout.alignment: Qt.AlignVCenter
+            Keys.onDownPressed: (event) => {
+                blockTextArea.forceActiveFocus()
+                blockTextArea.cursorPosition = 0
+                event.accepted = true
+            }
 
-                Text {
-                    id: badgeText
-                    anchors.centerIn: parent
-                    text: "блок"
-                    color: Theme.textMuted
-                    font.pixelSize: 10
-                }
+            Keys.onReturnPressed: (event) => {
+                blockTextArea.forceActiveFocus()
+                blockTextArea.cursorPosition = 0
+                event.accepted = true
             }
         }
 
-        // Содержимое блока (редактируемое при развернутом состоянии)
-        Item {
-            id: blockContentArea
+        // Содержимое блока (на том же уровне, padding 0)
+        TextArea {
+            id: blockTextArea
             width: parent.width
-            height: isFolded ? 0 : blockTextArea.implicitHeight
-            visible: !blockItemRoot.isFolded
-            clip: true
+            visible: blockItemRoot.blockContent.length > 0 || blockTextArea.activeFocus
+            leftPadding: 0
+            rightPadding: 0
+            topPadding: 0
+            bottomPadding: 0
 
-            TextArea {
-                id: blockTextArea
-                width: parent.width
-                leftPadding: 6
-                rightPadding: 6
-                topPadding: 4
-                bottomPadding: 4
+            text: blockItemRoot.blockContent
+            font.family: Theme.fontFamily
+            font.pixelSize: blockItemRoot.fontSize
+            color: Theme.textPrimary
+            selectionColor: Theme.selectionColor
+            selectedTextColor: Theme.textSelected
+            wrapMode: TextArea.Wrap
+            selectByMouse: true
+            background: null
 
-                text: blockItemRoot.blockContent
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.defaultFontSize
-                color: Theme.textPrimary
-                selectionColor: Theme.selectionColor
-                selectedTextColor: Theme.textSelected
-                wrapMode: TextArea.Wrap
-                selectByMouse: true
-                background: null
+            Keys.onUpPressed: (event) => {
+                let firstLineEnd = text.indexOf("\n")
+                let isFirstLine = (firstLineEnd === -1) ? true : (cursorPosition <= firstLineEnd)
+                if (isFirstLine) {
+                    blockNameInput.forceActiveFocus()
+                    blockNameInput.cursorPosition = blockNameInput.text.length
+                    event.accepted = true
+                    return
+                }
+                event.accepted = false
+            }
 
-                onActiveFocusChanged: {
-                    if (activeFocus) {
-                        blockItemRoot.activated()
+            Keys.onDownPressed: (event) => {
+                let lastLineStart = text.lastIndexOf("\n")
+                let isLastLine = (lastLineStart === -1) ? true : (cursorPosition > lastLineStart)
+                if (isLastLine) {
+                    blockItemRoot.requestNextSegment()
+                    event.accepted = true
+                    return
+                }
+                event.accepted = false
+            }
+
+            Keys.onReturnPressed: (event) => {
+                if (event.modifiers & Qt.ControlModifier) {
+                    if (blockItemRoot.tryOpenLink(text, cursorPosition)) {
+                        event.accepted = true
+                        return
                     }
                 }
+                event.accepted = false
+            }
 
-                onTextChanged: {
-                    if (text !== blockItemRoot.blockContent) {
-                        blockItemRoot.blockContent = text
-                        blockItemRoot.blockContentEdited(text)
-                    }
+            TapHandler {
+                acceptedModifiers: Qt.ControlModifier
+                onTapped: (point) => {
+                    let pos = blockTextArea.positionAt(point.position.x, point.position.y)
+                    blockItemRoot.tryOpenLink(blockTextArea.text, pos)
                 }
+            }
+
+            onActiveFocusChanged: {
+                if (activeFocus) {
+                    blockItemRoot.activated()
+                }
+            }
+
+            onTextChanged: {
+                if (text !== blockItemRoot.blockContent) {
+                    blockItemRoot.blockContent = text
+                    blockItemRoot.blockContentEdited(text)
+                }
+                Qt.callLater(blockItemRoot.applyLineHeight)
+            }
+
+            onCursorPositionChanged: {
+                if (backendInstance && typeof backendInstance.update_highlighter_cursor === "function") {
+                    backendInstance.update_highlighter_cursor(blockTextArea, cursorPosition)
+                }
+            }
+
+            Component.onCompleted: {
+                Qt.callLater(blockItemRoot.applyLineHeight)
+                Qt.callLater(blockItemRoot.attachHighlighter)
             }
         }
     }
 }
+
