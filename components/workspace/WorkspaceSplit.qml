@@ -17,6 +17,11 @@ Item {
     property bool isPrimaryLocalGraph: false
     property bool isSecondaryLocalGraph: false
     readonly property bool isGraphVisible: isPrimaryGraphVisible || (isSplit && isSecondaryGraphVisible)
+
+    // Свойства режима Live (Вторая линза)
+    property bool isPrimaryLiveMode: false
+    property bool isSecondaryLiveMode: false
+
     property string currentFolderUrl: ""
     property string currentFolderName: ""
     property var openFileUrls: []
@@ -26,9 +31,19 @@ Item {
             if (activePane === 1) {
                 isPrimaryGraphVisible = isSecondaryGraphVisible
                 isPrimaryLocalGraph = isSecondaryLocalGraph
+                isPrimaryLiveMode = isSecondaryLiveMode
             }
             isSecondaryGraphVisible = false
             isSecondaryLocalGraph = false
+            isSecondaryLiveMode = false
+        }
+    }
+
+    function toggleLiveMode() {
+        if (isSplit && activePane === 1) {
+            isSecondaryLiveMode = !isSecondaryLiveMode
+        } else {
+            isPrimaryLiveMode = !isPrimaryLiveMode
         }
     }
 
@@ -156,6 +171,7 @@ Item {
 
             isGraphMode: splitLayout.isPrimaryGraphVisible
             isLocalGraphMode: splitLayout.isPrimaryLocalGraph
+            isLiveMode: splitLayout.isPrimaryLiveMode
             folderUrl: splitLayout.currentFolderUrl
             currentFolderName: splitLayout.currentFolderName
             openFileUrls: splitLayout.openFileUrls
@@ -238,6 +254,7 @@ Item {
 
             isGraphMode: splitLayout.isSplit && splitLayout.isSecondaryGraphVisible
             isLocalGraphMode: splitLayout.isSecondaryLocalGraph
+            isLiveMode: splitLayout.isSplit && splitLayout.isSecondaryLiveMode
             folderUrl: splitLayout.currentFolderUrl
             currentFolderName: splitLayout.currentFolderName
             openFileUrls: splitLayout.openFileUrls

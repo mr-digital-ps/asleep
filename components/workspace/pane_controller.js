@@ -237,6 +237,16 @@ function handleGraphModeChanged(mainBar, editorScroll, sheetGraphView, editorAre
     }
 }
 
+function handleLiveModeChanged(mainBar, editorArea) {
+    if (!mainBar.isLiveMode && mainBar.isActivePane && editorArea) {
+        Qt.callLater(function() {
+            if (mainBar.isActivePane && editorArea) {
+                editorArea.forceActiveFocus()
+            }
+        })
+    }
+}
+
 function handleWheel(mainBar, editorArea, editorScroll, smoothScrollAnim, event, backend) {
     if (mainBar.isGraphMode) {
         event.accepted = false

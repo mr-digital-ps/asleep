@@ -4,6 +4,7 @@ import "../editor/block_sync.js" as BlockSync
 import "./pane_controller.js" as Controller
 import "../editor"
 import "../graph"
+import "../live"
 import "../theme"
 
 Item {
@@ -30,14 +31,19 @@ Item {
     property int tabSize: Theme.defaultTabSize
     readonly property var targetWindow: Window.window
 
-    // Режимы рабочей области (paneBody): "editor" | "graph"
+    // Режимы рабочей области (paneBody): "editor" | "live" | "graph"
     // isGraphMode приходит снаружи из WorkspaceSplit через reactive binding.
     // Прямое присвоение запрещено (HOTKEYS.md, Причина 1 и 5), иначе разрушается связь.
     property bool isGraphMode: false
-    readonly property string viewMode: isGraphMode ? "graph" : "editor"
+    property bool isLiveMode: false
+    readonly property string viewMode: isGraphMode ? "graph" : (isLiveMode ? "live" : "editor")
 
     onIsGraphModeChanged: {
         Controller.handleGraphModeChanged(workspacePane, editorScroll, paneGraphView, editorArea, smoothScrollAnim)
+    }
+
+    onIsLiveModeChanged: {
+        Controller.handleLiveModeChanged(workspacePane, editorArea)
     }
 
     property string folderUrl: ""
@@ -121,6 +127,8 @@ Item {
     property alias paneGraphView: paneGraphView
     property alias paneHeader: paneHeader
     property alias paperSheet: paperSheet
+    property alias liveSheet: liveSheet
+    property alias liveScroll: liveScroll
 
     // Обратная совместимость с MainBar
     property alias sheetGraphView: paneGraphView
@@ -486,7 +494,96 @@ Item {
             }
         }
 
-        // 2.2 Граф связей (GraphView)
+        // 2.2 Живой режим (ScrollView + LiveSheet)
+        ScrollView {
+            id: liveScroll
+            anchors.fill: parent
+            clip: true
+            contentWidth: availableWidth
+            contentHeight: liveContentContainer.height
+            ScrollBar.vertical.policy: ScrollBar.AlwaysOff
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            visible: workspacePane.viewMode === "live"
+
+            WheelHandler {
+                target: liveScroll.contentItem
+                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                enabled: workspacePane.viewMode === "live"
+                onWheel: (event) => {
+                    var dy = -event.angleDelta.y
+                    Controller.smoothScrollBy(liveScroll, smoothScrollAnim, dy)
+                    event.accepted = true
+                }
+            }
+
+            Item {
+                id: liveContentContainer
+                width: liveScroll.availableWidth
+                height: liveSheet ? liveSheet.height : 0
+
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton
+                    cursorShape: Qt.ArrowCursor
+                    hoverEnabled: true
+                    preventStealing: true
+
+                    onPressed: (mouse) => {
+                        if (mouse.button === Qt.LeftButton) {
+                            workspacePane.paneActivated()
+                            var win = workspacePane.targetWindow
+                            if (win && typeof win.startSystemMove === "function") {
+                                win.startSystemMove()
+                            }
+                        }
+                    }
+                    onDoubleClicked: {
+                        var win = workspacePane.targetWindow
+                        if (win) {
+                            if (win.visibility === Window.Maximized) {
+                                win.showNormal()
+                            } else {
+                                win.showMaximized()
+                            }
+                        }
+                    }
+                }
+
+                LiveSheet {
+                    id: liveSheet
+                    barSize: workspacePane.barSize
+                    fileName: workspacePane.fileName
+                    fileUrl: workspacePane.fileUrl
+                    folderUrl: workspacePane.folderUrl
+                    isCenteredMode: workspacePane.isCenteredMode
+                    customSheetWidth: workspacePane.customSheetWidth
+                    minSheetWidth: workspacePane.minSheetWidth
+                    isSplitMode: workspacePane.isSplitMode
+                    isActivePane: workspacePane.isActivePane
+                    isEmpty: workspacePane.isEmpty
+                    isHeaderPinned: workspacePane.isHeaderPinned
+                    showHeader: workspacePane.showHeader
+                    availableHeight: paneBody.height
+                    viewHeight: paneBody.height
+                    sourceText: paperSheet ? paperSheet.text : ""
+
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.top: parent.top
+
+                    onTextChangedByUser: (newFullText) => {
+                        if (paperSheet && paperSheet.editorArea) {
+                            paperSheet.editorArea.text = newFullText
+                            workspacePane.titleChangedByUser(workspacePane.fileName)
+                        }
+                    }
+
+                    onPaneActivated: workspacePane.paneActivated()
+                    onNodeSelected: (fUrl, lbl, nodeType) => workspacePane.nodeSelected(fUrl, lbl, nodeType)
+                }
+            }
+        }
+
+        // 2.3 Граф связей (GraphView)
         GraphView {
             id: paneGraphView
             anchors.top: parent.top
@@ -557,8 +654,8 @@ Item {
     // Правая полоса со скроллбаром документа
     EditorScrollbar {
         id: editorScrollbar
-        editorScroll: editorScroll
-        paperSheet: paperSheet
+        editorScroll: workspacePane.isLiveMode ? liveScroll : editorScroll
+        paperSheet: workspacePane.isLiveMode ? liveSheet : paperSheet
         sheetWidth: workspacePane.effectiveSheetWidth
         barSize: workspacePane.barSize
         width: workspacePane.barSize

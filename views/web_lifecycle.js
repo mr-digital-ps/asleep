@@ -826,6 +826,11 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Mark
                 backend.toggle_live_preview(activeArea)
             }
             break
+        case "toggle_live_mode":
+            if (splitLayout && typeof splitLayout.toggleLiveMode === "function") {
+                splitLayout.toggleLiveMode()
+            }
+            break
         case "open_structure":
             if (root && typeof root.toggleProjectStructure === "function") {
                 root.toggleProjectStructure()
