@@ -822,7 +822,7 @@ function handleKey(graphRoot, event) {
         }
     }
 
-    // Горячие клавиши переключения видимости только рёбер (Shift + B / T / L):
+    // Горячие клавиши переключения видимости рёбер (Shift + B / T / L):
     if (event.modifiers === Qt.ShiftModifier) {
         // Shift+B — переключение рёбер блоков (русская 'и'/'И', scan 48)
         var isKeyShiftB = (event.key === Qt.Key_B || event.nativeScanCode === 48 ||
@@ -830,7 +830,14 @@ function handleKey(graphRoot, event) {
                            event.text === 'и' || event.text === 'И' ||
                            event.key === 1080 || event.key === 1048)
         if (isKeyShiftB) {
-            graphRoot.showBlockEdges = !graphRoot.showBlockEdges
+            if (!graphRoot.showBlocks) {
+                // Если блоки были полностью выключены — включаем узлы, но оставляем рёбра выключенными!
+                graphRoot.showBlocks = true
+                graphRoot.showBlockEdges = false
+            } else {
+                // Если узлы уже были включены — переключаем только видимость рёбер
+                graphRoot.showBlockEdges = !graphRoot.showBlockEdges
+            }
             event.accepted = true
             return true
         }
@@ -841,7 +848,14 @@ function handleKey(graphRoot, event) {
                            event.text === 'е' || event.text === 'Е' ||
                            event.key === 1077 || event.key === 1045)
         if (isKeyShiftT) {
-            graphRoot.showTagEdges = !graphRoot.showTagEdges
+            if (!graphRoot.showTags) {
+                // Если теги были полностью выключены — включаем узлы, но оставляем рёбра выключенными!
+                graphRoot.showTags = true
+                graphRoot.showTagEdges = false
+            } else {
+                // Если узлы уже были включены — переключаем только видимость рёбер
+                graphRoot.showTagEdges = !graphRoot.showTagEdges
+            }
             event.accepted = true
             return true
         }
@@ -852,7 +866,14 @@ function handleKey(graphRoot, event) {
                            event.text === 'д' || event.text === 'Д' ||
                            event.key === 1076 || event.key === 1044)
         if (isKeyShiftL) {
-            graphRoot.showLinkEdges = !graphRoot.showLinkEdges
+            if (!graphRoot.showLinks) {
+                // Если ссылки были полностью выключены — включаем файлы, но оставляем рёбра выключенными!
+                graphRoot.showLinks = true
+                graphRoot.showLinkEdges = false
+            } else {
+                // Если ссылки уже были включены — переключаем только видимость рёбер
+                graphRoot.showLinkEdges = !graphRoot.showLinkEdges
+            }
             event.accepted = true
             return true
         }
@@ -866,7 +887,14 @@ function handleKey(graphRoot, event) {
                       event.text === 'и' || event.text === 'И' ||
                       event.key === 1080 || event.key === 1048)
         if (isKeyB) {
-            graphRoot.showBlocks = !graphRoot.showBlocks
+            if (graphRoot.showBlocks) {
+                // Полностью выключаем блоки
+                graphRoot.showBlocks = false
+            } else {
+                // Включаем блоки целиком вместе с рёбрами
+                graphRoot.showBlocks = true
+                graphRoot.showBlockEdges = true
+            }
             event.accepted = true
             return true
         }
@@ -877,7 +905,14 @@ function handleKey(graphRoot, event) {
                       event.text === 'е' || event.text === 'Е' ||
                       event.key === 1077 || event.key === 1045)
         if (isKeyT) {
-            graphRoot.showTags = !graphRoot.showTags
+            if (graphRoot.showTags) {
+                // Полностью выключаем теги
+                graphRoot.showTags = false
+            } else {
+                // Включаем теги целиком вместе с рёбрами
+                graphRoot.showTags = true
+                graphRoot.showTagEdges = true
+            }
             event.accepted = true
             return true
         }
@@ -888,7 +923,14 @@ function handleKey(graphRoot, event) {
                       event.text === 'д' || event.text === 'Д' ||
                       event.key === 1076 || event.key === 1044)
         if (isKeyL) {
-            graphRoot.showLinks = !graphRoot.showLinks
+            if (graphRoot.showLinks) {
+                // Полностью выключаем ссылки
+                graphRoot.showLinks = false
+            } else {
+                // Включаем ссылки целиком вместе с рёбрами
+                graphRoot.showLinks = true
+                graphRoot.showLinkEdges = true
+            }
             event.accepted = true
             return true
         }
