@@ -355,6 +355,26 @@ function loadHistoricalGraph(graphRoot, canvas, graphData, Physics, animTimer) {
         }
     }
 
+    // Фильтрация слоев (блоки и теги) в историческом графе — сохраняем текущее визуальное состояние
+    var showBlocks = (graphRoot.showBlocks !== false)
+    var showTags = (graphRoot.showTags !== false)
+
+    if (!showBlocks || !showTags) {
+        var allowedNodeIds = {}
+        pureNodes = pureNodes.filter(function(n) {
+            if (n.type === "block" && !showBlocks) return false
+            if (n.type === "tag" && !showTags) return false
+            allowedNodeIds[n.id] = true
+            return true
+        })
+
+        pureLinks = pureLinks.filter(function(lk) {
+            var srcId = (typeof lk.source === "object" && lk.source !== null) ? lk.source.id : lk.source
+            var tgtId = (typeof lk.target === "object" && lk.target !== null) ? lk.target.id : lk.target
+            return !!(allowedNodeIds[srcId] && allowedNodeIds[tgtId])
+        })
+    }
+
     var config = graphRoot.graphConfig || {}
     var liveNodeMap = {}
     if (graphRoot.sim && graphRoot.sim.nodes) {
@@ -384,6 +404,7 @@ function loadHistoricalGraph(graphRoot, canvas, graphData, Physics, animTimer) {
     var canH = (canvas && canvas.height > 50) ? canvas.height : ((graphRoot && graphRoot.height > 50) ? graphRoot.height : 600)
     var sim = Physics.initSimulation(pureNodes, pureLinks, canW, canH, config)
     graphRoot.sim = sim
+    graphRoot.statsText = getGraphStats(sim, graphRoot.isLocalGraph)
 
     wakeSimulation(graphRoot, canvas, animTimer)
     if (canvas) canvas.requestPaint()

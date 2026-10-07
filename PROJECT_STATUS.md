@@ -67,4 +67,9 @@
   - Реактивная синхронизация при изменении темы через `Theme.fontFamily` и файл-вотчер бэкенда
   - Вычищен хардкод семейств шрифтов (`Consolas, Courier New`) из `syntax_highlighter.py` и `HistoryTimelineBar.qml`
   - Добавлен хинт `QFont.StyleHint.Monospace` для безопасного моноширинного фоллбека в ОС
+- [x] **Память визуального состояния графа в истории (Historical Graph State Preservation)**:
+  - Сохранение фильтрации слоев (`showBlocks`, `showTags`) при перемещении по срезам истории (`loadHistoricalGraph`)
+  - Переключение слоев по клавишам `B` и `T` внутри исторического просмотра перефильтровывает текущий срез без сброса в Live
+  - Автоматическое обогащение исторических срезов именованными блоками диалекта `Имя { ... }` и трансклюзиями из файлов снимка (`HistoryService._enrich_snapshot_graph_with_blocks`)
+  - Параметры `showBlocks` и `showTags` объявлены в `config/default/graph.json` в секции `visual` (Config-First)
 

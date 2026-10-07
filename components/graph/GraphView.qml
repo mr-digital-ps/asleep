@@ -14,8 +14,9 @@ Rectangle {
     property string activeNodeId: ""
     property bool embeddedInSheet: false
     property bool isLocalGraph: false
-    property bool showBlocks: true
-    property bool showTags: true
+    property bool showBlocks: (graphConfig && graphConfig.visual && typeof graphConfig.visual.showBlocks === "boolean") ? graphConfig.visual.showBlocks : true
+    property bool showTags: (graphConfig && graphConfig.visual && typeof graphConfig.visual.showTags === "boolean") ? graphConfig.visual.showTags : true
+    property var historicalData: null
     property var sim: null
     property real zoomScale: 1.0
     property real panX: 0
@@ -23,8 +24,20 @@ Rectangle {
     property string searchQuery: ""
     property string statsText: ""
 
-    onShowBlocksChanged: reloadGraph()
-    onShowTagsChanged: reloadGraph()
+    onShowBlocksChanged: {
+        if (historicalData) {
+            Interaction.loadHistoricalGraph(graphRoot, canvas, historicalData, Physics, animTimer)
+        } else {
+            reloadGraph()
+        }
+    }
+    onShowTagsChanged: {
+        if (historicalData) {
+            Interaction.loadHistoricalGraph(graphRoot, canvas, historicalData, Physics, animTimer)
+        } else {
+            reloadGraph()
+        }
+    }
 
     property var graphConfig: ({})
     property var hoveredNode: null
@@ -41,17 +54,18 @@ Rectangle {
     focus: true
     Keys.onPressed: (event) => Interaction.handleKey(graphRoot, event)
 
-
-
     function reloadGraph() {
+        historicalData = null
         Interaction.reloadGraph(graphRoot, canvas, (typeof backend !== "undefined" ? backend : null), Physics, animTimer)
     }
 
     function reloadGraphWithDimensions(w, h) {
+        historicalData = null
         Interaction.reloadGraph(graphRoot, canvas, (typeof backend !== "undefined" ? backend : null), Physics, animTimer, w, h)
     }
 
     function loadHistoricalGraph(graphData) {
+        historicalData = graphData
         Interaction.loadHistoricalGraph(graphRoot, canvas, graphData, Physics, animTimer)
     }
 

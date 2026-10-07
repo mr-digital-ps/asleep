@@ -6,6 +6,7 @@ import hashlib
 import sqlite3
 from datetime import datetime
 from pathlib import Path
+from services.content.document_outline import parse_user_dialect
 
 
 class HistoryService:
@@ -400,8 +401,98 @@ class HistoryService:
                 except Exception:
                     pass
 
+    def _enrich_snapshot_graph_with_blocks(self, graph_data: dict, file_rows: list) -> dict:
+        """Обогащает сохраненный граф именованными блоками и связями из файлов снимка"""
+        nodes = graph_data.get("nodes", [])
+        links = graph_data.get("links", [])
+
+        nodes_map = {n["id"]: n for n in nodes}
+        file_url_by_stem = {}
+        for n in nodes:
+            if n.get("type") == "file" and n.get("fileUrl"):
+                f_url = n["fileUrl"]
+                clean_name = n.get("label") or Path(f_url).stem
+                file_url_by_stem[clean_name.strip().lower()] = f_url
+
+        links_set = set()
+        for l in links:
+            s = l.get("source")
+            t = l.get("target")
+            tp = l.get("type", "link")
+            s_id = s.get("id") if isinstance(s, dict) else s
+            t_id = t.get("id") if isinstance(t, dict) else t
+            if s_id and t_id:
+                links_set.add((s_id, t_id, tp))
+
+        all_blocks_defs = {}
+        transclusion_calls = []
+
+        for fn, cb in file_rows:
+            try:
+                content = zlib.decompress(cb).decode("utf-8", errors="replace")
+            except Exception:
+                continue
+
+            stem_norm = Path(fn).stem.strip().lower()
+            owner_url = file_url_by_stem.get(stem_norm, "")
+
+            parsed = parse_user_dialect(content)
+            for b in parsed.get("blocks", []):
+                b_name = b["name"]
+                b_norm = b["name_norm"]
+                block_id = f"block:{stem_norm}:{b_norm}"
+                all_blocks_defs[(stem_norm, b_norm)] = {
+                    "id": block_id,
+                    "name": b_name,
+                    "fileUrl": owner_url
+                }
+
+            for lc in parsed.get("local_calls", []):
+                t_b_norm = lc["target_block"].strip().lower()
+                if owner_url:
+                    transclusion_calls.append((owner_url, stem_norm, t_b_norm))
+
+            for ec in parsed.get("external_calls", []):
+                t_f_norm = ec["target_file"].strip().lower()
+                t_b_norm = ec["target_block"].strip().lower()
+                if owner_url:
+                    transclusion_calls.append((owner_url, t_f_norm, t_b_norm))
+
+        for (s_norm, b_norm), b_info in all_blocks_defs.items():
+            b_id = b_info["id"]
+            owner_url = b_info["fileUrl"]
+            if b_id not in nodes_map:
+                nodes_map[b_id] = {
+                    "id": b_id,
+                    "label": b_info["name"],
+                    "fileUrl": owner_url,
+                    "sourceFileUrl": owner_url,
+                    "type": "block",
+                    "color": "#424242",
+                    "val": 2
+                }
+                if owner_url and owner_url in nodes_map:
+                    links_set.add((owner_url, b_id, "link"))
+                    nodes_map[owner_url]["val"] = nodes_map[owner_url].get("val", 1) + 1
+
+        for src_url, t_f_norm, t_b_norm in transclusion_calls:
+            b_key = (t_f_norm, t_b_norm)
+            if b_key in all_blocks_defs:
+                b_info = all_blocks_defs[b_key]
+                b_id = b_info["id"]
+                links_set.add((src_url, b_id, "transclusion"))
+                if src_url in nodes_map:
+                    nodes_map[src_url]["val"] = nodes_map[src_url].get("val", 1) + 1
+                if b_id in nodes_map:
+                    nodes_map[b_id]["val"] = nodes_map[b_id].get("val", 2) + 1
+
+        return {
+            "nodes": list(nodes_map.values()),
+            "links": [{"source": s, "target": t, "type": tp} for (s, t, tp) in links_set]
+        }
+
     def get_snapshot_graph(self, folder: Path, snapshot_id: int) -> dict:
-        """Возвращает распакованный граф (nodes, links) для указанного снимка"""
+        """Возвращает распакованный граф (nodes, links) для указанного снимка с сохранением блоков диалекта"""
         if not folder or not folder.exists() or not folder.is_dir():
             return {}
 
@@ -417,7 +508,23 @@ class HistoryService:
             row = cursor.fetchone()
             if row and row[0]:
                 decompressed = zlib.decompress(row[0]).decode("utf-8")
-                return json.loads(decompressed)
+                graph_data = json.loads(decompressed)
+
+                # Проверяем наличие блоков: если граф сохранен без блоков, восстанавливаем их из файлов снимка
+                has_blocks = any(n.get("type") == "block" for n in graph_data.get("nodes", []))
+                if not has_blocks:
+                    cursor.execute("SELECT file_name, content_blob FROM file_snapshots WHERE snapshot_id = ?", (snapshot_id,))
+                    file_rows = cursor.fetchall()
+                    if file_rows:
+                        graph_data = self._enrich_snapshot_graph_with_blocks(graph_data, file_rows)
+                        try:
+                            # Кэшируем обновленный граф в БД
+                            new_blob = zlib.compress(json.dumps(graph_data).encode("utf-8"))
+                            cursor.execute("UPDATE snapshots SET graph_data_blob = ? WHERE id = ?", (new_blob, snapshot_id))
+                            conn.commit()
+                        except Exception:
+                            pass
+                return graph_data
         except Exception as e:
             print(f"[HistoryService] Ошибка распаковки графа снимка {snapshot_id}: {e}")
         finally:
