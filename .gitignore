@@ -6,10 +6,21 @@ dist/
 wheels/
 *.egg-info
 
-# Virtual environments
-.venv
+# Virtual environments & caches
+.venv/
+.pytest_cache/
 
-.backup_my-text-editor-pre-split/
+# User-specific configurations
+config/user/
 .session_config.json
-config/user/session.json
 *_vault/
+
+# Test data & runtime storage
+test_notes/
+.asleep/
+*.db
+*_graph_positions.json
+
+# Third-party tools
+.obsidian/
+.backup_my-text-editor-pre-split/
