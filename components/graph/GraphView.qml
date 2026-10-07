@@ -14,8 +14,9 @@ Rectangle {
     property string activeNodeId: ""
     property bool embeddedInSheet: false
     property bool isLocalGraph: false
-    property bool showBlocks: (graphConfig && graphConfig.visual && typeof graphConfig.visual.showBlocks === "boolean") ? graphConfig.visual.showBlocks : true
-    property bool showTags: (graphConfig && graphConfig.visual && typeof graphConfig.visual.showTags === "boolean") ? graphConfig.visual.showTags : true
+    property bool showBlocks: true
+    property bool showTags: true
+    property bool _layersInitialized: false
     property var historicalData: null
     property var sim: null
     property real zoomScale: 1.0
@@ -40,6 +41,13 @@ Rectangle {
     }
 
     property var graphConfig: ({})
+    onGraphConfigChanged: {
+        if (!_layersInitialized && graphConfig && graphConfig.visual) {
+            if (typeof graphConfig.visual.showBlocks === "boolean") showBlocks = graphConfig.visual.showBlocks
+            if (typeof graphConfig.visual.showTags === "boolean") showTags = graphConfig.visual.showTags
+            _layersInitialized = true
+        }
+    }
     property var hoveredNode: null
     property var draggedNode: null
     property var highlightedNodeIds: ({})
