@@ -163,12 +163,23 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer, forcedW, fo
             activeConnectedNodeIds[aTgt] = true
         }
 
+        var normActive = normalizeUrl(graphRoot.activeFileUrl)
+        var openMap = {}
+        if (graphRoot.openFileUrls && graphRoot.openFileUrls.length) {
+            for (var oi = 0; oi < graphRoot.openFileUrls.length; oi++) {
+                var no = normalizeUrl(graphRoot.openFileUrls[oi])
+                if (no) openMap[no] = true
+            }
+        }
+
         pureNodes = pureNodes.filter(function(n) {
             // Блоки и теги регулируются своими флагами showBlocks и showTags
             if (n.type === "block" || n.type === "tag") return true
-            // Файл остаётся, только если у него есть активные связи (через блок или тег) или он является активным
+            // Файл остаётся, если у него есть активные связи (через блок или тег)
             if (activeConnectedNodeIds[n.id]) return true
-            if (graphRoot.isLocalGraph && n.fileUrl && n.fileUrl === graphRoot.activeFileUrl) return true
+            // Главный узел (активная заметка) или открытые документы ВСЕГДА остаются включенными
+            var nNorm = normalizeUrl(n.fileUrl)
+            if (nNorm && (nNorm === normActive || openMap[nNorm])) return true
             return false
         })
     }
@@ -515,9 +526,21 @@ function loadHistoricalGraph(graphRoot, canvas, graphData, Physics, animTimer) {
             histConnectedNodeIds[hTgt] = true
         }
 
+        var normActiveHist = normalizeUrl(graphRoot.activeFileUrl)
+        var openMapHist = {}
+        if (graphRoot.openFileUrls && graphRoot.openFileUrls.length) {
+            for (var oi2 = 0; oi2 < graphRoot.openFileUrls.length; oi2++) {
+                var no2 = normalizeUrl(graphRoot.openFileUrls[oi2])
+                if (no2) openMapHist[no2] = true
+            }
+        }
+
         pureNodes = pureNodes.filter(function(n) {
             if (n.type === "block" || n.type === "tag") return true
-            return !!histConnectedNodeIds[n.id]
+            if (histConnectedNodeIds[n.id]) return true
+            var nNorm2 = normalizeUrl(n.fileUrl)
+            if (nNorm2 && (nNorm2 === normActiveHist || openMapHist[nNorm2])) return true
+            return false
         })
     }
 
