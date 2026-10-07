@@ -14,6 +14,7 @@ Rectangle {
     property string activeNodeId: ""
     property bool embeddedInSheet: false
     property bool isLocalGraph: false
+    property bool _lastIsLocalGraph: false
     property bool showBlocks: true
     property bool showTags: true
     property bool _layersInitialized: false
