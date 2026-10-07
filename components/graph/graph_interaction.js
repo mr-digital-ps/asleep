@@ -220,9 +220,30 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer, forcedW, fo
     var targetCX = canW / 2
     var targetCY = canH / 2
 
+    // Проверяем наличие уже работающей симуляции и кэшированных позиций
+    var hadExistingSim = !!(graphRoot.sim && graphRoot.sim.nodes && graphRoot.sim.nodes.length > 0)
+    var wasLocalGraph = !!graphRoot._lastIsLocalGraph
+    var activeNoteChanged = (graphRoot.activeFileUrl !== graphRoot.lastCenteredUrl)
+    var modeSwitched = (wasLocalGraph !== !!graphRoot.isLocalGraph)
+    graphRoot._lastIsLocalGraph = !!graphRoot.isLocalGraph
+
+    // Построим быстрый словарь смежности среди связей для умного спавна новых узлов
+    var neighborMap = {}
+    for (var nl = 0; nl < pureLinks.length; nl++) {
+        var plk = pureLinks[nl]
+        var sId = (typeof plk.source === "object" && plk.source !== null) ? plk.source.id : plk.source
+        var tId = (typeof plk.target === "object" && plk.target !== null) ? plk.target.id : plk.target
+        if (!neighborMap[sId]) neighborMap[sId] = []
+        if (!neighborMap[tId]) neighborMap[tId] = []
+        neighborMap[sId].push(tId)
+        neighborMap[tId].push(sId)
+    }
+
     var anyMissing = false
-    if (graphRoot.isLocalGraph && localTargetNode) {
-        // В локальном графе располагаем активную заметку строго по центру, а соседей — по кругу вокруг нее
+    var isFreshLocalInit = graphRoot.isLocalGraph && (!hadExistingSim || activeNoteChanged)
+
+    if (isFreshLocalInit && localTargetNode) {
+        // Первичная раскладка локального графа: центрируем активную заметку, расставляем соседей по кругу
         localTargetNode.x = targetCX
         localTargetNode.y = targetCY
         localTargetNode.isFixed = true
@@ -242,9 +263,22 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer, forcedW, fo
         graphRoot.panY = 0
         graphRoot.zoomScale = 1.0
         graphRoot.activeNodeId = localTargetNode.id
+        graphRoot.lastCenteredUrl = graphRoot.activeFileUrl
     } else {
+        // Повторный reload (переключение тегов/блоков, подтягивание новых узлов или возврат в глобальный граф)
+        if (graphRoot.isLocalGraph && localTargetNode) {
+            localTargetNode.x = targetCX
+            localTargetNode.y = targetCY
+            localTargetNode.isFixed = true
+            graphRoot.activeNodeId = localTargetNode.id
+        }
+
+        // 1-й проход: восстанавливаем живые координаты уже существующих узлов
         for (var p = 0; p < pureNodes.length; p++) {
             var pn = pureNodes[p]
+            if (graphRoot.isLocalGraph && localTargetNode && pn.id === localTargetNode.id) {
+                continue
+            }
             if (liveNodeMap[pn.id] && typeof liveNodeMap[pn.id].x === "number" && !isNaN(liveNodeMap[pn.id].x)) {
                 pn.x = liveNodeMap[pn.id].x
                 pn.y = liveNodeMap[pn.id].y
@@ -257,11 +291,50 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer, forcedW, fo
                 if (cached && typeof cached.x === "number" && typeof cached.y === "number") {
                     pn.x = cached.x
                     pn.y = cached.y
-                } else if (typeof pn.x === "number" && typeof pn.y === "number") {
-                    // Узел уже имеет позицию от backend build_graph
-                } else {
-                    anyMissing = true
                 }
+            }
+        }
+
+        // 2-й проход: для новых узлов (только что включенных блоков/тегов) размещаем их рядом с соседями
+        for (var p2 = 0; p2 < pureNodes.length; p2++) {
+            var pn2 = pureNodes[p2]
+            if (typeof pn2.x === "number" && !isNaN(pn2.x)) continue
+
+            // Пытаемся найти родительский узел или соседа, у которого уже есть координаты
+            var placed = false
+            var neighbors = neighborMap[pn2.id] || []
+            for (var nb = 0; nb < neighbors.length; nb++) {
+                var nbId = neighbors[nb]
+                var refX = null, refY = null
+                if (liveNodeMap[nbId] && typeof liveNodeMap[nbId].x === "number") {
+                    refX = liveNodeMap[nbId].x
+                    refY = liveNodeMap[nbId].y
+                } else {
+                    for (var chk = 0; chk < pureNodes.length; chk++) {
+                        if (pureNodes[chk].id === nbId && typeof pureNodes[chk].x === "number" && !isNaN(pureNodes[chk].x)) {
+                            refX = pureNodes[chk].x
+                            refY = pureNodes[chk].y
+                            break
+                        }
+                    }
+                }
+                if (refX !== null && refY !== null) {
+                    var spawnAngle = Math.random() * 2 * Math.PI
+                    var spawnDist = 20 + Math.random() * 30
+                    pn2.x = refX + Math.cos(spawnAngle) * spawnDist
+                    pn2.y = refY + Math.sin(spawnAngle) * spawnDist
+                    pn2.vx = (Math.random() - 0.5) * 0.5
+                    pn2.vy = (Math.random() - 0.5) * 0.5
+                    placed = true
+                    break
+                }
+            }
+
+            if (!placed) {
+                // Если нет известных соседей, спавним рядом с центром холста
+                pn2.x = targetCX + (Math.random() - 0.5) * 100
+                pn2.y = targetCY + (Math.random() - 0.5) * 100
+                anyMissing = true
             }
         }
     }
@@ -270,14 +343,16 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer, forcedW, fo
     graphRoot.sim = sim
     graphRoot.statsText = getGraphStats(sim, graphRoot.isLocalGraph)
 
-    // 1. Полный расчет равновесия в памяти JS:
-    var warmupTicks = anyMissing ? 400 : 0
-    for (var tick = 0; tick < warmupTicks; tick++) {
-        Physics.stepSimulation(sim)
-        if (sim.isSleeping) break
+    // 1. Быстрый расчет равновесия только при холодном старте с отсутствующими координатами:
+    if (!hadExistingSim && anyMissing) {
+        var warmupTicks = 300
+        for (var tick = 0; tick < warmupTicks; tick++) {
+            Physics.stepSimulation(sim)
+            if (sim.isSleeping) break
+        }
     }
 
-    // 2. Находим активный узел (последний открытый документ) в стабилизированном графе
+    // 2. Находим активный узел (последний открытый документ)
     var normActive = normalizeUrl(graphRoot.activeFileUrl)
     var activeNode = null
     if (normActive) {
@@ -295,8 +370,6 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer, forcedW, fo
     // 3. Сохраняем физические координаты узлов в кэш без искусственного смещения мира (только для глобального графа)
     if (!graphRoot.isLocalGraph) {
         for (var m2 = 0; m2 < sim.nodes.length; m2++) {
-            sim.nodes[m2].vx = 0
-            sim.nodes[m2].vy = 0
             var posObj = { x: sim.nodes[m2].x, y: sim.nodes[m2].y }
             globalNodePositionsCache[sim.nodes[m2].id] = posObj
             if (graphRoot.nodePositionsCache) {
@@ -308,15 +381,16 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer, forcedW, fo
         }
     }
 
-    // 4. Центрируем КАМЕРУ (panX, panY)
+    // 4. Центрируем камеру (panX, panY) только при необходимости
     if (graphRoot.isLocalGraph) {
-        graphRoot.panX = 0
-        graphRoot.panY = 0
-        graphRoot.zoomScale = 1.0
-        graphRoot.lastCenteredUrl = graphRoot.activeFileUrl
+        if (!hadExistingSim || activeNoteChanged) {
+            graphRoot.panX = 0
+            graphRoot.panY = 0
+            graphRoot.zoomScale = 1.0
+            graphRoot.lastCenteredUrl = graphRoot.activeFileUrl
+        }
     } else {
-        var hadExistingSim = Object.keys(liveNodeMap).length > 0
-        if (!hadExistingSim || (activeNode && graphRoot.lastCenteredUrl !== graphRoot.activeFileUrl)) {
+        if (!hadExistingSim || (activeNode && activeNoteChanged)) {
             if (activeNode && typeof activeNode.x === "number" && !isNaN(activeNode.x)) {
                 graphRoot.panX = -(activeNode.x - targetCX) * graphRoot.zoomScale
                 graphRoot.panY = -(activeNode.y - targetCY) * graphRoot.zoomScale
@@ -338,8 +412,8 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer, forcedW, fo
         }
     }
 
-    // 5. Граф автоматически оживает при открытии: деликатное органическое дыхание связей
-    wakeSimulation(graphRoot, canvas, animTimer)
+    // 5. Плавное пробуждение симуляции: новые узлы мягко втягиваются на свои места
+    wakeSimulation(graphRoot, canvas, animTimer, hadExistingSim ? 12 : 8)
 }
 
 function loadHistoricalGraph(graphRoot, canvas, graphData, Physics, animTimer) {
