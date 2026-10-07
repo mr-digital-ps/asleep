@@ -117,6 +117,14 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer, forcedW, fo
     // Фильтрация слоев (отключенные слои полностью исключаются из симуляции физики)
     var showBlocks = (graphRoot.showBlocks !== false)
     var showTags = (graphRoot.showTags !== false)
+    var showLinks = (graphRoot.showLinks !== false)
+
+    // Если отключены обычные ссылки между заметками, исключаем ребра типа "link" между файлами
+    if (!showLinks) {
+        pureLinks = pureLinks.filter(function(lk) {
+            return lk.type !== "link"
+        })
+    }
 
     if (!showBlocks || !showTags) {
         var allowedNodeIds = {}
@@ -429,9 +437,16 @@ function loadHistoricalGraph(graphRoot, canvas, graphData, Physics, animTimer) {
         }
     }
 
-    // Фильтрация слоев (блоки и теги) в историческом графе — сохраняем текущее визуальное состояние
+    // Фильтрация слоев (блоки, теги, ссылки) в историческом графе — сохраняем текущее визуальное состояние
     var showBlocks = (graphRoot.showBlocks !== false)
     var showTags = (graphRoot.showTags !== false)
+    var showLinks = (graphRoot.showLinks !== false)
+
+    if (!showLinks) {
+        pureLinks = pureLinks.filter(function(lk) {
+            return lk.type !== "link"
+        })
+    }
 
     if (!showBlocks || !showTags) {
         var allowedNodeIds = {}
@@ -770,6 +785,17 @@ function handleKey(graphRoot, event) {
                       event.key === 1077 || event.key === 1045)
         if (isKeyT) {
             graphRoot.showTags = !graphRoot.showTags
+            event.accepted = true
+            return true
+        }
+
+        // L — Links / Связи-ссылки [[...]] между заметками (русская 'д'/'Д', scan 38)
+        var isKeyL = (event.key === Qt.Key_L || event.nativeScanCode === 38 ||
+                      event.text === 'l' || event.text === 'L' ||
+                      event.text === 'д' || event.text === 'Д' ||
+                      event.key === 1076 || event.key === 1044)
+        if (isKeyL) {
+            graphRoot.showLinks = !graphRoot.showLinks
             event.accepted = true
             return true
         }

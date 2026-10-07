@@ -17,6 +17,7 @@ Rectangle {
     property bool _lastIsLocalGraph: false
     property bool showBlocks: true
     property bool showTags: true
+    property bool showLinks: true
     property bool _layersInitialized: false
     property var historicalData: null
     property var sim: null
@@ -40,12 +41,20 @@ Rectangle {
             reloadGraph()
         }
     }
+    onShowLinksChanged: {
+        if (historicalData) {
+            Interaction.loadHistoricalGraph(graphRoot, canvas, historicalData, Physics, animTimer)
+        } else {
+            reloadGraph()
+        }
+    }
 
     property var graphConfig: ({})
     onGraphConfigChanged: {
         if (!_layersInitialized && graphConfig && graphConfig.visual) {
             if (typeof graphConfig.visual.showBlocks === "boolean") showBlocks = graphConfig.visual.showBlocks
             if (typeof graphConfig.visual.showTags === "boolean") showTags = graphConfig.visual.showTags
+            if (typeof graphConfig.visual.showLinks === "boolean") showLinks = graphConfig.visual.showLinks
             _layersInitialized = true
         }
     }
