@@ -142,6 +142,27 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer, forcedW, fo
         })
     }
 
+    // Если отключены обычные ссылки L (как сущность), файлы без связей (изолированные) также скрываются
+    if (!showLinks) {
+        var activeConnectedNodeIds = {}
+        for (var al = 0; al < pureLinks.length; al++) {
+            var alk = pureLinks[al]
+            var aSrc = (typeof alk.source === "object" && alk.source !== null) ? alk.source.id : alk.source
+            var aTgt = (typeof alk.target === "object" && alk.target !== null) ? alk.target.id : alk.target
+            activeConnectedNodeIds[aSrc] = true
+            activeConnectedNodeIds[aTgt] = true
+        }
+
+        pureNodes = pureNodes.filter(function(n) {
+            // Блоки и теги регулируются своими флагами showBlocks и showTags
+            if (n.type === "block" || n.type === "tag") return true
+            // Файл остаётся, только если у него есть активные связи (через блок или тег) или он является активным
+            if (activeConnectedNodeIds[n.id]) return true
+            if (graphRoot.isLocalGraph && n.fileUrl && n.fileUrl === graphRoot.activeFileUrl) return true
+            return false
+        })
+    }
+
     // Фильтрация для режима локального графа (Local Graph) текущей заметки (1-hop connections)
     var localTargetNode = null
     if (graphRoot.isLocalGraph && graphRoot.activeFileUrl) {
@@ -464,6 +485,22 @@ function loadHistoricalGraph(graphRoot, canvas, graphData, Physics, animTimer) {
         })
     }
 
+    if (!showLinks) {
+        var histConnectedNodeIds = {}
+        for (var hl = 0; hl < pureLinks.length; hl++) {
+            var hlk = pureLinks[hl]
+            var hSrc = (typeof hlk.source === "object" && hlk.source !== null) ? hlk.source.id : hlk.source
+            var hTgt = (typeof hlk.target === "object" && hlk.target !== null) ? hlk.target.id : hlk.target
+            histConnectedNodeIds[hSrc] = true
+            histConnectedNodeIds[hTgt] = true
+        }
+
+        pureNodes = pureNodes.filter(function(n) {
+            if (n.type === "block" || n.type === "tag") return true
+            return !!histConnectedNodeIds[n.id]
+        })
+    }
+
     var config = graphRoot.graphConfig || {}
     var liveNodeMap = {}
     if (graphRoot.sim && graphRoot.sim.nodes) {
@@ -765,7 +802,43 @@ function handleKey(graphRoot, event) {
         }
     }
 
-    // Горячие клавиши переключения слоев графа (строго без модификаторов Alt/Ctrl, чтобы не конфликтовать с Alt+T — toggle tabs):
+    // Горячие клавиши переключения видимости только рёбер (Shift + B / T / L):
+    if (event.modifiers === Qt.ShiftModifier) {
+        // Shift+B — переключение рёбер блоков (русская 'и'/'И', scan 48)
+        var isKeyShiftB = (event.key === Qt.Key_B || event.nativeScanCode === 48 ||
+                           event.text === 'b' || event.text === 'B' ||
+                           event.text === 'и' || event.text === 'И' ||
+                           event.key === 1080 || event.key === 1048)
+        if (isKeyShiftB) {
+            graphRoot.showBlockEdges = !graphRoot.showBlockEdges
+            event.accepted = true
+            return true
+        }
+
+        // Shift+T — переключение рёбер тегов (русская 'е'/'Е', scan 20)
+        var isKeyShiftT = (event.key === Qt.Key_T || event.nativeScanCode === 20 ||
+                           event.text === 't' || event.text === 'T' ||
+                           event.text === 'е' || event.text === 'Е' ||
+                           event.key === 1077 || event.key === 1045)
+        if (isKeyShiftT) {
+            graphRoot.showTagEdges = !graphRoot.showTagEdges
+            event.accepted = true
+            return true
+        }
+
+        // Shift+L — переключение рёбер обычных ссылок (русская 'д'/'Д', scan 38)
+        var isKeyShiftL = (event.key === Qt.Key_L || event.nativeScanCode === 38 ||
+                           event.text === 'l' || event.text === 'L' ||
+                           event.text === 'д' || event.text === 'Д' ||
+                           event.key === 1076 || event.key === 1044)
+        if (isKeyShiftL) {
+            graphRoot.showLinkEdges = !graphRoot.showLinkEdges
+            event.accepted = true
+            return true
+        }
+    }
+
+    // Горячие клавиши переключения слоев сущностей графа целиком (строго без модификаторов Alt/Ctrl/Shift):
     if (!event.modifiers) {
         // B — Blocks / Именованные блоки (русская 'и'/'И', scan 48)
         var isKeyB = (event.key === Qt.Key_B || event.nativeScanCode === 48 ||

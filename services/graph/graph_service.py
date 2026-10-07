@@ -350,7 +350,7 @@ class GraphService:
                     "val": 2
                 }
                 # Структурная связь от файла-владельца к блоку
-                links_set.add((owner_url, b_id, "link"))
+                links_set.add((owner_url, b_id, "block"))
                 nodes_map[owner_url]["val"] += 1
 
         # Создаем направленные трансклюзии вызовов

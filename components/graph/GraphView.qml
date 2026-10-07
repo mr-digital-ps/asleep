@@ -18,6 +18,9 @@ Rectangle {
     property bool showBlocks: true
     property bool showTags: true
     property bool showLinks: true
+    property bool showBlockEdges: true
+    property bool showTagEdges: true
+    property bool showLinkEdges: true
     property bool _layersInitialized: false
     property var historicalData: null
     property var sim: null
@@ -48,6 +51,15 @@ Rectangle {
             reloadGraph()
         }
     }
+    onShowBlockEdgesChanged: {
+        if (canvas) canvas.requestPaint()
+    }
+    onShowTagEdgesChanged: {
+        if (canvas) canvas.requestPaint()
+    }
+    onShowLinkEdgesChanged: {
+        if (canvas) canvas.requestPaint()
+    }
 
     property var graphConfig: ({})
     onGraphConfigChanged: {
@@ -55,6 +67,9 @@ Rectangle {
             if (typeof graphConfig.visual.showBlocks === "boolean") showBlocks = graphConfig.visual.showBlocks
             if (typeof graphConfig.visual.showTags === "boolean") showTags = graphConfig.visual.showTags
             if (typeof graphConfig.visual.showLinks === "boolean") showLinks = graphConfig.visual.showLinks
+            if (typeof graphConfig.visual.showBlockEdges === "boolean") showBlockEdges = graphConfig.visual.showBlockEdges
+            if (typeof graphConfig.visual.showTagEdges === "boolean") showTagEdges = graphConfig.visual.showTagEdges
+            if (typeof graphConfig.visual.showLinkEdges === "boolean") showLinkEdges = graphConfig.visual.showLinkEdges
             _layersInitialized = true
         }
     }
@@ -213,6 +228,9 @@ Rectangle {
                 activeFileUrl: graphRoot.activeFileUrl,
                 openFileUrls: graphRoot.openFileUrls,
                 searchQuery: graphRoot.searchQuery,
+                showBlockEdges: graphRoot.showBlockEdges,
+                showTagEdges: graphRoot.showTagEdges,
+                showLinkEdges: graphRoot.showLinkEdges,
                 graphConfig: graphRoot.graphConfig,
                 theme: {
                     bgApp: Theme.bgApp,

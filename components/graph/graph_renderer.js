@@ -104,12 +104,25 @@ function renderGraph(ctx, width, height, sim, state) {
     var nodeColorBlock = nodeBaseColor
     var nodeColorTag = nodeBaseColor
 
+    var showBlockEdges = (state.showBlockEdges !== false)
+    var showTagEdges = (state.showTagEdges !== false)
+    var showLinkEdges = (state.showLinkEdges !== false)
+
     // 1. Отрисовка связей (ребер)
     for (var i = 0; i < links.length; i++) {
         var l = links[i]
         var s = l.source
         var t = l.target
         if (!s || !t) continue
+
+        // Фильтрация видимости линий по типам (Shift+B, Shift+T, Shift+L):
+        if (l.type === "block" || l.type === "transclusion") {
+            if (!showBlockEdges) continue
+        } else if (l.type === "tag") {
+            if (!showTagEdges) continue
+        } else if (l.type === "link") {
+            if (!showLinkEdges) continue
+        }
 
         var isConnectedToHover = hasHover && (s.id === hoveredNode.id || t.id === hoveredNode.id)
         var isTransclusion = (l.type === "transclusion")
