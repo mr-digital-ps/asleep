@@ -27,10 +27,12 @@ def parse_markdown_blocks(text: str, heading_regex: re.Pattern | None = None) ->
     res = parse_user_dialect(text)
     blocks = []
     for b in res["blocks"]:
+        raw_cnt = b["content"].strip("\r\n")
         blocks.append({
             "title": b["name"],
             "title_norm": b["name_norm"],
             "content": b["content"].strip(),
+            "raw_content": raw_cnt,
             "heading_start": b["start_char"],
             "content_start": b["start_char"],
             "content_end": b["end_char"],
@@ -88,6 +90,7 @@ class BlockEngine:
                             self._block_cache[b["title_norm"]] = {
                                 "title": b["title"],
                                 "content": b["content"],
+                                "raw_content": b.get("raw_content", b["content"]),
                                 "source": file_url,
                                 "time": mtime
                             }
@@ -105,6 +108,7 @@ class BlockEngine:
                 self._block_cache[b["title_norm"]] = {
                     "title": b["title"],
                     "content": b["content"],
+                    "raw_content": b.get("raw_content", b["content"]),
                     "source": file_url,
                     "time": now
                 }
@@ -112,7 +116,7 @@ class BlockEngine:
     def get_block(self, heading: str) -> dict:
         """Возвращает блок по имени (для подтягивания контента в трансклюзии)"""
         if not heading:
-            return {"found": False, "title": "", "content": ""}
+            return {"found": False, "title": "", "content": "", "raw_content": ""}
         norm = heading.strip().lower()
         if norm in self._block_cache:
             item = self._block_cache[norm]
@@ -121,8 +125,9 @@ class BlockEngine:
                     "found": True,
                     "title": item["title"],
                     "content": item["content"],
+                    "raw_content": item.get("raw_content", item["content"]),
                 }
-        return {"found": False, "title": heading, "content": ""}
+        return {"found": False, "title": heading, "content": "", "raw_content": ""}
 
     def get_available_blocks(self, query: str = "") -> list:
         """Возвращает список известных блоков для подсказок"""
