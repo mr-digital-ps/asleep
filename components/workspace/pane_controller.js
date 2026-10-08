@@ -237,8 +237,35 @@ function handleGraphModeChanged(mainBar, editorScroll, sheetGraphView, editorAre
     }
 }
 
-function handleLiveModeChanged(mainBar, editorArea) {
+function handleLiveModeChanged(mainBar, editorArea, backend) {
+    if (!mainBar) return
+
     if (!mainBar.isLiveMode && editorArea) {
+        // Выход из Live Mode в Source Mode:
+        // 1. Восстанавливаем сохраненный скролл из Live
+        if (mainBar.liveScroll && mainBar.liveScroll.contentItem && mainBar.editorScroll && mainBar.editorScroll.contentItem) {
+            mainBar.editorScroll.contentItem.contentY = mainBar.liveScroll.contentItem.contentY
+        }
+
+        // 2. Восстанавливаем позицию курсора из активного сегмента Live Mode
+        if (mainBar.liveSheet && typeof mainBar.liveSheet.getActiveDocumentCursor === "function") {
+            var activeCharPos = mainBar.liveSheet.getActiveDocumentCursor()
+            if (activeCharPos >= 0) {
+                editorArea.cursorPosition = Math.min(activeCharPos, editorArea.text.length)
+            }
+        }
+
+        if (backend && typeof backend.get_current_config === "function") {
+            try {
+                var cfgStr = backend.get_current_config()
+                if (cfgStr) {
+                    mainBar.applyConfig(JSON.parse(cfgStr))
+                }
+            } catch(e) {}
+        }
+        if (backend && typeof backend.set_editor_line_height === "function") {
+            backend.set_editor_line_height(editorArea, mainBar.editorLineHeightPercent)
+        }
         Qt.callLater(function() {
             if (editorArea) {
                 editorArea.forceActiveFocus()
@@ -248,9 +275,25 @@ function handleLiveModeChanged(mainBar, editorArea) {
             }
         })
     } else if (mainBar.isLiveMode && mainBar.liveSheet) {
+        // Переход из Source Mode в Live Mode:
+        // 1. Копируем положение скролла
+        if (mainBar.editorScroll && mainBar.editorScroll.contentItem && mainBar.liveScroll && mainBar.liveScroll.contentItem) {
+            mainBar.liveScroll.contentItem.contentY = mainBar.editorScroll.contentItem.contentY
+        }
+
+        if (editorArea && typeof editorArea.text === "string") {
+            mainBar.liveSheet.sourceText = editorArea.text
+        }
+        if (typeof mainBar.liveSheet.parseDocument === "function") {
+            mainBar.liveSheet.parseDocument()
+        }
+        var targetPos = editorArea ? editorArea.cursorPosition : 0
         Qt.callLater(function() {
             if (mainBar.liveSheet && typeof mainBar.liveSheet.focusFirstOrCurrent === "function") {
-                mainBar.liveSheet.focusFirstOrCurrent(editorArea ? editorArea.cursorPosition : 0)
+                mainBar.liveSheet.focusFirstOrCurrent(targetPos)
+            }
+            if (mainBar.editorScroll && mainBar.editorScroll.contentItem && mainBar.liveScroll && mainBar.liveScroll.contentItem) {
+                mainBar.liveScroll.contentItem.contentY = mainBar.editorScroll.contentItem.contentY
             }
         })
     }
@@ -310,9 +353,6 @@ function initMainBar(mainBar, editorArea, backend) {
         if (typeof backend.set_editor_line_height === "function") {
             backend.set_editor_line_height(editorArea, mainBar.editorLineHeightPercent)
         }
-        if (typeof backend.attach_highlighter === "function") {
-            backend.attach_highlighter(editorArea)
-        }
     }
 }
 
@@ -326,9 +366,6 @@ function handleFileUrlChanged(editorArea, mainBar, backend) {
     if (backend) {
         if (typeof backend.set_editor_line_height === "function") {
             Qt.callLater(function() { backend.set_editor_line_height(editorArea, mainBar.editorLineHeightPercent) })
-        }
-        if (typeof backend.attach_highlighter === "function") {
-            Qt.callLater(function() { backend.attach_highlighter(editorArea) })
         }
     }
 }

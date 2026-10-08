@@ -213,6 +213,26 @@ class GraphService:
 
         return cfg
 
+    def save_graph_visual_layers(self, layers: dict):
+        """Сохраняет пользовательские фильтры слоев (B, T, L и их рёбра) в config/user/graph.json"""
+        user_file = self.project_root / "config" / "user" / "graph.json"
+        user_cfg = {}
+        if user_file.exists():
+            try:
+                data = parse_json_with_comments(user_file.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    user_cfg = data
+            except Exception:
+                user_cfg = {}
+        if "visual" not in user_cfg or not isinstance(user_cfg["visual"], dict):
+            user_cfg["visual"] = {}
+        user_cfg["visual"].update(layers)
+        try:
+            user_file.parent.mkdir(parents=True, exist_ok=True)
+            user_file.write_text(json.dumps(user_cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception as e:
+            print(f"[GraphService] Ошибка сохранения {user_file.name}: {e}")
+
     def build_graph(self, folder_path: Path) -> dict:
         if not folder_path or not folder_path.exists() or not folder_path.is_dir():
             return {"nodes": [], "links": []}
@@ -469,31 +489,7 @@ class GraphService:
         return "\n".join(lines).strip() + "\n"
 
     def sync_graph_markdown_file(self, folder_path: Path, graph_data: dict | None = None) -> Path | None:
-        """
-        Синхронизирует Markdown-проекцию графа в файл _Граф связей.md.
-        Записывает изменения на диск только если содержимое файла действительно изменилось.
-        """
-        if not folder_path or not folder_path.exists() or not folder_path.is_dir():
-            return None
+        """Служебные файлы проекции графа на диске отключены."""
+        return None
 
-        content = self.generate_graph_markdown(folder_path, graph_data=graph_data)
-        cs = self.config_service or ConfigService()
-        cfg = cs.get_markdown_config(folder_path) or {}
-        graph_filename = cfg.get("system_files", {}).get("graph_file", "_Граф связей.md")
-        file_path = folder_path / graph_filename
-
-        if file_path.exists():
-            try:
-                existing = file_path.read_text(encoding="utf-8")
-                if existing == content:
-                    return file_path
-            except Exception:
-                pass
-
-        try:
-            file_path.write_text(content, encoding="utf-8")
-        except Exception as e:
-            print(f"[GraphService] Ошибка сохранения {graph_filename}: {e}")
-
-        return file_path
 

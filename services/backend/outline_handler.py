@@ -47,22 +47,9 @@ class OutlineHandlerMixin:
     @pyqtSlot(str, result=bool)
     @pyqtSlot(str, str, result=bool)
     def is_project_structure_file(self, filename: str, folder_url: str = "") -> bool:
-        """Проверяет, является ли файл файлом структуры проекта по конфигурации пользователя"""
-        if not filename:
-            return False
-        from pathlib import Path
-        fn = Path(filename).name.lower()
-        configured_name = self.get_project_structure_filename(folder_url).lower()
-        
-        # Точное совпадение с настроенным именем (например _notes.md) или stem (_notes)
-        if fn == configured_name or Path(fn).stem == Path(configured_name).stem:
-            return True
-            
-        # Обратная совместимость с легаси-именем
-        if fn in ("_структура.md", "_структура", "структура.md", "структура"):
-            return True
-            
+        """Служебные файлы структуры удалены из архитектуры"""
         return False
+
 
     @pyqtSlot(str, int, int, str, result=str)
     @pyqtSlot(str, int, int, str, str, result=str)

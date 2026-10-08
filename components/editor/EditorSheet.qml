@@ -28,12 +28,8 @@ Rectangle {
     property var containerItem: null
     property var editorScroll: null
 
-    readonly property bool isProjectTree: {
-        if (typeof backend !== "undefined" && backend && typeof backend.is_project_structure_file === "function") {
-            return backend.is_project_structure_file(sheetRoot.fileName)
-        }
-        return sheetRoot.fileName === "_Структура.md"
-    }
+    readonly property bool isProjectTree: false
+
     property var _liveDraftText: undefined
 
     onFileUrlChanged: {

@@ -112,21 +112,91 @@ Rectangle {
         return false
     }
 
+    function getActiveDocumentCursor() {
+        if (!liveSheetRoot.segments || liveSheetRoot.segments.length === 0) return -1
+        let fullLines = (liveSheetRoot.sourceText || "").split(/\r?\n/)
+        for (let i = 0; i < liveSheetRoot.segments.length; i++) {
+            let item = repeater.itemAt(i)
+            let seg = liveSheetRoot.segments[i]
+            if (item && item.isFocused) {
+                let innerPos = (typeof item.getCursorPos === "function") ? item.getCursorPos() : 0
+                let sLine = Math.max(1, seg.sourceStartLine) - 1 // 0-indexed in fullLines
+                let charOffset = 0
+                for (let l = 0; l < sLine && l < fullLines.length; l++) {
+                    charOffset += fullLines[l].length + 1
+                }
+                if (seg.type === "text") {
+                    return charOffset + innerPos
+                } else if (seg.type === "block") {
+                    let innerText = item.text || ""
+                    let beforeCursor = innerText.substring(0, innerPos)
+                    let innerLinesBefore = beforeCursor.split("\n")
+                    let lineInBlock = innerLinesBefore.length - 1
+                    let colInLine = innerLinesBefore[lineInBlock].length
+                    let targetSourceLine = sLine + lineInBlock
+                    let sourceOffset = 0
+                    for (let l = 0; l < targetSourceLine && l < fullLines.length; l++) {
+                        sourceOffset += fullLines[l].length + 1
+                    }
+                    let lineMax = fullLines[targetSourceLine] ? fullLines[targetSourceLine].length : 0
+                    return sourceOffset + Math.min(colInLine, lineMax)
+                } else {
+                    return charOffset
+                }
+            }
+        }
+        return -1
+    }
+
     function focusFirstOrCurrent(targetCharPos) {
         if (!liveSheetRoot.segments || liveSheetRoot.segments.length === 0) return
-        let charAcc = 0
+        let fullLines = (liveSheetRoot.sourceText || "").split(/\r?\n/)
+        let curLine = 0
+        let col = 0
+        let acc = 0
+        for (let l = 0; l < fullLines.length; l++) {
+            let lLen = fullLines[l].length + 1
+            if (targetCharPos < acc + lLen || l === fullLines.length - 1) {
+                curLine = l + 1 // 1-indexed
+                col = Math.max(0, targetCharPos - acc)
+                break
+            }
+            acc += lLen
+        }
+
+        // Ищем сегмент, содержащий curLine
         let targetIdx = 0
         for (let i = 0; i < liveSheetRoot.segments.length; i++) {
-            let segLen = (liveSheetRoot.segments[i].content ? liveSheetRoot.segments[i].content.length : 0) + 1
-            if (targetCharPos <= charAcc + segLen) {
+            let seg = liveSheetRoot.segments[i]
+            if (curLine >= seg.sourceStartLine && curLine <= seg.sourceEndLine) {
                 targetIdx = i
                 break
             }
-            charAcc += segLen
         }
+
         let item = repeater.itemAt(targetIdx)
-        if (item && item.focusTop) {
-            item.focusTop()
+        let seg = liveSheetRoot.segments[targetIdx]
+        if (item && seg) {
+            let lineInSeg = Math.max(0, curLine - seg.sourceStartLine)
+            let itemText = item.text || ""
+            if (!itemText && seg.type === "block") {
+                itemText = (seg.name || "") + (seg.content ? ("\n" + seg.content) : "")
+            } else if (!itemText && seg.type === "text") {
+                itemText = seg.content || ""
+            }
+            let itemLines = itemText.split("\n")
+            let relPos = 0
+            for (let il = 0; il < lineInSeg && il < itemLines.length; il++) {
+                relPos += itemLines[il].length + 1
+            }
+            let lineLen = (lineInSeg < itemLines.length && itemLines[lineInSeg]) ? itemLines[lineInSeg].length : 0
+            relPos += Math.min(col, lineLen)
+
+            if (typeof item.focusAtPos === "function") {
+                item.focusAtPos(relPos)
+            } else if (item.focusTop) {
+                item.focusTop()
+            }
         }
     }
 
@@ -147,8 +217,8 @@ Rectangle {
             delegate: Item {
                 id: segDelegate
                 width: contentColumn.width
-                // Добавляем аккуратный отступ сверху и снизу для блочного текста (10px), чтобы отделить от обычных строк
-                height: (itemLoader.item ? itemLoader.item.height : 0) + (modelData.type === "block" ? 10 : 0)
+                // Естественная высота сегмента с сохранением единого межстрочного ритма (line_height)
+                height: itemLoader.item ? itemLoader.item.height : 0
 
                 function focusTop() {
                     if (itemLoader.item && typeof itemLoader.item.focusTop === "function") {
@@ -162,10 +232,28 @@ Rectangle {
                     }
                 }
 
+                function focusAtPos(pos) {
+                    if (itemLoader.item && typeof itemLoader.item.focusAtPos === "function") {
+                        itemLoader.item.focusAtPos(pos)
+                    } else if (itemLoader.item && typeof itemLoader.item.focusTop === "function") {
+                        itemLoader.item.focusTop()
+                    }
+                }
+
+                readonly property bool isFocused: itemLoader.item ? !!itemLoader.item.isFocused : false
+                readonly property string text: itemLoader.item ? (itemLoader.item.text || "") : ""
+
+                function getCursorPos() {
+                    if (itemLoader.item && typeof itemLoader.item.getCursorPos === "function") {
+                        return itemLoader.item.getCursorPos()
+                    }
+                    return 0
+                }
+
                 Loader {
                     id: itemLoader
                     width: parent.width
-                    y: (modelData.type === "block") ? 4 : 0
+                    y: 0
                     sourceComponent: {
                         if (modelData.type === "block") return blockComp
                         if (modelData.type === "transclusion") return transclusionComp
@@ -180,6 +268,7 @@ Rectangle {
                         width: parent.width
                         blockName: modelData.name
                         blockContent: modelData.content
+                        isSingleLine: !!modelData.isSingleLine
                         fontSize: liveSheetRoot.editorFontSize
                         showLineDots: liveSheetRoot.showLineDots
                         lineHeightPercent: liveSheetRoot.lineHeightPercent
@@ -199,7 +288,14 @@ Rectangle {
                         width: parent.width
                         targetFile: modelData.targetFile
                         targetBlock: modelData.targetBlock
+                        fontSize: liveSheetRoot.editorFontSize
+                        showLineDots: liveSheetRoot.showLineDots
+                        lineHeightPercent: liveSheetRoot.lineHeightPercent
+                        backendInstance: liveSheetRoot.backendInstance
                         onActivated: liveSheetRoot.paneActivated()
+                        onRequestPreviousSegment: () => liveSheetRoot.focusPreviousSegment(index)
+                        onRequestNextSegment: () => liveSheetRoot.focusNextSegment(index)
+                        onOpenWikiLinkRequested: (target) => liveSheetRoot.openWikiLink(target)
                         onOpenTargetRequested: (fUrl, bName) => {
                             liveSheetRoot.nodeSelected(fUrl, bName, "block")
                         }

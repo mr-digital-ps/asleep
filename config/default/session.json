@@ -1,26 +1,26 @@
 {
-  // Дефолтная рабочая папка (используется при первом запуске или если last_folder недоступна)
-  "default_folder": "~/Documents/Notes",
+	// Дефолтная рабочая папка (используется при первом запуске или если last_folder недоступна)
+	"default_folder": "C:/.personal/.development/asleep-pyqt/test_notes",
 
-  // Последняя открытая рабочая папка (переопределяется в config/user/session.json)
-  "last_folder": "",
+	// Последняя открытая рабочая папка (переопределяется в config/user/session.json)
+	"last_folder": "",
 
-  // Геометрия окна по умолчанию
-  "win_width": 1000,
-  "win_height": 700,
-  "win_x": -1,
-  "win_y": -1,
+	// Геометрия окна по умолчанию
+	"win_width": 1000,
+	"win_height": 700,
+	"win_x": -1,
+	"win_y": -1,
 
-  // Параметры листа и панелей
-  "sheet_width": 800,
-  "sidebar_width": 240,
-  "font_size": 15,
+	// Параметры листа и панелей
+	"sheet_width": 800,
+	"sidebar_width": 240,
+	"font_size": 15,
 
-  // Состояние хедера
-  "header_pinned": true,
-  "header_visible": true,
+	// Состояние хедера
+	"header_pinned": true,
+	"header_visible": true,
 
-  // Визуальное отображение служебных элементов редактора
-  "show_scrollbar": true,
-  "show_line_dots": true
+	// Визуальное отображение служебных элементов редактора
+	"show_scrollbar": true,
+	"show_line_dots": true
 }

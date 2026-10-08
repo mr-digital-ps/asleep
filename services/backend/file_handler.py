@@ -185,20 +185,20 @@ class FileHandlerMixin:
         clean = note_name.strip()
         if not clean:
             return ""
-        if not clean.endswith(".md"):
-            cand = folder / f"{clean}.md"
-            if cand.exists():
-                return QUrl.fromLocalFile(str(cand.resolve())).toString()
-        cand = folder / clean
-        if cand.exists():
+        # 1. Мгновенная прямая проверка в корне каталога
+        clean_ext = f"{clean}.md" if not clean.endswith(".md") else clean
+        cand = folder / clean_ext
+        if cand.exists() and cand.is_file():
             return QUrl.fromLocalFile(str(cand.resolve())).toString()
 
-        # Рекурсивный поиск в подпапках каталога
+        # 2. Быстрый поиск в подпапках 1-го уровня (без зависания на тяжелом рекурсивном rglob)
         try:
-            target_name = f"{clean}.md" if not clean.endswith(".md") else clean
-            for p in folder.rglob(target_name):
-                if p.is_file() and not p.name.startswith("."):
-                    return QUrl.fromLocalFile(str(p.resolve())).toString()
+            ignored = {".git", ".venv", "__pycache__", "node_modules", ".asleep"}
+            for sub in folder.iterdir():
+                if sub.is_dir() and sub.name not in ignored and not sub.name.startswith("."):
+                    sub_cand = sub / clean_ext
+                    if sub_cand.exists() and sub_cand.is_file():
+                        return QUrl.fromLocalFile(str(sub_cand.resolve())).toString()
         except Exception:
             pass
 

@@ -104,16 +104,6 @@ RowLayout {
                 editorArea: editorArea
             }
 
-            Rectangle {
-                id: currentLineHighlight
-                visible: editorArea.activeFocus && editorArea.cursorRectangle.height > 0 && (editorArea.selectionStart === editorArea.selectionEnd)
-                x: 0
-                width: parent.width
-                y: editorArea.cursorRectangle.y
-                height: editorArea.cursorRectangle.height
-                color: Theme.lineHighlight
-                radius: 3
-            }
 
             // Оверлей подсветки парных скобок
             BracketHighlightOverlay {

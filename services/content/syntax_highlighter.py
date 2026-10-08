@@ -87,15 +87,17 @@ class MarkdownHighlighter(QSyntaxHighlighter):
         self.fmt_hash.setForeground(QColor("#5c6370"))
         self.fmt_hash.setFontWeight(QFont.Weight.Normal)
 
-        # Формат приглушения/скрытия служебных символов разметки на неактивных строках
+        # Формат скрытия служебных символов разметки в стиле Obsidian:
+        # нулевой кегль (0.001 pt) и прозрачность полностью схлопывают ширину скобок [[]] без пустых мест
         self.fmt_conceal = QTextCharFormat()
-        self.fmt_conceal.setForeground(QColor(110, 115, 128, 55))
+        self.fmt_conceal.setForeground(QColor("transparent"))
+        self.fmt_conceal.setFontPointSize(0.001)
 
-        # Формат приглушения хеша заголовка на неактивной строке
+        # Формат скрытия хеша заголовка на неактивной строке
         self.fmt_conceal_hash = QTextCharFormat()
-        self.fmt_conceal_hash.setForeground(QColor(110, 115, 128, 45))
-        self.fmt_conceal_hash.setFontPointSize(11.0)
-        self.fmt_conceal_hash.setFontWeight(QFont.Weight.Normal)
+        self.fmt_conceal_hash.setForeground(QColor("transparent"))
+        self.fmt_conceal_hash.setFontPointSize(0.001)
+
 
         # 2. Жирный текст (**bold** или __bold__)
         self.fmt_bold = QTextCharFormat()
@@ -127,17 +129,17 @@ class MarkdownHighlighter(QSyntaxHighlighter):
         self.fmt_quote.setForeground(QColor("#7e8a9d"))
         self.fmt_quote.setFontItalic(True)
 
-        # 8. Задачи: - [ ] не завершено, - [x] завершено
+        # 8. Задачи: - [ ] не завершено, - [x] завершено (строго монохромные маркеры)
         self.fmt_task_open = QTextCharFormat()
-        self.fmt_task_open.setForeground(QColor("#d19a66"))
-        self.fmt_task_open.setFontWeight(QFont.Weight.Bold)
+        self.fmt_task_open.setForeground(QColor("#737373"))
+        self.fmt_task_open.setFontWeight(QFont.Weight.Normal)
 
         self.fmt_task_done = QTextCharFormat()
-        self.fmt_task_done.setForeground(QColor("#98c379"))
-        self.fmt_task_done.setFontWeight(QFont.Weight.DemiBold)
+        self.fmt_task_done.setForeground(QColor("#737373"))
+        self.fmt_task_done.setFontWeight(QFont.Weight.Normal)
 
         self.fmt_task_done_text = QTextCharFormat()
-        self.fmt_task_done_text.setForeground(QColor("#5c6370"))
+        self.fmt_task_done_text.setForeground(QColor("#525252"))
         self.fmt_task_done_text.setFontStrikeOut(True)
 
         # 9. Разделители (---, ***)
@@ -166,9 +168,9 @@ class MarkdownHighlighter(QSyntaxHighlighter):
         self.fmt_brace.setForeground(QColor("#888888"))
         self.fmt_brace.setFontWeight(QFont.Weight.Bold)
 
-        # 12. Списки (- item, * item, 1. item)
+        # 12. Списки (- item, * item, 1. item) — строго монохромный маркер (#737373) без цветных акцентов
         self.fmt_list = QTextCharFormat()
-        self.fmt_list.setForeground(QColor("#d19a66"))
+        self.fmt_list.setForeground(QColor("#737373"))
 
     def _init_rules(self):
         # Регулярные выражения

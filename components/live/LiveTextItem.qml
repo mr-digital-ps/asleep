@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls.Basic
 import "../theme"
+import "../editor"
 
 Item {
     id: textItemRoot
@@ -42,6 +43,15 @@ Item {
         textInputArea.cursorPosition = textInputArea.text.length
     }
 
+    function focusAtPos(pos) {
+        textInputArea.forceActiveFocus()
+        textInputArea.cursorPosition = Math.min(Math.max(0, pos), textInputArea.text.length)
+    }
+
+    function getCursorPos() {
+        return textInputArea.cursorPosition
+    }
+
     width: parent ? parent.width : Theme.defaultSheetWidth
     height: textInputArea.implicitHeight
 
@@ -73,7 +83,9 @@ Item {
         }
 
         delegate: Rectangle {
-            x: -Theme.barSize / 2 - width / 2
+            readonly property real scaleFactor: Math.max(0.6, Math.min(2.5, textItemRoot.fontSize / 15.0))
+            readonly property real dotSize: Math.round(4.0 * scaleFactor)
+            x: Math.round(-Theme.barSize / 2 - dotSize / 2)
             // Вычисляем точное положение строки текста
             y: {
                 let txt = textInputArea.text || ""
@@ -83,12 +95,24 @@ Item {
                     charPos += lines[i].length + 1
                 }
                 let rect = textInputArea.positionToRectangle(charPos)
-                return Math.round(rect.y + (rect.height / 2) - (height / 2))
+                return Math.round(rect.y + (rect.height / 2) - (dotSize / 2))
             }
-            width: 4
-            height: 4
-            radius: 2
-            color: Theme.gutterText
+            width: dotSize
+            height: dotSize
+            radius: dotSize / 2
+            readonly property bool isCurrentLine: {
+                if (!textInputArea.activeFocus) return false
+                let txt = textInputArea.text || ""
+                let lines = txt.split("\n")
+                let startPos = 0
+                for (let i = 0; i < index && i < lines.length; i++) {
+                    startPos += lines[i].length + 1
+                }
+                let endPos = startPos + (index < lines.length ? lines[index].length : 0)
+                let cur = textInputArea.cursorPosition
+                return cur >= startPos && cur <= endPos
+            }
+            color: isCurrentLine ? Theme.gutterActive : Theme.gutterText
         }
     }
 
@@ -104,11 +128,26 @@ Item {
         font.family: Theme.fontFamily
         font.pixelSize: textItemRoot.fontSize
         color: Theme.textPrimary
-        selectionColor: Theme.selectionColor
-        selectedTextColor: Theme.textSelected
+        selectionColor: "transparent"
+        selectedTextColor: Theme.textPrimary
         wrapMode: TextArea.Wrap
         selectByMouse: true
-        background: null
+        background: Item {
+            SelectionHighlightOverlay {
+                editorArea: textInputArea
+            }
+
+            Rectangle {
+                id: currentLineHighlight
+                visible: textInputArea.activeFocus && textInputArea.cursorRectangle.height > 0 && (textInputArea.selectionStart === textInputArea.selectionEnd)
+                x: 0
+                width: parent.width
+                y: textInputArea.cursorRectangle.y
+                height: textInputArea.cursorRectangle.height
+                color: Theme.lineHighlight
+                radius: 3
+            }
+        }
 
         Keys.onUpPressed: (event) => {
             let firstLineEnd = text.indexOf("\n")

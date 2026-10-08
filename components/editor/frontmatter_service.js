@@ -1,13 +1,9 @@
 // js/editor/frontmatter_service.js — Утилиты для работы с YAML frontmatter документов и конфигурациями редактора
 
 function updateConfigParameterInText(fileName, text, key, value) {
-    if (!fileName || (!fileName.startsWith("_Настройка каталога") && !fileName.startsWith("Настройка каталога"))) return null
-    var regex = new RegExp("^(\\s*" + key + "\\s*:\\s*)[^\\s#]+", "m")
-    if (regex.test(text)) {
-        return text.replace(regex, "$1" + value)
-    }
     return null
 }
+
 
 function applyEditorConfig(mainBar, editorArea, cfg, backend) {
     if (!cfg || !cfg.editor) return

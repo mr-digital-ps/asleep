@@ -43,7 +43,7 @@ Item {
     }
 
     onIsLiveModeChanged: {
-        Controller.handleLiveModeChanged(workspacePane, editorArea)
+        Controller.handleLiveModeChanged(workspacePane, editorArea, (typeof backend !== "undefined" ? backend : null))
     }
 
     property string folderUrl: ""
@@ -117,12 +117,8 @@ Item {
 
     // Режим локального графа заметки
     property bool isLocalGraphMode: false
-    readonly property bool isProjectTree: {
-        if (typeof backend !== "undefined" && backend && typeof backend.is_project_structure_file === "function") {
-            return backend.is_project_structure_file(workspacePane.fileName)
-        }
-        return workspacePane.fileName === "_Структура.md"
-    }
+    readonly property bool isProjectTree: false
+
 
     property alias paneGraphView: paneGraphView
     property alias paneHeader: paneHeader
@@ -569,12 +565,13 @@ Item {
                     backendInstance: (typeof backend !== "undefined" ? backend : null)
                     availableHeight: paneBody.height
                     viewHeight: paneBody.height
-                    sourceText: paperSheet ? paperSheet.text : ""
+                    sourceText: (paperSheet && paperSheet.text !== undefined) ? paperSheet.text : ""
 
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.top: parent.top
 
                     onTextChangedByUser: (newFullText) => {
+                        workspacePane.text = newFullText
                         if (paperSheet && paperSheet.editorArea) {
                             paperSheet.editorArea.text = newFullText
                             workspacePane.titleChangedByUser(workspacePane.fileName)

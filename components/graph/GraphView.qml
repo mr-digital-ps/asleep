@@ -30,7 +30,22 @@ Rectangle {
     property string searchQuery: ""
     property string statsText: ""
 
+    function persistVisualLayers() {
+        if (!_layersInitialized) return
+        if (typeof backend !== "undefined" && backend && typeof backend.save_graph_visual_layers === "function") {
+            backend.save_graph_visual_layers({
+                "showBlocks": graphRoot.showBlocks,
+                "showTags": graphRoot.showTags,
+                "showLinks": graphRoot.showLinks,
+                "showBlockEdges": graphRoot.showBlockEdges,
+                "showTagEdges": graphRoot.showTagEdges,
+                "showLinkEdges": graphRoot.showLinkEdges
+            })
+        }
+    }
+
     onShowBlocksChanged: {
+        persistVisualLayers()
         if (historicalData) {
             Interaction.loadHistoricalGraph(graphRoot, canvas, historicalData, Physics, animTimer)
         } else {
@@ -38,6 +53,7 @@ Rectangle {
         }
     }
     onShowTagsChanged: {
+        persistVisualLayers()
         if (historicalData) {
             Interaction.loadHistoricalGraph(graphRoot, canvas, historicalData, Physics, animTimer)
         } else {
@@ -45,6 +61,7 @@ Rectangle {
         }
     }
     onShowLinksChanged: {
+        persistVisualLayers()
         if (historicalData) {
             Interaction.loadHistoricalGraph(graphRoot, canvas, historicalData, Physics, animTimer)
         } else {
@@ -52,6 +69,7 @@ Rectangle {
         }
     }
     onShowBlockEdgesChanged: {
+        persistVisualLayers()
         if (historicalData) {
             Interaction.loadHistoricalGraph(graphRoot, canvas, historicalData, Physics, animTimer)
         } else {
@@ -59,6 +77,7 @@ Rectangle {
         }
     }
     onShowTagEdgesChanged: {
+        persistVisualLayers()
         if (historicalData) {
             Interaction.loadHistoricalGraph(graphRoot, canvas, historicalData, Physics, animTimer)
         } else {
@@ -66,12 +85,14 @@ Rectangle {
         }
     }
     onShowLinkEdgesChanged: {
+        persistVisualLayers()
         if (historicalData) {
             Interaction.loadHistoricalGraph(graphRoot, canvas, historicalData, Physics, animTimer)
         } else {
             reloadGraph()
         }
     }
+
 
     property var graphConfig: ({})
     onGraphConfigChanged: {

@@ -27,12 +27,11 @@ function drawGutterDots(canvas, editorArea, width, height, activeColor, textColo
             break
         }
 
-        // Пропускаем строки выше верхней границы видимости
         if (r.y + r.height >= -40) {
             ctx.beginPath()
-            var radius = (isCurrentLine ? 3.2 : 2.2) * scale
+            var radius = 2.2 * scale
             ctx.arc(centerX, dotY, radius, 0, 2 * Math.PI)
-            ctx.fillStyle = isCurrentLine ? activeColor : textColor
+            ctx.fillStyle = textColor
             ctx.fill()
         }
 

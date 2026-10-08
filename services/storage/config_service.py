@@ -214,6 +214,7 @@ class ConfigService:
         3. folder_path/_<category>_settings.json (если передан)
         """
         cfg = {}
+        # 1. Системные дефолты (config/default/<category>.json)
         default_file = self.config_dir / "default" / f"{category}.json"
         if default_file.exists():
             try:
@@ -223,6 +224,7 @@ class ConfigService:
             except Exception as e:
                 _safe_print(f"[ConfigService] Ошибка чтения {default_file.name}: {e}")
 
+        # 2. Пользовательские переопределения (config/user/<category>.json), если папка/файл существуют
         user_file = self.config_dir / "user" / f"{category}.json"
         if user_file.exists():
             try:
@@ -267,14 +269,8 @@ class ConfigService:
 
     @staticmethod
     def is_config_filename(filename: str) -> bool:
-        if not filename:
-            return False
-        fn = filename.strip().lower()
-        return (
-            fn.startswith("_настройка каталога ")
-            or fn.startswith("настройка каталога ")
-            or fn in ["_settings.md", ".settings.md", "folder_settings.md"]
-        )
+        return False
+
 
     def get_config_file_path(self, folder_path: Path) -> Path:
         if not folder_path or not folder_path.exists() or not folder_path.is_dir():
@@ -288,9 +284,9 @@ class ConfigService:
         return preferred
 
     def ensure_folder_config(self, folder_path: Path) -> Path:
-        """Создает файл настроек, если он еще не существует, и возвращает путь."""
-        if not folder_path or not folder_path.exists() or not folder_path.is_dir():
-            return Path()
+        """Служебные файлы настроек в папке отключены."""
+        return Path()
+
         config_path = self.get_config_file_path(folder_path)
         if not config_path.exists():
             template = generate_folder_config_template(folder_path.name)

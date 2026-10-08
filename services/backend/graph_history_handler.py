@@ -42,6 +42,17 @@ class GraphHistoryHandlerMixin:
         folder = self.file_service.to_path(folder_url) if folder_url else self._current_folder
         return self.graph_service.get_config(folder)
 
+    @pyqtSlot("QVariantMap")
+    @pyqtSlot(str, "QVariantMap")
+    def save_graph_visual_layers(self, folder_url_or_layers, layers: dict | None = None):
+        """Сохраняет состояние слоев (showBlocks, showTags, showLinks и их рёбер) в config/user/graph.json"""
+        if isinstance(folder_url_or_layers, dict):
+            target_layers = folder_url_or_layers
+        else:
+            target_layers = layers or {}
+        if target_layers:
+            self.graph_service.save_graph_visual_layers(target_layers)
+
     @pyqtSlot(str, "QVariantMap")
     def save_node_positions(self, folder_url: str, positions: dict):
         """Сохраняет пользовательские или равновесные координаты узлов графа"""
