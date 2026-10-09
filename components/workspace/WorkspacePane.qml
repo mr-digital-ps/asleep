@@ -99,6 +99,16 @@ Item {
 
     function toggleCenteredMode() {
         workspacePane.isCenteredMode = !workspacePane.isCenteredMode
+        let report = "[CENTERED_MODE] Pane: " + (workspacePane.isActivePane ? "Active" : "Secondary")
+                   + " | isCenteredMode: " + workspacePane.isCenteredMode
+                   + " | ViewMode: " + workspacePane.viewMode
+                   + " | PaneWidth: " + workspacePane.width
+                   + " | SheetWidth: " + workspacePane.effectiveSheetWidth
+                   + " | CustomWidth: " + workspacePane.customSheetWidth
+        console.log(report)
+        if (typeof backend !== "undefined" && backend && typeof backend.log_event === "function") {
+            backend.log_event("CENTERED_MODE", report)
+        }
     }
 
     function toggleScrollbar() {
@@ -117,18 +127,12 @@ Item {
 
     // Режим локального графа заметки
     property bool isLocalGraphMode: false
-    readonly property bool isProjectTree: false
-
 
     property alias paneGraphView: paneGraphView
     property alias paneHeader: paneHeader
     property alias paperSheet: paperSheet
     property alias liveSheet: liveSheet
     property alias liveScroll: liveScroll
-
-    // Обратная совместимость с MainBar
-    property alias sheetGraphView: paneGraphView
-    property alias docHeader: paneHeader
 
     property string statsString: "0 слов · 0 знаков"
 
@@ -177,7 +181,6 @@ Item {
     signal toggleSplitRequested()
     signal openRequested()
     signal openSplitRequested()
-    signal nodeSelected(string fileUrl, string label, string nodeType)
     signal closeGraphRequested()
     signal fileDragStarted(string url, string name, real gx, real gy)
     signal fileDragMoved(real gx, real gy)
@@ -213,6 +216,15 @@ Item {
 
     onFileUrlChanged: Controller.handleFileUrlChanged(editorArea, workspacePane, (typeof backend !== "undefined" ? backend : null))
 
+    onTextChanged: {
+        if (workspacePane.isLiveMode && liveSheet) {
+            liveSheet.sourceText = workspacePane.text || ""
+            if (typeof liveSheet.parseDocument === "function") {
+                liveSheet.parseDocument()
+            }
+        }
+    }
+
     function ensureCursorVisible() {
         Controller.ensureCursorVisible(workspacePane, editorArea, editorScroll)
     }
@@ -231,17 +243,18 @@ Item {
         }
     }
 
-    property string activeBlockName: ""
+    property string activeBlockName: workspacePane.isLiveMode ? (liveSheet ? liveSheet.activeBlockName : "") : _editorBlockName
+    property string _editorBlockName: ""
 
-    // Отслеживание текущего активного блока по положению курсора
+    // Отслеживание текущего активного блока по положению курсора в Source Mode
     Connections {
         target: editorArea
         function onCursorPositionChanged() {
-            if (workspacePane.isGraphMode) return
+            if (workspacePane.isGraphMode || workspacePane.isLiveMode) return
             var b = BlockSync.getCurrentBlockInfo(editorArea, (typeof backend !== "undefined" ? backend : null))
             var bName = (b && b.heading) ? b.heading : ""
-            if (workspacePane.activeBlockName !== bName) {
-                workspacePane.activeBlockName = bName
+            if (workspacePane._editorBlockName !== bName) {
+                workspacePane._editorBlockName = bName
             }
         }
     }
@@ -310,7 +323,6 @@ Item {
         fileUrl: workspacePane.fileUrl
         folderUrl: workspacePane.folderUrl
         breadcrumbTitle: workspacePane.breadcrumbTitle
-        isProjectTree: workspacePane.isProjectTree
         isSplitMode: workspacePane.isSplitMode
         isActivePane: workspacePane.isActivePane
         isEmpty: workspacePane.isEmpty
@@ -579,7 +591,6 @@ Item {
                     }
 
                     onPaneActivated: workspacePane.paneActivated()
-                    onNodeSelected: (fUrl, lbl, nodeType) => workspacePane.nodeSelected(fUrl, lbl, nodeType)
                 }
             }
         }
@@ -606,7 +617,10 @@ Item {
             }
             onNodeClicked: (fUrl, lbl, type) => {
                 workspacePane.paneActivated()
-                workspacePane.nodeSelected(fUrl, lbl, type)
+                var target = (type === "block" && lbl) ? (lbl) : (lbl || "")
+                if (backend && typeof backend.open_wiki_link === "function") {
+                    backend.open_wiki_link(target, workspacePane.folderUrl)
+                }
             }
             onToggleInfoRequested: {
                 workspacePane.toggleInfoMode()

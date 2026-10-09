@@ -93,6 +93,12 @@ class MarkdownHighlighter(QSyntaxHighlighter):
         self.fmt_conceal.setForeground(QColor("transparent"))
         self.fmt_conceal.setFontPointSize(0.001)
 
+        # Тусклый формат служебных скобок ([[ ]], *, _) когда курсор находится на активной строке
+        self.fmt_syntax_dim = QTextCharFormat()
+        self.fmt_syntax_dim.setForeground(QColor("#525252"))
+        self.fmt_syntax_dim.setFontWeight(QFont.Weight.Normal)
+        self.fmt_syntax_dim.setFontUnderline(False)
+
         # Формат скрытия хеша заголовка на неактивной строке
         self.fmt_conceal_hash = QTextCharFormat()
         self.fmt_conceal_hash.setForeground(QColor("transparent"))
@@ -319,18 +325,27 @@ class MarkdownHighlighter(QSyntaxHighlighter):
         while it_link.hasNext():
             match = it_link.next()
             self.setFormat(match.capturedStart(), match.capturedLength(), self.fmt_link)
-            if lp and not is_active:
-                self.setFormat(match.capturedStart(1), 1, self.fmt_conceal)
-                self.setFormat(match.capturedEnd(1) - 1, 1, self.fmt_conceal)
-                self.setFormat(match.capturedStart(3), match.capturedLength(3), self.fmt_conceal)
+            if lp:
+                if not is_active:
+                    self.setFormat(match.capturedStart(1), 1, self.fmt_conceal)
+                    self.setFormat(match.capturedEnd(1) - 1, 1, self.fmt_conceal)
+                    self.setFormat(match.capturedStart(3), match.capturedLength(3), self.fmt_conceal)
+                else:
+                    self.setFormat(match.capturedStart(1), 1, self.fmt_syntax_dim)
+                    self.setFormat(match.capturedEnd(1) - 1, 1, self.fmt_syntax_dim)
+                    self.setFormat(match.capturedStart(3), match.capturedLength(3), self.fmt_syntax_dim)
 
         it_wiki = self.re_wikilink.globalMatch(text)
         while it_wiki.hasNext():
             match = it_wiki.next()
             self.setFormat(match.capturedStart(), match.capturedLength(), self.fmt_wikilink)
-            if lp and not is_active:
-                self.setFormat(match.capturedStart(1), match.capturedLength(1), self.fmt_conceal)
-                self.setFormat(match.capturedStart(3), match.capturedLength(3), self.fmt_conceal)
+            if lp:
+                if not is_active:
+                    self.setFormat(match.capturedStart(1), match.capturedLength(1), self.fmt_conceal)
+                    self.setFormat(match.capturedStart(3), match.capturedLength(3), self.fmt_conceal)
+                else:
+                    self.setFormat(match.capturedStart(1), match.capturedLength(1), self.fmt_syntax_dim)
+                    self.setFormat(match.capturedStart(3), match.capturedLength(3), self.fmt_syntax_dim)
 
 
         # 12. Встроенный код `code` (поверх остальных)

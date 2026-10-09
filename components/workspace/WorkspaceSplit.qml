@@ -149,7 +149,6 @@ Item {
     signal toggleGraphRequested()
     signal toggleLocalGraphRequested()
     signal toggleSplitRequested()
-    signal nodeSelected(string fileUrl, string label, string nodeType)
     signal closeGraphRequested()
     signal openStructureRequested()
 
@@ -199,13 +198,9 @@ Item {
                 splitLayout.isPrimaryGraphVisible = false
                 splitLayout.closeGraphRequested()
             }
-            onNodeSelected: (fUrl, lbl, type) => {
-                splitLayout.isPrimaryGraphVisible = false
-                splitLayout.nodeSelected(fUrl, lbl, type)
-            }
             onOpenStructureRequested: splitLayout.openStructureRequested()
         }
-
+ 
         // Вертикальный разделитель
         Item {
             id: splitterDivider
@@ -281,10 +276,6 @@ Item {
             onCloseGraphRequested: {
                 splitLayout.isSecondaryGraphVisible = false
                 splitLayout.closeGraphRequested()
-            }
-            onNodeSelected: (fUrl, lbl, type) => {
-                splitLayout.isSecondaryGraphVisible = false
-                splitLayout.nodeSelected(fUrl, lbl, type)
             }
             onOpenStructureRequested: splitLayout.openStructureRequested()
         }

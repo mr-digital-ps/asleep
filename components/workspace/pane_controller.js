@@ -81,10 +81,6 @@ function applyEditorConfig(mainBar, editorArea, cfg, backend) {
     return Frontmatter.applyEditorConfig(mainBar, editorArea, cfg, backend)
 }
 
-function initSessionConfig(mainBar, backend) {
-    return Frontmatter.initSessionConfig(mainBar, backend)
-}
-
 function ensureCursorVisible(mainBar, editorArea, editorScroll) {
     if (!editorArea || !editorScroll || !editorScroll.contentItem) return
     if (!editorArea.activeFocus) return
@@ -255,14 +251,7 @@ function handleLiveModeChanged(mainBar, editorArea, backend) {
             }
         }
 
-        if (backend && typeof backend.get_current_config === "function") {
-            try {
-                var cfgStr = backend.get_current_config()
-                if (cfgStr) {
-                    mainBar.applyConfig(JSON.parse(cfgStr))
-                }
-            } catch(e) {}
-        }
+        // Не перезатираем пользовательский isCenteredMode и сессионные флаги при простом переключении режима линзы
         if (backend && typeof backend.set_editor_line_height === "function") {
             backend.set_editor_line_height(editorArea, mainBar.editorLineHeightPercent)
         }
@@ -348,7 +337,6 @@ function initMainBar(mainBar, editorArea, backend) {
             }
         } catch(e) {}
     }
-    initSessionConfig(mainBar, backend)
     if (backend) {
         if (typeof backend.set_editor_line_height === "function") {
             backend.set_editor_line_height(editorArea, mainBar.editorLineHeightPercent)
@@ -363,6 +351,12 @@ function handleLineHeightChanged(editorArea, mainBar, backend) {
 }
 
 function handleFileUrlChanged(editorArea, mainBar, backend) {
+    if (mainBar && mainBar.liveSheet && editorArea) {
+        mainBar.liveSheet.sourceText = editorArea.text || ""
+        if (typeof mainBar.liveSheet.parseDocument === "function") {
+            mainBar.liveSheet.parseDocument()
+        }
+    }
     if (backend) {
         if (typeof backend.set_editor_line_height === "function") {
             Qt.callLater(function() { backend.set_editor_line_height(editorArea, mainBar.editorLineHeightPercent) })

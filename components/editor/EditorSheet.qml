@@ -28,8 +28,6 @@ Rectangle {
     property var containerItem: null
     property var editorScroll: null
 
-    readonly property bool isProjectTree: false
-
     property var _liveDraftText: undefined
 
     onFileUrlChanged: {

@@ -40,6 +40,7 @@ class Backend(
     themeConfigChanged = pyqtSignal()
     appConfigChanged = pyqtSignal()
     historyUpdated = pyqtSignal()
+    noteOpened = pyqtSignal(str, str)  # (file_url, block_name) — прямой фасад навигации по ссылкам
 
     def __init__(self):
         super().__init__()
@@ -189,13 +190,6 @@ class Backend(
     def clear_all_drop_zones(self):
         self.window_manager.clear_all_drop_zones()
 
-    @pyqtSlot(result=int)
-    def get_window_count(self) -> int:
-        try:
-            return len(self.window_manager.get_windows())
-        except Exception:
-            return 1
-
     # --- BlockEngine Facade ---
     @pyqtSlot(str, str, str)
     def sync_block(self, source_file_url: str, heading: str, content: str):
@@ -235,6 +229,12 @@ class Backend(
         finally:
             self._is_syncing_files = False
 
+    @pyqtSlot(str, str, str, result=str)
+    def replace_block_text(self, text: str, heading_norm: str, new_content: str) -> str:
+        """Заменяет именованный блок в тексте по правилам синтаксиса диалекта"""
+        updated, _ = replace_block_in_markdown(text, heading_norm, new_content)
+        return updated
+
     @pyqtSlot(str, result="QVariantMap")
     def get_block(self, heading: str) -> dict:
         return self.block_engine.get_block(heading)
@@ -259,3 +259,16 @@ class Backend(
     def get_action_keys(self, action: str) -> list:
         """Возвращает комбинации клавиш для указанного действия"""
         return self.hotkey_service.get_action_keys(action)
+
+    @pyqtSlot(str, str)
+    def log_event(self, tag: str, message: str):
+        """Логирует события приложения в консоль и debug.log в кодировке UTF-8"""
+        line = f"[{tag}] {message}"
+        safe_print(line)
+        try:
+            log_dir = Path(".agents")
+            log_dir.mkdir(exist_ok=True)
+            with open(log_dir / "debug.log", "a", encoding="utf-8") as f:
+                f.write(line + "\n")
+        except Exception:
+            pass

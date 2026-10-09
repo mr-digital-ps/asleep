@@ -32,10 +32,10 @@ Rectangle {
 
     // Модель сегментов
     property var segments: []
+    property string activeBlockName: ""
 
     signal textChangedByUser(string fullText)
     signal paneActivated()
-    signal nodeSelected(string fileUrl, string label, string nodeType)
 
     color: Theme.bgPaper
 
@@ -80,16 +80,6 @@ Rectangle {
         }
     }
 
-    function openWikiLink(targetName) {
-        if (!targetName) return
-        var clean = targetName.trim()
-        var fUrl = ""
-        if (backendInstance && typeof backendInstance.get_note_file_url === "function") {
-            fUrl = backendInstance.get_note_file_url(clean, liveSheetRoot.folderUrl)
-        }
-        liveSheetRoot.nodeSelected(fUrl, clean, "file")
-    }
-
     function focusPreviousSegment(currentIndex) {
         for (let i = currentIndex - 1; i >= 0; i--) {
             let item = repeater.itemAt(i)
@@ -107,6 +97,22 @@ Rectangle {
             if (item && item.focusTop) {
                 item.focusTop()
                 return true
+            }
+        }
+        return false
+    }
+
+    function scrollToBlock(blockName) {
+        if (!blockName || !liveSheetRoot.segments) return
+        var targetNorm = blockName.trim().toLowerCase()
+        for (var i = 0; i < liveSheetRoot.segments.length; i++) {
+            var seg = liveSheetRoot.segments[i]
+            if (seg.type === "block" && (seg.name || "").trim().toLowerCase() === targetNorm) {
+                var item = repeater.itemAt(i)
+                if (item && typeof item.focusTop === "function") {
+                    item.focusTop()
+                    return true
+                }
             }
         }
         return false
@@ -278,7 +284,11 @@ Rectangle {
                         onActivated: liveSheetRoot.paneActivated()
                         onRequestPreviousSegment: () => liveSheetRoot.focusPreviousSegment(index)
                         onRequestNextSegment: () => liveSheetRoot.focusNextSegment(index)
-                        onOpenWikiLinkRequested: (target) => liveSheetRoot.openWikiLink(target)
+                        onIsFocusedChanged: {
+                            if (isFocused) {
+                                liveSheetRoot.activeBlockName = modelData.name || "(безымянный)"
+                            }
+                        }
                     }
                 }
 
@@ -295,9 +305,10 @@ Rectangle {
                         onActivated: liveSheetRoot.paneActivated()
                         onRequestPreviousSegment: () => liveSheetRoot.focusPreviousSegment(index)
                         onRequestNextSegment: () => liveSheetRoot.focusNextSegment(index)
-                        onOpenWikiLinkRequested: (target) => liveSheetRoot.openWikiLink(target)
-                        onOpenTargetRequested: (fUrl, bName) => {
-                            liveSheetRoot.nodeSelected(fUrl, bName, "block")
+                        onIsFocusedChanged: {
+                            if (isFocused) {
+                                liveSheetRoot.activeBlockName = (modelData.targetFile ? (modelData.targetFile + " › ") : "") + (modelData.targetBlock || "")
+                            }
                         }
                     }
                 }
@@ -322,7 +333,11 @@ Rectangle {
                         onActivated: liveSheetRoot.paneActivated()
                         onRequestPreviousSegment: () => liveSheetRoot.focusPreviousSegment(index)
                         onRequestNextSegment: () => liveSheetRoot.focusNextSegment(index)
-                        onOpenWikiLinkRequested: (target) => liveSheetRoot.openWikiLink(target)
+                        onIsFocusedChanged: {
+                            if (isFocused) {
+                                liveSheetRoot.activeBlockName = ""
+                            }
+                        }
                     }
                 }
             }

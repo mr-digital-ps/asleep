@@ -51,51 +51,6 @@ class OutlineHandlerMixin:
         return False
 
 
-    @pyqtSlot(str, int, int, str, result=str)
-    @pyqtSlot(str, int, int, str, str, result=str)
-    def reorder_document_outline(self, text: str, source_idx: int, target_idx: int, position: str = "before", filename: str = "") -> str:
-        """Перемещает блок и его подразделы до или после другого блока"""
-        try:
-            is_proj = bool(filename and hasattr(self, "is_project_structure_file") and self.is_project_structure_file(filename))
-            return self.outline_service.reorder_blocks(text, source_idx, target_idx, position, parse_list_items=is_proj)
-        except Exception as e:
-            safe_print(f"[Backend] Ошибка перестановки блоков: {e}")
-            return text
-
-    @pyqtSlot(str, int, int, result=str)
-    @pyqtSlot(str, int, int, str, result=str)
-    def change_outline_level(self, text: str, block_idx: int, delta: int, filename: str = "") -> str:
-        """Изменяет уровень заголовка блока (например H2 -> H3)"""
-        try:
-            is_proj = bool(filename and hasattr(self, "is_project_structure_file") and self.is_project_structure_file(filename))
-            return self.outline_service.change_block_level(text, block_idx, delta, parse_list_items=is_proj)
-        except Exception as e:
-            safe_print(f"[Backend] Ошибка изменения уровня заголовка: {e}")
-            return text
-
-    @pyqtSlot(str, int, str, result=str)
-    @pyqtSlot(str, int, str, str, result=str)
-    def update_outline_block_heading(self, text: str, block_idx: int, new_heading: str, filename: str = "") -> str:
-        """Обновляет заголовок или текст списочного элемента блока в документе и возвращает обновленный текст документа"""
-        try:
-            is_proj = bool(filename and hasattr(self, "is_project_structure_file") and self.is_project_structure_file(filename))
-            return self.outline_service.update_block_heading(text, block_idx, new_heading, parse_list_items=is_proj)
-        except Exception as e:
-            safe_print(f"[Backend] Ошибка update_outline_block_heading: {e}")
-            return text
-
-    @pyqtSlot(str, int, str, result=str)
-    @pyqtSlot(str, int, str, str, result=str)
-    def update_outline_block_content(self, text: str, block_idx: int, new_content: str, filename: str = "") -> str:
-        """Обновляет текст блока в документе и возвращает обновленный текст документа"""
-        try:
-            is_proj = bool(filename and hasattr(self, "is_project_structure_file") and self.is_project_structure_file(filename))
-            return self.outline_service.update_block_content(text, block_idx, new_content, parse_list_items=is_proj)
-        except Exception as e:
-            safe_print(f"[Backend] Ошибка update_outline_block_content: {e}")
-            return text
-
-
     @pyqtSlot(str, result="QVariantMap")
     @pyqtSlot(result="QVariantMap")
     def sync_project_structure_file(self, folder_url: str = "") -> dict:
@@ -138,43 +93,7 @@ class OutlineHandlerMixin:
             safe_print(f"[Backend] Ошибка чтения дерева проекта: {e}")
             return []
 
-    @pyqtSlot(str, result="QVariantMap")
-    def get_project_tree_flat(self, text: str) -> dict:
-        """Возвращает заголовок и плоский список элементов структуры проекта"""
-        try:
-            return self.outline_service.parse_project_tree_flat(text)
-        except Exception as e:
-            safe_print(f"[Backend] Ошибка get_project_tree_flat: {e}")
-            return {"header": "", "items": []}
 
-    @pyqtSlot(str, int, int, str, result=str)
-    @pyqtSlot(str, int, int, result=str)
-    def reorder_project_tree(self, text: str, source_idx: int, target_idx: int, position: str = "before") -> str:
-        """Перемещает элемент в структуре проекта с учетом его вложенности"""
-        try:
-            return self.outline_service.reorder_project_tree(text, source_idx, target_idx, position)
-        except Exception as e:
-            safe_print(f"[Backend] Ошибка reorder_project_tree: {e}")
-            return text
-
-    @pyqtSlot(str, int, int, result=str)
-    def change_project_tree_level(self, text: str, item_idx: int, delta: int) -> str:
-        """Повышает/понижает отступ элемента дерева проекта"""
-        try:
-            return self.outline_service.change_project_tree_level(text, item_idx, delta)
-        except Exception as e:
-            safe_print(f"[Backend] Ошибка change_project_tree_level: {e}")
-            return text
-
-    @pyqtSlot(str, str, str, int, result=str)
-    @pyqtSlot(str, str, str, result=str)
-    def add_project_tree_item(self, text: str, label: str, item_type: str = "file", target_idx: int = -1) -> str:
-        """Добавляет новый элемент (папку или заметку) в структуру проекта"""
-        try:
-            return self.outline_service.add_project_tree_item(text, label, item_type, target_idx)
-        except Exception as e:
-            safe_print(f"[Backend] Ошибка add_project_tree_item: {e}")
-            return text
 
     # --- Сквозной Single Source of Truth, Undo/Redo и Проекция курсора ---
 

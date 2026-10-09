@@ -212,6 +212,46 @@ class FileHandlerMixin:
             safe_print(f"[Backend] Ошибка создания заметки '{clean}': {e}")
             return ""
 
+    @pyqtSlot(str, str, result=bool)
+    @pyqtSlot(str, result=bool)
+    def open_wiki_link(self, target: str, folder_url: str = "") -> bool:
+        """
+        Универсальный фасад перехода по Wiki-ссылке ([[Заметка]], [[Заметка#Блок]], [[#Блок]]).
+        Эмитит сигнал noteOpened(file_url, block_name) и возвращает успех.
+        """
+        raw = target.strip()
+        if not raw:
+            return False
+        # Очистка от скобок [[ ]] если переданы с ними
+        if raw.startswith("[[") and raw.endswith("]]"):
+            raw = raw[2:-2].strip()
+
+        # Разбор: Заметка#Блок или #Блок или Заметка
+        note_name = ""
+        block_name = ""
+        if "#" in raw:
+            parts = raw.split("#", 1)
+            note_name = parts[0].strip()
+            block_name = parts[1].strip()
+        else:
+            note_name = raw
+
+        file_url = ""
+        if note_name:
+            file_url = self.get_note_file_url(note_name, folder_url)
+        elif folder_url:
+            # Ссылка на блок внутри текущего открытого файла
+            file_url = folder_url
+
+        if not file_url:
+            safe_print(f"[Backend] open_wiki_link: не удалось найти или создать файл для '{target}'")
+            return False
+
+        safe_print(f"[Backend] open_wiki_link -> noteOpened(file_url='{file_url}', block_name='{block_name}')")
+        if hasattr(self, "noteOpened"):
+            self.noteOpened.emit(file_url, block_name)
+        return True
+
     @pyqtSlot(str, result="QVariantMap")
     @pyqtSlot(str, str, result="QVariantMap")
     def get_file_created_time(self, file_url_or_path: str, folder_url: str = "") -> dict:

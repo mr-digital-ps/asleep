@@ -12,7 +12,6 @@ Item {
     property string fileUrl: ""
     property string folderUrl: ""
     property string breadcrumbTitle: ""
-    property bool isProjectTree: false
     property bool isSplitMode: false
     property bool isActivePane: false
     property bool isEmpty: false
@@ -160,7 +159,7 @@ Item {
                 folderUrl: headerRoot.folderUrl
                 fileUrl: headerRoot.fileUrl
                 fileName: headerRoot.fileName
-                mode: (headerRoot.isGraphMode || headerRoot.isProjectTree) ? "project" : "note"
+                mode: headerRoot.isGraphMode ? "project" : "note"
                 statsText: headerRoot.statsText
 
                 onActivated: headerRoot.paneActivated()

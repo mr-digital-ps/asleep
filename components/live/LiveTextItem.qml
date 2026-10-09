@@ -18,7 +18,6 @@ Item {
     signal activated()
     signal requestPreviousSegment()
     signal requestNextSegment()
-    signal openWikiLinkRequested(string target)
 
     function tryOpenLink(txt, pos) {
         if (!txt) return false
@@ -26,7 +25,10 @@ Item {
         let match
         while ((match = re.exec(txt)) !== null) {
             if (pos >= match.index && pos <= match.index + match[0].length) {
-                textItemRoot.openWikiLinkRequested(match[1].trim())
+                let target = match[1].trim()
+                if (backendInstance && typeof backendInstance.open_wiki_link === "function") {
+                    return backendInstance.open_wiki_link(target)
+                }
                 return true
             }
         }
@@ -181,11 +183,20 @@ Item {
             event.accepted = false
         }
 
-        TapHandler {
-            acceptedModifiers: Qt.ControlModifier
-            onTapped: (point) => {
-                let pos = textInputArea.positionAt(point.position.x, point.position.y)
-                textItemRoot.tryOpenLink(textInputArea.text, pos)
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: (mouse.modifiers & Qt.ControlModifier) ? Qt.PointingHandCursor : Qt.IBeamCursor
+            acceptedButtons: Qt.LeftButton
+            propagateComposedEvents: true
+            onPressed: (mouse) => {
+                if (mouse.modifiers & Qt.ControlModifier) {
+                    let pos = textInputArea.positionAt(mouse.x, mouse.y)
+                    if (textItemRoot.tryOpenLink(textInputArea.text, pos)) {
+                        mouse.accepted = true
+                        return
+                    }
+                }
+                mouse.accepted = false
             }
         }
 

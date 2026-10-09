@@ -26,8 +26,6 @@ Rectangle {
     signal activated()
     signal requestPreviousSegment()
     signal requestNextSegment()
-    signal openWikiLinkRequested(string target)
-    signal openTargetRequested(string fileUrl, string blockName)
 
     property bool isFolded: false
 
@@ -41,9 +39,20 @@ Rectangle {
         let match
         while ((match = re.exec(txt)) !== null) {
             if (pos >= match.index && pos <= match.index + match[0].length) {
-                transclusionRoot.openWikiLinkRequested(match[1].trim())
+                let target = match[1].trim()
+                if (backendInstance && typeof backendInstance.open_wiki_link === "function") {
+                    return backendInstance.open_wiki_link(target)
+                }
                 return true
             }
+        }
+        return false
+    }
+
+    function openTarget(tFile, bName) {
+        let fullTarget = tFile ? (bName ? (tFile + "#" + bName) : tFile) : ("#" + bName)
+        if (backendInstance && typeof backendInstance.open_wiki_link === "function") {
+            return backendInstance.open_wiki_link(fullTarget)
         }
         return false
     }
@@ -273,7 +282,7 @@ Rectangle {
             let isHeaderLine = (firstLineEnd === -1) ? true : (cursorPosition <= firstLineEnd)
             if (event.modifiers & Qt.ControlModifier) {
                 if (isHeaderLine) {
-                    transclusionRoot.openTargetRequested(transclusionRoot.targetFile, transclusionRoot.targetBlock)
+                    transclusionRoot.openTarget(transclusionRoot.targetFile, transclusionRoot.targetBlock)
                     event.accepted = true
                     return
                 }
@@ -285,17 +294,27 @@ Rectangle {
             event.accepted = false
         }
 
-        TapHandler {
-            acceptedModifiers: Qt.ControlModifier
-            onTapped: (point) => {
-                let pos = transTextArea.positionAt(point.position.x, point.position.y)
-                let firstLineEnd = transTextArea.text.indexOf("\n")
-                let isHeaderLine = (firstLineEnd === -1) ? true : (pos <= firstLineEnd)
-                if (isHeaderLine) {
-                    transclusionRoot.openTargetRequested(transclusionRoot.targetFile, transclusionRoot.targetBlock)
-                } else {
-                    transclusionRoot.tryOpenLink(transTextArea.text, pos)
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: (mouse.modifiers & Qt.ControlModifier) ? Qt.PointingHandCursor : Qt.IBeamCursor
+            acceptedButtons: Qt.LeftButton
+            propagateComposedEvents: true
+            onPressed: (mouse) => {
+                if (mouse.modifiers & Qt.ControlModifier) {
+                    let pos = transTextArea.positionAt(mouse.x, mouse.y)
+                    let firstLineEnd = transTextArea.text.indexOf("\n")
+                    let isHeaderLine = (firstLineEnd === -1) ? true : (pos <= firstLineEnd)
+                    if (isHeaderLine) {
+                        transclusionRoot.openTarget(transclusionRoot.targetFile, transclusionRoot.targetBlock)
+                        mouse.accepted = true
+                        return
+                    }
+                    if (transclusionRoot.tryOpenLink(transTextArea.text, pos)) {
+                        mouse.accepted = true
+                        return
+                    }
                 }
+                mouse.accepted = false
             }
         }
 

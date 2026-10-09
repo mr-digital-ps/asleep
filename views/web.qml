@@ -7,7 +7,6 @@ import "../components/dialogs"
 import "../components/hotkeys"
 import "../components/theme"
 import "./web_lifecycle.js" as WebLifecycle
-import "../components/editor/markdown_shortcuts.js" as Markdown
 
 Rectangle {
     id: root
@@ -102,12 +101,20 @@ Rectangle {
 
     Connections {
         target: (typeof backend !== "undefined") ? backend : null
+        ignoreUnknownSignals: true
         function onFolderFilesChanged() { root.reloadFolderFiles() }
         function onBlockUpdated(headingNorm, content, sourceFileUrl) {
-            WebLifecycle.handleBlockUpdated(root, splitLayout, headingNorm, content, sourceFileUrl)
+            WebLifecycle.handleBlockUpdated(root, splitLayout, headingNorm, content, sourceFileUrl, backend)
         }
         function onConfigUpdated(configJson) { root.applyFolderConfig(configJson) }
         function onAppConfigChanged() { root.reloadAppConfig() }
+        function onNoteOpened(fileUrl, blockName) {
+            var fileName = backend.get_file_name_from_url(fileUrl)
+            root.openFileFromFolder(fileUrl, fileName, false)
+            if (blockName && splitLayout && splitLayout.activePane && splitLayout.activePane.liveSheet) {
+                splitLayout.activePane.liveSheet.scrollToBlock(blockName)
+            }
+        }
     }
 
     function openFileFromFolder(fileUrl, fileName, isShift) {
@@ -171,7 +178,7 @@ Rectangle {
     function reloadHotkeys() { hotkeyManager.reloadHotkeys() }
 
     function executeAction(action) {
-        WebLifecycle.dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Markdown, action)
+        WebLifecycle.dispatchAction(root, splitLayout, openDialog, saveDialog, backend, action)
     }
 
     function closeActiveTab() { WebLifecycle.closeActiveTab(root) }
@@ -205,8 +212,6 @@ Rectangle {
         openFileUrls: root.openFileUrls
         currentFolderUrl: root.currentFolderUrl
         currentFolderName: root.currentFolderName
-
-        onNodeSelected: (fUrl, lbl, nodeType) => WebLifecycle.handleNodeSelected(root, splitLayout, fUrl, lbl, nodeType, backend)
 
         onPrimaryTitleChanged: (newTitle) => root.renameTab(root.primaryTabIndex, newTitle)
         onSecondaryTitleChanged: (newTitle) => root.renameTab(root.secondaryTabIndex, newTitle)

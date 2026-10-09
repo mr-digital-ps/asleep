@@ -502,39 +502,6 @@ function openFileFromFolder(root, fileUrl, fileName, isShift, backend) {
     }
 }
 
-function replaceBlockInString(text, headingNorm, newContent) {
-    if (!text) return text
-    var headingRegex = /^[ \t]*(#{1,6})\s+(.+)$/gm
-    var match
-    var matches = []
-    while ((match = headingRegex.exec(text)) !== null) {
-        matches.push({
-            start: match.index,
-            end: match.index + match[0].length,
-            title: match[2].trim()
-        })
-    }
-
-    var updatedText = text
-    for (var i = matches.length - 1; i >= 0; i--) {
-        var m = matches[i]
-        if (m.title.toLowerCase() === headingNorm.toLowerCase()) {
-            var contentStart = m.end
-            var contentEnd = (i + 1 < matches.length) ? matches[i + 1].start : text.length
-            var oldContent = text.substring(contentStart, contentEnd)
-            var cleanOld = oldContent.replace(/^\r?\n/, "").replace(/\r?\n$/, "")
-            var cleanNew = newContent.replace(/^\r?\n/, "").replace(/\r?\n$/, "")
-            if (cleanOld === cleanNew) continue
-
-            var formattedNew = "\n" + cleanNew + (i + 1 < matches.length ? "\n\n" : "\n")
-            var before = updatedText.substring(0, contentStart)
-            var after = updatedText.substring(contentEnd)
-            updatedText = before + formattedNew + after
-        }
-    }
-    return updatedText
-}
-
 // =========================================================================
 // Файлы папки и конфигурация
 // =========================================================================
@@ -562,7 +529,7 @@ function applyFolderConfig(root, splitLayout, configJson) {
     } catch(e) {}
 }
 
-function handleBlockUpdated(root, splitLayout, headingNorm, content, sourceFileUrl) {
+function handleBlockUpdated(root, splitLayout, headingNorm, content, sourceFileUrl, backend) {
     var primarySource = splitLayout && splitLayout.primaryBar ? (splitLayout.primaryBar.fileUrl || ("tab://" + (splitLayout.primaryBar.fileName || "doc"))) : ""
     var secondarySource = (root.isSplit && splitLayout && splitLayout.secondaryBar) ? (splitLayout.secondaryBar.fileUrl || ("tab://" + (splitLayout.secondaryBar.fileName || "doc"))) : ""
 
@@ -577,8 +544,8 @@ function handleBlockUpdated(root, splitLayout, headingNorm, content, sourceFileU
         var tabSource = tab ? (tab.fileUrl || ("tab://" + (tab.title || "doc"))) : ""
         if (tab && tabSource !== sourceFileUrl) {
             var isDisplayed = (i === root.primaryTabIndex || (root.isSplit && i === root.secondaryTabIndex))
-            if (!isDisplayed && tab.content) {
-                var replaced = replaceBlockInString(tab.content, headingNorm, content)
+            if (!isDisplayed && tab.content && backend && typeof backend.replace_block_text === "function") {
+                var replaced = backend.replace_block_text(tab.content, headingNorm, content)
                 if (replaced !== tab.content) {
                     tab.content = replaced
                 }
@@ -703,7 +670,7 @@ function saveFile(root, saveDialog, backend) {
     }
 }
 
-function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Markdown, action) {
+function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, action) {
     switch (action) {
         case "toggle_header":
             applyToBothBars(splitLayout, "toggleHeaderOnly")
@@ -792,16 +759,6 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, Mark
             break
         case "save_file":
             saveFile(root, saveDialog, backend)
-            break
-        case "toggle_bold":
-            if (splitLayout && splitLayout.activeEditorArea && Markdown) {
-                Markdown.toggleBold(splitLayout.activeEditorArea)
-            }
-            break
-        case "toggle_italic":
-            if (splitLayout && splitLayout.activeEditorArea && Markdown) {
-                Markdown.toggleItalic(splitLayout.activeEditorArea)
-            }
             break
         case "toggle_graph":
             if (splitLayout && typeof splitLayout.toggleGraph === "function") {
@@ -1067,62 +1024,4 @@ function handleGlobalKeyEvent(root, splitLayout, hotkeyManager, backend, event) 
         }
     }
     return false
-}
-
-function handleNodeSelected(root, splitLayout, fUrl, lbl, nodeType, backend) {
-    if (!root || !splitLayout) return
-    // Для узла-блока lbl — это имя блока, а не имя файла!
-    // Извлекаем настоящее имя файла из fUrl:
-    var fileName = lbl
-    if (nodeType === "block" && fUrl) {
-        var clean = fUrl.replace(/\\/g, "/").replace(/\/$/, "")
-        var slashIdx = clean.lastIndexOf("/")
-        if (slashIdx !== -1) {
-            fileName = clean.substring(slashIdx + 1)
-            try {
-                fileName = decodeURIComponent(fileName)
-            } catch(e) {}
-        }
-    }
-    openFileFromFolder(root, fUrl, fileName, false, backend)
-
-    if (nodeType === "block" && lbl) {
-        Qt.callLater(function() {
-            var activeBar = getActiveBar(root, splitLayout)
-            if (!activeBar) return
-
-            // Принудительно включаем режим полного пути (Папка.Файл.Блок)
-            if (typeof activeBar.showPathMode === "function") {
-                activeBar.showPathMode()
-            }
-
-            if (!activeBar.editorArea) return
-            var text = activeBar.editorArea.text || ""
-            if (!text) return
-
-            // Регулярное выражение для поиска объявления блока: Имя Блока {
-            var escapedLbl = lbl.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-            var regex = new RegExp("^([ \t]*" + escapedLbl + "[ \t]*\\{)", "mi")
-            var match = regex.exec(text)
-
-            // Если не нашел строго в начале строки, ищем первое вхождение "Имя {"
-            if (!match) {
-                var simpleRegex = new RegExp("(" + escapedLbl + "[ \t]*\\{)", "i")
-                match = simpleRegex.exec(text)
-            }
-
-            if (match) {
-                var targetPos = match.index + match[0].length
-                if (targetPos < text.length && text.charAt(targetPos) === '\r') targetPos++
-                if (targetPos < text.length && text.charAt(targetPos) === '\n') targetPos++
-                activeBar.editorArea.cursorPosition = targetPos
-                activeBar.activeBlockName = lbl.trim()
-                if (typeof activeBar.ensureCursorVisible === "function") {
-                    activeBar.ensureCursorVisible()
-                }
-            } else {
-                activeBar.activeBlockName = lbl.trim()
-            }
-        })
-    }
 }

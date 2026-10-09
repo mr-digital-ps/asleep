@@ -9,19 +9,19 @@
 | **Окно (Window)** | `views/window.qml`, `WindowFrame.qml` | 🟢 Работает | Безрамочное окно, resize, drag, закрытие, QML движок собирает дерево |
 | **Тема (Theme)** | `components/theme/Theme.qml`, `config/default/theme.json` | 🟢 Работает | Цвета и стили темы |
 | **Конфиги (Config)** | `config/default/*.json` | 🟢 Работает | App, Theme, Editor, Hotkeys, Graph |
-| **Рабочее пространство (Workspace)** | `components/workspace/` | 🟢 Работает | Сплит панелей `WorkspaceSplit`, единый контейнер `WorkspacePane` с `paneBody` (переключение `editor` / `graph`), единый `PaneHeader` |
-| **Лист редактора** | `components/editor/EditorSheet.qml` | 🟢 Работает | Чистый бумажный лист: фокус, TextArea, подсветка синтаксиса MarkdownHighlighter активна |
-| **Хедер панели** | `components/workspace/PaneHeader.qml` | 🟢 Работает | Единый расширяемый HUD: заголовок, булавка, встроенный Git Graph таймлайн (`history`), статистика (`info`), плавающая высота |
+| **Рабочее пространство (Workspace)** | `components/workspace/` | 🟢 Чист (Аудит 100%) | Сплит панелей `WorkspaceSplit`, контейнер `WorkspacePane` без мертвых сигналов, устранен сброс центрирования |
+| **Лист редактора** | `components/editor/EditorSheet.qml` | 🟢 Чист (Аудит 100%) | Чистый бумажный лист, удален мертвый флаг isProjectTree, скролл естественный |
+| **Живой режим (Live Mode)** | `components/live/` | 🟢 Чист (Аудит 100%) | `LiveSheet`, `LiveBlockItem`, `LiveTextItem`, `LiveTransclusionItem`: прямой переход Ctrl+Click/Return в бэкенд, удален мертвый TapHandler |
+| **Хедер панели** | `components/workspace/PaneHeader.qml` | 🟢 Чист (Аудит 100%) | Единый расширяемый HUD: заголовок, булавка, удален мертвый флаг isProjectTree, чистый mode switch |
 | **Футер панели** | `components/workspace/PaneFooter.qml` | ❌ Удалён | Полностью устранён: функционал истории и статистики перенесен в расширяемый PaneHeader, освобождая низ экрана |
 | **История (History)** | `components/history/` | 🟢 Работает | Горизонтальный Git Graph таймлайн, моноширинный блок даты/времени, встроен в выдвижной ящик хедера |
 | **Сайдбар** | `components/sidebar/` | ❌ Удалён | Исключён из архитектуры проекта: упор на чистый минималистичный лист |
-| **Сплиты (Split)** | `components/workspace/WorkspaceSplit.qml` | 🟢 Работает | Разделение экрана на 2 панели (Ctrl+\), ресайз сплиттера, независимый ввод |
+| **Сплиты (Split)** | `components/workspace/WorkspaceSplit.qml` | 🟢 Чист (Аудит 100%) | Удалены промежуточные сигналы `nodeSelected`, прямое управление сплитом |
 | **Хоткеи** | `components/hotkeys/`, `services/system/hotkey_service.py` | 🟢 Работает | Аппаратный GlobalHotkeyFilter, русская раскладка, Ctrl+S/N/O/W, Alt+W, Alt+P |
-| **Граф знаний** | `components/graph/GraphView.qml` | 🟢 Работает | Интерактивный Canvas-граф (Ctrl+G, Alt+G), физика связей, центрирование |
-| **Аутлайнер / Структура** | `components/outliner/` | ❌ Удалён | Устранён как избыточный параллельный слой: контейнер `paneBody` переключает только `editor` и `graph` |
-| **Парсер диалекта** | `services/content/user_dialect_parser.py` | 🟢 Работает | Пользовательский диалект для писателей/сценаристов: блоки `Имя { ... }`, трансклюзия `Имя()`, `Файл.Имя()`, `[[...]]`, экранирование кода |
-| **Detached Tabs** | `tabs.js` (открепление на рабочий стол) | ❌ Удалён | Вычищен: в монолитной модели используется чистый Split View без рассинхронов |
-| **Views Контроллеры** | `views/web_lifecycle.js`, `views/window_controller.js` | 🟢 Монолит | Устранены `views/tabs/` и `action_dispatcher.js`, единый жизненный цикл и диспетчеризация |
+| **Граф знаний** | `components/graph/GraphView.qml` | 🟢 Работает | Интерактивный Canvas-граф (Ctrl+G, Alt+G), клик узла напрямую открывает заметку в бэкенде |
+| **Бэкенд Фасад** | `services/backend/` | 🟢 Чист (Аудит 100%) | Единый фасад: `open_wiki_link`, `noteOpened`, `replace_block_text`, вырезано 81 строк мертвых методов в `outline_handler.py`, удален дубликат `get_window_count` |
+| **Аутлайнер и Диалект** | `services/content/document_outline.py` | 🟢 Чист (Аудит 100%) | Удалены мертвые обертки манипуляции деревом проекта (`reorder_project_tree`, `change_project_tree_level`, `add_project_tree_item`), оставлен чистый парсер диалекта |
+| **Views Контроллеры** | `views/web_lifecycle.js` | 🟢 Чист (Аудит 100%) | Вырезано 97 строк мертвого кода (`handleNodeSelected`, `replaceBlockInString`), синхронизация блоков через Python |
 
 ## Текущий этап: Все основные фазы (1 - 5) завершены и архитектура очищена
 - [x] Окно открывается с правильным фоном темы
