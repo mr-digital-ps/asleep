@@ -202,7 +202,10 @@ class MarkdownHighlighter(QSyntaxHighlighter):
         doc = self.document()
         if not doc:
             return
-        block = doc.findBlock(pos)
+        # Зажимаем позицию в пределах реального размера документа (characterCount включает завершающий маркер)
+        max_pos = max(0, doc.characterCount() - 1)
+        safe_pos = max(0, min(pos, max_pos))
+        block = doc.findBlock(safe_pos)
         new_block_num = block.blockNumber() if block.isValid() else -1
         if new_block_num != self.active_block_number:
             old_block_num = self.active_block_number
@@ -261,7 +264,10 @@ class MarkdownHighlighter(QSyntaxHighlighter):
         it_brace = self.re_brace.globalMatch(text)
         while it_brace.hasNext():
             m_brace = it_brace.next()
-            self.setFormat(m_brace.capturedStart(), m_brace.capturedLength(), self.fmt_brace)
+            if lp and not is_active:
+                self.setFormat(m_brace.capturedStart(), m_brace.capturedLength(), self.fmt_conceal)
+            else:
+                self.setFormat(m_brace.capturedStart(), m_brace.capturedLength(), self.fmt_brace)
 
         # 4. Цитаты
         if self.re_quote.match(text).hasMatch():
@@ -364,3 +370,14 @@ class MarkdownHighlighter(QSyntaxHighlighter):
         while it_tag.hasNext():
             match = it_tag.next()
             self.setFormat(match.capturedStart(1), match.capturedLength(1), self.fmt_tag)
+
+        # 14. Фигурные скобки блоков ({ и }) — скрываются на неактивных строках в Live Mode
+        it_brace = self.re_brace.globalMatch(text)
+        while it_brace.hasNext():
+            match = it_brace.next()
+            m_pos = match.capturedStart()
+            if lp and not is_active:
+                self.setFormat(m_pos, 1, self.fmt_conceal)
+            else:
+                self.setFormat(m_pos, 1, self.fmt_brace)
+

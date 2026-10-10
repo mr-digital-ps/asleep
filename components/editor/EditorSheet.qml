@@ -93,6 +93,8 @@ Rectangle {
         focusMode: sheetRoot.focusMode
     }
 
+    property bool isLiveMode: false
+
     // Рабочая область документа (Gutter + TextArea + шорткаты)
     EditorCanvas {
         id: editorCanvas
@@ -104,6 +106,7 @@ Rectangle {
         availableHeight: sheetRoot.availableHeight
         barSize: sheetRoot.barSize
         showLineDots: sheetRoot.showLineDots
+        isLiveMode: sheetRoot.isLiveMode
         tabSize: sheetRoot.tabSize
         hasHeader: sheetRoot.showHeader
         hasFooter: false

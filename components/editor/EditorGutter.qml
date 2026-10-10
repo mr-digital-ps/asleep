@@ -9,6 +9,7 @@ Item {
     property var editorArea: null
     property int barSize: 36
     property bool showDots: true
+    property bool isLiveMode: false
     signal activated()
 
     width: barSize
@@ -76,6 +77,11 @@ Item {
             function onFontChanged() { gutterCanvas.requestPaint() }
         }
 
-        onPaint: GutterRenderer.drawGutterDots(gutterCanvas, gutterItem.editorArea, width, height, Theme.gutterActive, Theme.gutterText)
+        Connections {
+            target: gutterItem
+            function onIsLiveModeChanged() { gutterCanvas.requestPaint() }
+        }
+
+        onPaint: GutterRenderer.drawGutterDots(gutterCanvas, gutterItem.editorArea, width, height, Theme.gutterActive, Theme.gutterText, gutterItem.isLiveMode)
     }
 }

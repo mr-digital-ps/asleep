@@ -111,8 +111,13 @@ Rectangle {
         function onNoteOpened(fileUrl, blockName) {
             var fileName = backend.get_file_name_from_url(fileUrl)
             root.openFileFromFolder(fileUrl, fileName, false)
-            if (blockName && splitLayout && splitLayout.activePane && splitLayout.activePane.liveSheet) {
-                splitLayout.activePane.liveSheet.scrollToBlock(blockName)
+            if (blockName && splitLayout && splitLayout.activeEditorArea) {
+                var area = splitLayout.activeEditorArea
+                var t = area.text || ""
+                var idx = t.indexOf(blockName)
+                if (idx !== -1) {
+                    area.cursorPosition = idx
+                }
             }
         }
     }

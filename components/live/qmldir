@@ -1,6 +1,0 @@
-module components.live
-LiveSheet 1.0 LiveSheet.qml
-LiveBlockItem 1.0 LiveBlockItem.qml
-LiveTransclusionItem 1.0 LiveTransclusionItem.qml
-LiveDividerItem 1.0 LiveDividerItem.qml
-LiveTextItem 1.0 LiveTextItem.qml
