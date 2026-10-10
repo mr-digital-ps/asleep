@@ -1,4 +1,4 @@
-// markdown_shortcuts.js — чистая логика форматирования и горячих клавиш редактора Markdown
+// markdown_shortcuts.js — чистая логика форматирования и горячих клавиш редактора
 
 function wrapSelection(editor, prefix, suffix) {
     let start = editor.selectionStart

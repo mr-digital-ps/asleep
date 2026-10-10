@@ -32,7 +32,7 @@ function isItalicKey(event) {
     return (event.key === Qt.Key_I || event.nativeScanCode === 23 || event.key === 1064 || event.key === 1096 || event.text === 'i' || event.text === 'I' || event.text === 'ш' || event.text === 'Ш')
 }
 
-// Перехват шорткатов на уровне ShortcutOverride сообщает Qt, что активный редактор забирает комбинацию себе (только текст и Markdown)
+// Перехват шорткатов на уровне ShortcutOverride сообщает Qt, что активный редактор забирает комбинацию себе (только текст и форматирование)
 function handleShortcutOverride(event, canvasRoot, editorArea, Markdown) {
     if (isBoldKey(event) || isItalicKey(event)) {
         event.accepted = true
@@ -156,7 +156,7 @@ function handleKeyPressed(event, canvasRoot, editorArea, Markdown) {
         return true
     }
 
-    // Форматирование Markdown
+    // Форматирование текста
     if (isBoldKey(event)) {
         event.accepted = true
         Markdown.toggleBold(editorArea)
