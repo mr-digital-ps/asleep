@@ -212,7 +212,7 @@ tags:
     assert matcher.match_event(ev_line_dots) == "toggle_line_dots", "Alt+L/Alt+Д должен распознаваться как toggle_line_dots"
 
     # 7. Тест GraphService
-    from services.graph.graph_service import GraphService
+    from services.graph_service import GraphService
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_p = Path(tmp_dir)
         (tmp_p / "doc1.txt").write_text("# ОбщийБлок\nТекст 1\nСмотри [[doc2]] и #проект\n", encoding="utf-8")
@@ -281,7 +281,7 @@ tags:
     assert "test_node" in node_pos and node_pos["test_node"]["x"] == 100, "backend.save_node_positions/get_node_positions должны корректно работать"
 
     # 8. Тест HistoryService
-    from services.history.history_service import HistoryService
+    from services.history_service import HistoryService
     with tempfile.TemporaryDirectory() as tmp_hist_dir:
         th_p = Path(tmp_hist_dir)
         (th_p / "note1.txt").write_text("# Заметка 1\nТекст с [[note2]]", encoding="utf-8")
@@ -543,8 +543,8 @@ def test_structure():
         "services/content/block_parser.py",
         "services/content/document_outline.py",
         "services/content/outline_service.py",
-        "services/history/history_service.py",
-        "services/graph/graph_service.py",
+        "services/history_service.py",
+        "services/graph_service.py",
         "services/system/window_manager.py",
         "services/system/hotkey_service.py",
         "services/system/reloader.py",

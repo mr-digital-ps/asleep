@@ -7,8 +7,8 @@ from services.content import (
     OutlineService,
     DocumentOutlineManager,
 )
-from services.history import HistoryService
-from services.graph import GraphService
+from services.history_service import HistoryService
+from services.graph_service import GraphService
 from services.system import WindowManager, HotkeyService, setup_live_reload
 
 __all__ = [

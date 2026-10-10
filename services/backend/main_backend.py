@@ -8,8 +8,8 @@ from services.system.window_manager import WindowManager
 from services.storage.file_service import FileService
 from services.storage.config_service import ConfigService
 from services.system.hotkey_service import HotkeyService, GlobalHotkeyFilter
-from services.graph.graph_service import GraphService
-from services.history.history_service import HistoryService
+from services.graph_service import GraphService
+from services.history_service import HistoryService
 from services.content.outline_service import OutlineService
 from services.content.document_session import DocumentSession
 

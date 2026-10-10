@@ -1,4 +1,4 @@
-﻿"""
+"""
 generate_synthetic_project.py â€” Ð“ÐµÐ½ÐµÑ€Ð°Ñ‚Ð¾Ñ€ Ñ€ÐµÐ°Ð»Ð¸ÑÑ‚Ð¸Ñ‡Ð½Ð¾Ð³Ð¾ ÑÐ¸Ð½Ñ‚ÐµÑ‚Ð¸Ñ‡ÐµÑÐºÐ¾Ð³Ð¾ Ð¿Ñ€Ð¾ÐµÐºÑ‚Ð° ÑÑ†ÐµÐ½Ð°Ñ€Ð¸ÐµÐ²
 Ñ Ð±Ð¾Ð³Ð°Ñ‚Ð¾Ð¹ Ð¸ÑÑ‚Ð¾Ñ€Ð¸ÐµÐ¹ (20 Ñ„Ð°Ð¹Ð»Ð¾Ð², Ð½Ðµ Ð¼ÐµÐ½ÐµÐµ 3-5 Ñ…Ð°Ð¾Ñ‚Ð¸Ñ‡Ð½Ñ‹Ñ… Ð¸Ð·Ð¼ÐµÐ½ÐµÐ½Ð¸Ð¹ Ð² ÐºÐ°Ð¶Ð´Ð¾Ð¼ Ñ„Ð°Ð¹Ð»Ðµ).
 
@@ -21,8 +21,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from services.history.history_service import HistoryService
-from services.graph.graph_service import GraphService
+from services.history_service import HistoryService
+from services.graph_service import GraphService
 from services.storage.file_service import FileService
 from services.storage.config_service import ConfigService
 
