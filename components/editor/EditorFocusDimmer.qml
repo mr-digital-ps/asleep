@@ -10,7 +10,7 @@ Item {
 
     visible: focusMode && editorArea && editorArea.activeFocus
     opacity: (focusMode && editorArea && editorArea.activeFocus) ? 1.0 : 0.0
-    Behavior on opacity { NumberAnimation { duration: 200 } }
+    Behavior on opacity { NumberAnimation { duration: Theme.animDurationNormal } }
     z: 5
     enabled: false
 
@@ -26,7 +26,7 @@ Item {
         }
         height: targetH
         color: Qt.rgba(Theme.bgPaper.r, Theme.bgPaper.g, Theme.bgPaper.b, 0.8)
-        Behavior on height { NumberAnimation { duration: 70; easing.type: Easing.OutQuad } }
+        Behavior on height { NumberAnimation { duration: Theme.animDurationFast; easing.type: Easing.OutQuad } }
     }
 
     Rectangle {
@@ -42,7 +42,7 @@ Item {
         y: targetY
         height: Math.max(0, parent.height - targetY)
         color: Qt.rgba(Theme.bgPaper.r, Theme.bgPaper.g, Theme.bgPaper.b, 0.8)
-        Behavior on y { NumberAnimation { duration: 70; easing.type: Easing.OutQuad } }
-        Behavior on height { NumberAnimation { duration: 70; easing.type: Easing.OutQuad } }
+        Behavior on y { NumberAnimation { duration: Theme.animDurationFast; easing.type: Easing.OutQuad } }
+        Behavior on height { NumberAnimation { duration: Theme.animDurationFast; easing.type: Easing.OutQuad } }
     }
 }

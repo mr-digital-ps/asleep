@@ -72,7 +72,7 @@ MouseArea {
         color: (handleRoot.isDragging || handleRoot.pressed) ? Theme.textSelected : Theme.borderHover
         opacity: (handleRoot.forceVisible || handleRoot.containsMouse || handleRoot.isDragging || handleRoot.pressed) ? 1.0 : 0.0
         Behavior on opacity {
-            NumberAnimation { duration: 100 }
+            NumberAnimation { duration: Theme.animDurationFast }
         }
     }
 }

@@ -242,7 +242,7 @@ RowLayout {
                     : (historyBarRoot.currentDayIndex / (historyBarRoot.daysList.length - 1))
                 return Math.max(0, Math.min(totalW, totalW * progressRatio))
             }
-            Behavior on width { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+            Behavior on width { NumberAnimation { duration: Theme.animDurationNormal; easing.type: Easing.OutQuad } }
         }
 
         // Узлы (коммиты/срезы) на горизонтальном таймлайне
@@ -288,9 +288,9 @@ RowLayout {
                         : (nodeItem.isHovered ? Theme.accentColor : Theme.textSecondary)
                     border.width: nodeItem.isHighlighted ? 2 : 1
 
-                    Behavior on width { NumberAnimation { duration: 100 } }
-                    Behavior on color { ColorAnimation { duration: 100 } }
-                    Behavior on border.color { ColorAnimation { duration: 100 } }
+                    Behavior on width { NumberAnimation { duration: Theme.animDurationFast } }
+                    Behavior on color { ColorAnimation { duration: Theme.animDurationFast } }
+                    Behavior on border.color { ColorAnimation { duration: Theme.animDurationFast } }
 
                     // Внутренняя точка для активного узла git graph
                     Rectangle {

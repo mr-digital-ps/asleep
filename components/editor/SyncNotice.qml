@@ -38,7 +38,7 @@ Rectangle {
     }
 
     Behavior on opacity {
-        NumberAnimation { duration: 180 }
+        NumberAnimation { duration: Theme.animDurationNormal }
     }
 
     Timer {
