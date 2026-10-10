@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import "../theme"
-import "../history"
 
 Item {
     id: headerRoot

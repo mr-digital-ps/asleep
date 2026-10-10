@@ -446,7 +446,7 @@ def test_qml():
         "components/workspace/WorkspaceSplit.qml",
         "components/workspace/WorkspacePane.qml",
         "components/workspace/PaneHeader.qml",
-        "components/history/HistoryTimelineBar.qml",
+        "components/workspace/HistoryTimelineBar.qml",
         "components/editor/EditorSheet.qml",
         "components/editor/EditorCanvas.qml",
         "components/editor/EditorScrollbar.qml",
@@ -520,7 +520,7 @@ def test_qml():
 
     # 4. Тест контроллера таймлайна (getDaysList)
     import json
-    timeline_js = (PROJECT_DIR / "components" / "history" / "timeline_controller.js").read_text(encoding="utf-8")
+    timeline_js = (PROJECT_DIR / "components" / "workspace" / "timeline_controller.js").read_text(encoding="utf-8")
     clean_timeline_js = timeline_js.replace(".pragma library", "")
     js_engine.evaluate(clean_timeline_js)
     f = backend.get_default_folder()
@@ -554,9 +554,8 @@ def test_structure():
         "config/default/syntax.json",
         # JS-контроллеры и логика фич (Feature-based)
         "views/web_lifecycle.js",
-        "views/window_controller.js",
         "components/editor/editor_shortcuts.js",
-        "components/history/timeline_controller.js",
+        "components/workspace/timeline_controller.js",
         "components/graph/graph_physics.js",
         "components/graph/graph_renderer.js",
         "components/graph/graph_interaction.js",
@@ -575,10 +574,9 @@ def test_structure():
         "components/workspace/WorkspaceSplit.qml",
         "components/workspace/WorkspacePane.qml",
         "components/workspace/PaneHeader.qml",
+        "components/workspace/HistoryTimelineBar.qml",
         "components/workspace/pane_controller.js",
         "components/workspace/qmldir",
-        "components/history/HistoryTimelineBar.qml",
-        "components/history/qmldir",
         "components/graph/GraphView.qml",
         "components/graph/qmldir",
         "views/web.qml",

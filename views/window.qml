@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import "../components/theme"
-import "./window_controller.js" as WindowCtrl
 
 ApplicationWindow {
     id: root
@@ -27,7 +26,17 @@ ApplicationWindow {
         focus: true
         Keys.forwardTo: (item ? [item] : [])
         source: "web.qml"
-        onLoaded: WindowCtrl.handleLoaderLoaded(root, item, (typeof backend !== "undefined" ? backend : null))
+        onLoaded: {
+            if (item) {
+                item.appWindow = root
+                if (typeof item.applyInitialState === "function") {
+                    item.applyInitialState()
+                }
+            }
+            if (typeof backend !== "undefined" && backend && typeof backend.register_window === "function") {
+                backend.register_window(root, item)
+            }
+        }
     }
 
     // Рамка приложения и интерактивное изменение размера окна (инлайновый монолит)
@@ -147,13 +156,37 @@ ApplicationWindow {
         id: saveGeomTimer
         interval: (typeof backend !== "undefined" && backend && backend.get_app_config().window_save_geometry_delay_ms) ? backend.get_app_config().window_save_geometry_delay_ms : 600
         repeat: false
-        onTriggered: WindowCtrl.saveWindowGeometry(root, (typeof backend !== "undefined" ? backend : null))
+        onTriggered: {
+            if (typeof backend !== "undefined" && backend && typeof backend.save_window_geometry === "function") {
+                if (root.visibility !== Window.Maximized) {
+                    backend.save_window_geometry(root.x, root.y, root.width, root.height)
+                }
+            }
+        }
     }
 
     onWidthChanged: saveGeomTimer.restart()
     onHeightChanged: saveGeomTimer.restart()
 
-    Component.onCompleted: WindowCtrl.initWindow(root, (typeof backend !== "undefined" ? backend : null))
+    Component.onCompleted: {
+        if (typeof backend !== "undefined" && backend && typeof backend.get_session_config === "function") {
+            try {
+                var sess = backend.get_session_config()
+                if (sess) {
+                    if (typeof sess.win_width === "number" && sess.win_width >= root.minimumWidth) {
+                        root.width = sess.win_width
+                    }
+                    if (typeof sess.win_height === "number" && sess.win_height >= root.minimumHeight) {
+                        root.height = sess.win_height
+                    }
+                }
+            } catch(e) {}
+        }
+    }
 
-    onClosing: WindowCtrl.handleWindowClosing(root, (typeof backend !== "undefined" ? backend : null))
+    onClosing: {
+        if (typeof backend !== "undefined" && backend && typeof backend.unregister_window === "function") {
+            backend.unregister_window(root)
+        }
+    }
 }

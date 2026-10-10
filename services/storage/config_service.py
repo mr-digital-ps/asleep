@@ -282,17 +282,6 @@ class ConfigService:
             return Path()
         return folder_path / self.get_config_filename(folder_path.name)
 
-    def ensure_folder_config(self, folder_path: Path) -> Path:
-        """Служебные файлы настроек в папке отключены."""
-        return Path()
-
-        config_path = self.get_config_file_path(folder_path)
-        if not config_path.exists():
-            template = generate_folder_config_template(folder_path.name)
-            config_path.write_text(template, encoding="utf-8")
-            _safe_print(f"[ConfigService] Создан файл настроек каталога: {config_path.name}")
-        return config_path
-
     def load_folder_config(self, folder_path: Path) -> dict:
         """Считывает настройки из папки, выполняет слияние с дефолтами и сохраняет в память."""
         self._current_folder = folder_path
