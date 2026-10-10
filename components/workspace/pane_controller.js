@@ -19,7 +19,7 @@ function calculateStats(text) {
 
 function stripExt(name) {
     if (!name) return ""
-    return name.replace(/\.md$/i, "")
+    return name.replace(/\.(txt|md|markdown)$/i, "")
 }
 
 function formatBreadcrumbTitle(folderUrl, currentFolderName, fileUrl, fileName, activeBlockName) {

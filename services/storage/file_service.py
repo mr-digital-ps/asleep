@@ -104,7 +104,7 @@ class FileService:
                     return {ext.lower().strip() for ext in app_cfg["supported_extensions"] if ext}
             except Exception:
                 pass
-        return {".md", ".markdown", ".txt"}
+        return {".txt", ".md", ".markdown"}
 
     def get_folder_files(self, folder_url: str) -> list:
         """Возвращает список файлов в рабочей папке с учетом настроек ignored_directories и supported_extensions"""
@@ -177,18 +177,18 @@ class FileService:
             return False
 
     def create_file_in_folder(self, folder_url: str, base_name: str = "Новый документ") -> dict:
-        """Создает новый файл .md на диске в рабочей папке"""
+        """Создает новый файл .txt на диске в рабочей папке"""
         try:
             folder = self.to_path(folder_url)
             if not folder.exists():
                 folder.mkdir(parents=True, exist_ok=True)
 
-            ext = ".md"
+            ext = ".txt"
             raw_name = base_name.strip()
-            if raw_name.endswith(".md"):
-                raw_name = raw_name[:-3]
-            elif raw_name.endswith(".txt"):
+            if raw_name.endswith(".txt"):
                 raw_name = raw_name[:-4]
+            elif raw_name.endswith(".md"):
+                raw_name = raw_name[:-3]
             if not raw_name:
                 raw_name = "Новый документ"
 
@@ -222,7 +222,7 @@ class FileService:
             if not raw:
                 return {"success": False, "fileUrl": file_url, "fileName": path.name}
 
-            target_ext = path.suffix or ".md"
+            target_ext = path.suffix or ".txt"
             if not raw.lower().endswith(target_ext.lower()):
                 raw += target_ext
 

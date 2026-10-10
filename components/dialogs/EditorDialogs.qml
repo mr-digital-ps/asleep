@@ -28,8 +28,8 @@ Item {
         title: "Открыть файл"
         fileMode: FileDialog.OpenFile
         currentFolder: dialogsRoot.currentFolderUrl
-        nameFilters: ["Markdown (*.md)", "Текстовые файлы (*.txt)", "Все файлы (*.*)"]
-        defaultSuffix: "md"
+        nameFilters: ["Текстовые файлы (*.txt)", "Markdown (*.md)", "Все файлы (*.*)"]
+        defaultSuffix: "txt"
         onAccepted: {
             dialogsRoot.fileOpenAccepted(selectedFile.toString())
         }
@@ -40,8 +40,8 @@ Item {
         title: "Сохранить файл как..."
         fileMode: FileDialog.SaveFile
         currentFolder: dialogsRoot.currentFolderUrl
-        nameFilters: ["Markdown (*.md)", "Текстовые файлы (*.txt)", "Все файлы (*.*)"]
-        defaultSuffix: "md"
+        nameFilters: ["Текстовые файлы (*.txt)", "Markdown (*.md)", "Все файлы (*.*)"]
+        defaultSuffix: "txt"
         onAccepted: {
             dialogsRoot.fileSaveAccepted(selectedFile.toString())
         }

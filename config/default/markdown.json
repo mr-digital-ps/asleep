@@ -13,7 +13,7 @@
     "md_link_pattern": "\\[([^\\]]+)\\]\\(([^)]+\\.(?:md|markdown|txt))\\)",
 
     // Поддерживаемые расширения файлов для построения связей графа
-    "target_extensions": [".md", ".markdown", ".txt"],
+    "target_extensions": [".txt", ".md", ".markdown"],
 
     // Учитывать ли регистр при сопоставлении имен заметок
     "case_sensitive": false
