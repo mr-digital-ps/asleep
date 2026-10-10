@@ -117,21 +117,7 @@ tags:
     assert valid_re.pattern == r"@([a-zA-Z0-9_]+)", "Корректный regex должен компилироваться"
 
 
-    # 5. Тест MarkdownHighlighter
-    from services.content.syntax_highlighter import MarkdownHighlighter
-    from PyQt6.QtGui import QTextDocument
-    test_doc = QTextDocument()
-    test_doc.setPlainText("# Заголовок\n**жирный**\n`код`\n- [ ] задача")
-    highlighter = MarkdownHighlighter(test_doc)
-    assert highlighter is not None, "Highlighter должен инициализироваться"
-    assert highlighter.live_preview_enabled == False, "По умолчанию MarkdownHighlighter должен быть в сухом режиме (live_preview_enabled=False)"
-    blk = test_doc.begin()
-    while blk.isValid():
-        layout = blk.layout()
-        assert len(layout.formats() if layout else []) == 0, "В сухом режиме не должно быть никаких форматов"
-        blk = blk.next()
-
-    # 6. Тест HotkeyService & GlobalHotkeyFilter
+    # 5. Тест HotkeyService & GlobalHotkeyFilter
     from services.system.hotkey_service import HotkeyService, GlobalHotkeyFilter, HotkeyMatcher
     hk_service = HotkeyService()
     hks = hk_service.get_hotkeys()
@@ -555,7 +541,6 @@ def test_structure():
         "services/storage/file_service.py",
         "services/storage/config_service.py",
         "services/content/block_parser.py",
-        "services/content/syntax_highlighter.py",
         "services/content/document_outline.py",
         "services/content/outline_service.py",
         "services/history/history_service.py",

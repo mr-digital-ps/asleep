@@ -130,12 +130,6 @@
   "toggle_line_dots": {
     "keys": ["Alt+L"],
     "description": "Показать / скрыть полосу точек и номеров строк (Line Dots / Gutter)"
-  },
-
-  // Включение / выключение режима Live Mode (Вторая линза документа)
-  "toggle_live_mode": {
-    "keys": ["Alt+E"],
-    "description": "Переключить режим документа: Исходный текст (Source) / Живой режим (Live Mode)"
   }
 }
 

@@ -3,7 +3,6 @@ from services.core import Backend, DocumentSession
 from services.storage import FileService, ConfigService
 from services.content import (
     BlockEngine,
-    MarkdownHighlighter,
     OutlineService,
     DocumentOutlineManager,
 )
@@ -17,7 +16,6 @@ __all__ = [
     "FileService",
     "ConfigService",
     "BlockEngine",
-    "MarkdownHighlighter",
     "OutlineService",
     "DocumentOutlineManager",
     "HistoryService",

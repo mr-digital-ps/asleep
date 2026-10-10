@@ -143,9 +143,6 @@ RowLayout {
                 canvasRoot.cursorVisibilityRequested()
             }
             bracketHighlightOverlay.updateBracketHighlights()
-            if (typeof backend !== "undefined" && backend && typeof backend.update_highlighter_cursor === "function") {
-                backend.update_highlighter_cursor(editorArea, cursorPosition)
-            }
         }
 
         onSelectionStartChanged: bracketHighlightOverlay.updateBracketHighlights()
@@ -220,12 +217,6 @@ RowLayout {
         onTextChanged: {
             canvasRoot.textChangedByUser()
             bracketHighlightOverlay.updateBracketHighlights()
-        }
-
-        Component.onCompleted: {
-            if (typeof backend !== "undefined" && backend && typeof backend.attach_highlighter === "function") {
-                backend.attach_highlighter(editorArea)
-            }
         }
 
         onPressed: canvasRoot.paneActivated()
