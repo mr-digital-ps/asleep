@@ -25,7 +25,6 @@ Rectangle {
     property string statsString: "0 слов · 0 знаков"
     property real availableHeight: 600
     property real viewHeight: availableHeight
-    property var containerItem: null
     property var editorScroll: null
 
     property var _liveDraftText: undefined

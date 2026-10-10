@@ -370,7 +370,7 @@ Item {
             anchors.fill: parent
             clip: true
             contentWidth: availableWidth
-            contentHeight: scrollContentContainer.height
+            contentHeight: paperSheet ? paperSheet.height : 0
             ScrollBar.vertical.policy: ScrollBar.AlwaysOff
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
             visible: workspacePane.viewMode === "editor"
@@ -391,66 +391,61 @@ Item {
                 }
             }
 
-            Item {
-                id: scrollContentContainer
+            MouseArea {
                 width: editorScroll.availableWidth
                 height: paperSheet ? paperSheet.height : 0
+                acceptedButtons: Qt.LeftButton
+                cursorShape: Qt.ArrowCursor
+                hoverEnabled: true
+                preventStealing: true
 
-                MouseArea {
-                    anchors.fill: parent
-                    acceptedButtons: Qt.LeftButton
-                    cursorShape: Qt.ArrowCursor
-                    hoverEnabled: true
-                    preventStealing: true
-
-                    onPressed: (mouse) => {
-                        if (mouse.button === Qt.LeftButton) {
-                            workspacePane.paneActivated()
-                            var win = workspacePane.targetWindow
-                            if (win && typeof win.startSystemMove === "function") {
-                                win.startSystemMove()
-                            }
-                        }
-                    }
-                    onDoubleClicked: {
+                onPressed: (mouse) => {
+                    if (mouse.button === Qt.LeftButton) {
+                        workspacePane.paneActivated()
                         var win = workspacePane.targetWindow
-                        if (win) {
-                            if (win.visibility === Window.Maximized) {
-                                win.showNormal()
-                            } else {
-                                win.showMaximized()
-                            }
+                        if (win && typeof win.startSystemMove === "function") {
+                            win.startSystemMove()
                         }
                     }
                 }
-
-                EditorEmptyState {
-                    visible: workspacePane.isEmpty
+                onDoubleClicked: {
+                    var win = workspacePane.targetWindow
+                    if (win) {
+                        if (win.visibility === Window.Maximized) {
+                            win.showNormal()
+                        } else {
+                            win.showMaximized()
+                        }
+                    }
                 }
+            }
 
-                EditorSheet {
-                    id: paperSheet
-                    barSize: workspacePane.barSize
-                    fileName: workspacePane.fileName
-                    fileUrl: workspacePane.fileUrl
-                    folderUrl: workspacePane.folderUrl
-                    isCenteredMode: workspacePane.isCenteredMode
-                    customSheetWidth: workspacePane.customSheetWidth
-                    minSheetWidth: workspacePane.minSheetWidth
-                    isSplitMode: workspacePane.isSplitMode
-                    isActivePane: workspacePane.isActivePane
-                    isEmpty: workspacePane.isEmpty
-                    typewriterMode: workspacePane.typewriterMode
-                    focusMode: workspacePane.focusMode
-                    isHeaderPinned: workspacePane.isHeaderPinned
-                    showHeader: workspacePane.showHeader
-                    showLineDots: workspacePane.showLineDots
-                    tabSize: workspacePane.tabSize
-                    scrollY: workspacePane.scrollY
-                    availableHeight: paneBody.height
-                    viewHeight: paneBody.height
-                    containerItem: scrollContentContainer
-                    editorScroll: editorScroll
+            EditorEmptyState {
+                visible: workspacePane.isEmpty
+            }
+
+            EditorSheet {
+                id: paperSheet
+                barSize: workspacePane.barSize
+                fileName: workspacePane.fileName
+                fileUrl: workspacePane.fileUrl
+                folderUrl: workspacePane.folderUrl
+                isCenteredMode: workspacePane.isCenteredMode
+                customSheetWidth: workspacePane.customSheetWidth
+                minSheetWidth: workspacePane.minSheetWidth
+                isSplitMode: workspacePane.isSplitMode
+                isActivePane: workspacePane.isActivePane
+                isEmpty: workspacePane.isEmpty
+                typewriterMode: workspacePane.typewriterMode
+                focusMode: workspacePane.focusMode
+                isHeaderPinned: workspacePane.isHeaderPinned
+                showHeader: workspacePane.showHeader
+                showLineDots: workspacePane.showLineDots
+                tabSize: workspacePane.tabSize
+                scrollY: workspacePane.scrollY
+                availableHeight: paneBody.height
+                viewHeight: paneBody.height
+                editorScroll: editorScroll
 
                     onTitleChangedByUser: (t) => workspacePane.titleChangedByUser(t)
                     onPaneActivated: workspacePane.paneActivated()
@@ -487,7 +482,6 @@ Item {
                     onHeaderPinToggled: (pinned) => workspacePane.saveHeaderPinnedState(pinned)
                 }
             }
-        }
 
 
 
