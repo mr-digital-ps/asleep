@@ -9,7 +9,7 @@ class OutlineHandlerMixin:
     @pyqtSlot(str, result="QVariantList")
     @pyqtSlot(str, str, result="QVariantList")
     def get_document_outline(self, text: str, filename: str = "") -> list:
-        """Разбирает markdown-текст на плоский список иерархических блоков"""
+        """Разбирает текст на плоский список иерархических блоков"""
         try:
             h_regex = None
             if hasattr(self, "block_engine") and self.block_engine:
@@ -36,11 +36,11 @@ class OutlineHandlerMixin:
     @pyqtSlot(result=str)
     @pyqtSlot(str, result=str)
     def get_project_structure_filename(self, folder_url: str = "") -> str:
-        """Возвращает настроенное имя файла структуры проекта из конфигурации (user -> default: _notes.md)."""
+        """Возвращает настроенное имя файла структуры проекта из конфигурации (user -> default: _notes.txt)."""
         folder = self.file_service.to_path(folder_url) if folder_url else self._current_folder
         md_cfg = self.config_service.get_syntax_config(folder) or {}
         struct_file = md_cfg.get("system_files", {}).get("structure_file", "_notes.txt")
-        if not struct_file.endswith(".txt") and not struct_file.endswith(".md"):
+        if not struct_file.endswith(".txt"):
             struct_file += ".txt"
         return struct_file
 

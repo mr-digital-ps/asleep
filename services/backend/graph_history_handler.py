@@ -16,13 +16,13 @@ class GraphHistoryHandlerMixin:
     @pyqtSlot(result="QVariantMap")
     @pyqtSlot(str, result="QVariantMap")
     def sync_graph_file(self, folder_url: str = "") -> dict:
-        """Синхронизирует _Граф связей.md в рабочей папке и возвращает метаданные для открытия"""
+        """Синхронизирует _Граф связей.txt в рабочей папке и возвращает метаданные для открытия"""
         folder = self.file_service.to_path(folder_url) if folder_url else self._current_folder
         if not folder or not folder.exists() or not folder.is_dir():
             return {}
         try:
             self._is_syncing_files = True
-            p = self.graph_service.sync_graph_markdown_file(folder)
+            p = self.graph_service.sync_graph_file(folder)
             if p and p.exists():
                 return {
                     "fileUrl": QUrl.fromLocalFile(str(p.resolve())).toString(),

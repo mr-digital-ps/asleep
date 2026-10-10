@@ -32,7 +32,7 @@ Item {
 
     // Режимы рабочей области (paneBody): "editor" | "graph"
     // isGraphMode приходит снаружи из WorkspaceSplit через reactive binding.
-    // Прямое присвоение запрещено (HOTKEYS.md, Причина 1 и 5), иначе разрушается связь.
+    // Прямое присвоение запрещено, иначе разрушается связь.
     property bool isGraphMode: false
     readonly property string viewMode: isGraphMode ? "graph" : "editor"
 

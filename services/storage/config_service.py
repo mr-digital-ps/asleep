@@ -258,13 +258,7 @@ class ConfigService:
         return self.load_category_config("app", folder_path)
 
     def get_syntax_config(self, folder_path: Path | None = None) -> dict:
-        cfg = self.load_category_config("syntax", folder_path)
-        if not cfg:
-            cfg = self.load_category_config("markdown", folder_path)
-        return cfg
-
-    def get_markdown_config(self, folder_path: Path | None = None) -> dict:
-        return self.get_syntax_config(folder_path)
+        return self.load_category_config("syntax", folder_path)
 
     def get_session_config(self) -> dict:
         return self.load_category_config("session")
@@ -281,13 +275,7 @@ class ConfigService:
     def get_config_file_path(self, folder_path: Path) -> Path:
         if not folder_path or not folder_path.exists() or not folder_path.is_dir():
             return Path()
-        preferred = folder_path / self.get_config_filename(folder_path.name)
-        if preferred.exists():
-            return preferred
-        legacy = folder_path / f"Настройка каталога {folder_path.name}.txt"
-        if legacy.exists():
-            return legacy
-        return preferred
+        return folder_path / self.get_config_filename(folder_path.name)
 
     def ensure_folder_config(self, folder_path: Path) -> Path:
         """Служебные файлы настроек в папке отключены."""

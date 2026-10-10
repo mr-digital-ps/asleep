@@ -22,31 +22,31 @@ if str(PROJECT_DIR) not in sys.path:
 
 def test_services():
     print("[1/3] Проверка сервисов Python...")
-    from services.content.block_parser import BlockEngine, parse_markdown_blocks, replace_block_in_markdown
+    from services.content.block_parser import BlockEngine, parse_syntax_blocks, replace_syntax_block
     from services.storage.file_service import FileService
     from services.system.window_manager import WindowManager
     from web import Backend
 
     # 1. Тест парсера блоков пользовательского диалекта
     sample = "Заголовок 1 {\n    Тело 1\n}\n\nЗаголовок 2 {\n    Тело 2\n}\n"
-    blocks = parse_markdown_blocks(sample)
+    blocks = parse_syntax_blocks(sample)
     assert len(blocks) == 2, f"Ожидалось 2 блока, получено {len(blocks)}"
     assert blocks[0]["title"] == "Заголовок 1"
     assert blocks[0]["content"] == "Тело 1"
 
     # 2. Тест замены блока
-    updated, ok = replace_block_in_markdown(sample, "заголовок 1", "Новое тело 1")
+    updated, ok = replace_syntax_block(sample, "заголовок 1", "Новое тело 1")
     assert ok, "Замена не удалась"
     assert "Новое тело 1" in updated
 
     # 3. Тест BlockEngine и многофайловой синхронизации
     engine = BlockEngine()
-    engine.index_file_content("file:///test.md", sample)
+    engine.index_file_content("file:///test.txt", sample)
     res = engine.get_block("Заголовок 1")
     assert res["found"] and res["content"] == "Тело 1"
 
     # Проверка чистого обновления из второго файла без дублирования контента
-    _, updated_content, should_sync = engine.sync_block_data("file:///second.md", "Заголовок 1", "Новое тело из второго файла")
+    _, updated_content, should_sync = engine.sync_block_data("file:///second.txt", "Заголовок 1", "Новое тело из второго файла")
     assert should_sync and updated_content == "Новое тело из второго файла", f"Ошибка слияния: {updated_content}"
 
     # 4. Тест ConfigService
@@ -364,7 +364,7 @@ tags:
     off = session.get_block_offset(1)
     assert off == offsets[1]["start"]
 
-    # 10. Тест работы со структурой проекта (_notes.md) через единый DocumentOutlineManager
+    # 10. Тест работы со структурой проекта (_notes.txt) через единый DocumentOutlineManager
     proj_md = "# Структура проекта\n\n## Папка 1\n- [[Файл А]]\n- [[Файл Б]]\n\n## Папка 2\n- [[Файл В]]"
     parsed_tree = osvc.parse_document(proj_md)
     assert len(parsed_tree) == 6, f"Ожидалось 6 элементов (H1, H2, 2 файла, H2, 1 файл), получено {len(parsed_tree)}"
@@ -409,9 +409,9 @@ tags:
         assert deep_blocks[0]["type"] == "file"
         assert deep_blocks[0]["level"] == 5, f"Ожидался level 5, получено {deep_blocks[0]['level']}"
 
-        # 10.3. Тест обратной сериализации в Markdown
-        roundtrip_md = osvc.blocks_to_markdown(tree_blocks)
-        assert "\t\t\t- [[deep_note]]" in roundtrip_md
+        # 10.3. Тест обратной сериализации в текст
+        roundtrip_txt = osvc.blocks_to_text(tree_blocks)
+        assert "\t\t\t- [[deep_note]]" in roundtrip_txt
 
         # 10.4. Тест включения списков в контент заголовка в обычном документе (parse_list_items=False)
         doc_with_lists = "### Обзор аналогов\n- Obsidian: граф\n- Notion: базы\n- Logseq: блоки\n\n## Следующая секция\nТекст"

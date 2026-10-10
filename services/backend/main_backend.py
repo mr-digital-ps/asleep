@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from PyQt6.QtCore import QObject, pyqtSlot, pyqtSignal, QFileSystemWatcher, QCoreApplication
 
-from services.content.block_parser import BlockEngine, replace_syntax_block, replace_block_in_markdown
+from services.content.block_parser import BlockEngine, replace_syntax_block
 from services.system.window_manager import WindowManager
 from services.storage.file_service import FileService
 from services.storage.config_service import ConfigService
@@ -220,7 +220,7 @@ class Backend(
                     continue
                 try:
                     file_text = p.read_text(encoding="utf-8")
-                    new_text, modified = replace_block_in_markdown(file_text, norm, clean_content)
+                    new_text, modified = replace_syntax_block(file_text, norm, clean_content)
                     if modified and new_text != file_text:
                         p.write_text(new_text, encoding="utf-8")
                         safe_print(f"[SyncBlock] Синхронизирован блок '{heading}' в файл: {p.name}")
@@ -232,7 +232,7 @@ class Backend(
     @pyqtSlot(str, str, str, result=str)
     def replace_block_text(self, text: str, heading_norm: str, new_content: str) -> str:
         """Заменяет именованный блок в тексте по правилам синтаксиса диалекта"""
-        updated, _ = replace_block_in_markdown(text, heading_norm, new_content)
+        updated, _ = replace_syntax_block(text, heading_norm, new_content)
         return updated
 
     @pyqtSlot(str, result="QVariantMap")

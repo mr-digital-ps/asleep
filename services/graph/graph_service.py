@@ -7,12 +7,12 @@ from services.storage.config_service import parse_json_with_comments, compile_sa
 from services.content.document_outline import parse_user_dialect
 
 DEFAULT_WIKILINK_REGEX = re.compile(r'\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]')
-DEFAULT_MD_LINK_REGEX = re.compile(r'\[([^\]]+)\]\(([^)]+\.(?:md|markdown|txt))\)', re.IGNORECASE)
+DEFAULT_TXT_LINK_REGEX = re.compile(r'\[([^\]]+)\]\(([^)]+\.txt)\)', re.IGNORECASE)
 DEFAULT_TAG_REGEX = re.compile(r'(?<!\S)#([a-zA-Zа-яА-ЯёЁ0-9_\-]+)(?!\S)')
 DEFAULT_H1_REGEX = re.compile(r'^#\s+([^\n\r]+)', re.MULTILINE)
 
 WIKILINK_REGEX = DEFAULT_WIKILINK_REGEX
-MD_LINK_REGEX = DEFAULT_MD_LINK_REGEX
+TXT_LINK_REGEX = DEFAULT_TXT_LINK_REGEX
 TAG_REGEX = DEFAULT_TAG_REGEX
 H1_REGEX = DEFAULT_H1_REGEX
 
@@ -72,7 +72,7 @@ class GraphService:
 
         wl_cfg = cfg.get("wikilinks", {})
         wl_regex = compile_safe_regex(wl_cfg.get("pattern"), DEFAULT_WIKILINK_REGEX)
-        md_regex = compile_safe_regex(wl_cfg.get("link_pattern") or wl_cfg.get("md_link_pattern"), DEFAULT_MD_LINK_REGEX, re.IGNORECASE)
+        txt_regex = compile_safe_regex(wl_cfg.get("link_pattern") or wl_cfg.get("txt_link_pattern"), DEFAULT_TXT_LINK_REGEX, re.IGNORECASE)
 
         tag_cfg = cfg.get("tags", {})
         tag_regex = compile_safe_regex(tag_cfg.get("pattern"), DEFAULT_TAG_REGEX)
@@ -100,15 +100,13 @@ class GraphService:
 
         return {
             "wikilink_regex": wl_regex,
-            "md_link_regex": md_regex,
+            "txt_link_regex": txt_regex,
             "tag_regex": tag_regex,
             "tag_min": tag_min,
             "h_regex": h_regex,
             "block_min": blk_min,
             "ignore_prefixes": tuple(ignore_prefixes)
         }
-
-    get_markdown_rules = get_syntax_rules
 
     def _get_folder_key(self, folder_path: Path | str | None) -> str:
         if not folder_path:
@@ -251,10 +249,10 @@ class GraphService:
         file_tags = {}  # tag -> list of paths
 
         # 1. Первый проход: собираем файлы и индексируем имена
-        rules = self.get_markdown_rules(folder_path)
+        rules = self.get_syntax_rules(folder_path)
         ignore_prefixes = rules["ignore_prefixes"]
         wl_regex = rules["wikilink_regex"]
-        md_regex = rules["md_link_regex"]
+        txt_regex = rules["txt_link_regex"]
         h_regex = rules["h_regex"]
         tag_regex = rules["tag_regex"]
         block_min = rules["block_min"]
@@ -312,8 +310,8 @@ class GraphService:
                         nodes_map[file_url]["val"] += 1
                         nodes_map[target_url]["val"] += 1
 
-            # Б. Стандартные Markdown ссылки [текст](файл.md) как fallback
-            for m in md_regex.finditer(content):
+            # Б. Ссылки [текст](файл.txt) как fallback
+            for m in txt_regex.finditer(content):
                 raw_target = m.group(2).strip()
                 target_stem = Path(raw_target).stem.strip().lower()
                 if target_stem in files_data:
@@ -428,11 +426,11 @@ class GraphService:
         self._graph_cache[folder_key] = result
         return copy.deepcopy(result)
 
-    def generate_graph_markdown(self, folder_path: Path, graph_data: dict | None = None) -> str:
+    def generate_graph_text(self, folder_path: Path, graph_data: dict | None = None) -> str:
         """
-        Генерирует человекочитаемый Markdown-документ со структурой всех связей папки.
-        Каждая заметка представлена разделом H2 с вики-ссылкой [[Имя заметки]],
-        а её ребра (соседние заметки, общие блоки, теги) — элементами маркированного списка.
+        Генерирует человекочитаемый документ со структурой всех связей папки.
+        Каждая заметка представлена заголовком с вики-ссылкой [[Имя заметки]],
+        а её ребра (соседние заметки, общие блоки, теги) — элементами списка.
         """
         if not folder_path or not folder_path.exists() or not folder_path.is_dir():
             return "# Граф связей\n\n> Папка не найдена.\n"
@@ -448,7 +446,7 @@ class GraphService:
         block_nodes = {n["id"]: n for n in nodes if n.get("type") == "block"}
         tag_nodes = {n["id"]: n for n in nodes if n.get("type") == "tag"}
 
-        # connections: file_id -> set of (label_md, sort_order, sort_name)
+        # connections: file_id -> set of (label_text, sort_order, sort_name)
         connections = {f_id: set() for f_id in file_nodes}
 
         for l in links:
@@ -483,14 +481,14 @@ class GraphService:
             targets = connections.get(f_id, set())
             if targets:
                 sorted_targets = sorted(targets, key=lambda x: (x[1], x[2].lower()))
-                for label_md, _, _ in sorted_targets:
-                    lines.append(label_md)
+                for label_text, _, _ in sorted_targets:
+                    lines.append(label_text)
 
             lines.append("")
 
         return "\n".join(lines).strip() + "\n"
 
-    def sync_graph_markdown_file(self, folder_path: Path, graph_data: dict | None = None) -> Path | None:
+    def sync_graph_file(self, folder_path: Path, graph_data: dict | None = None) -> Path | None:
         """Служебные файлы проекции графа на диске отключены."""
         return None
 

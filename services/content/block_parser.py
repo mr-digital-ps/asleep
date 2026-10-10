@@ -40,8 +40,6 @@ def parse_syntax_blocks(text: str, heading_regex: re.Pattern | None = None) -> l
         })
     return blocks
 
-parse_markdown_blocks = parse_syntax_blocks
-
 
 def replace_syntax_block(text: str, target_heading_norm: str, new_content: str, heading_regex: re.Pattern | None = None) -> tuple[str, bool]:
     """
@@ -59,8 +57,6 @@ def replace_syntax_block(text: str, target_heading_norm: str, new_content: str, 
             new_text = text[:b["start_char"]] + formatted + text[b["end_char"]:]
             return new_text, True
     return text, False
-
-replace_block_in_markdown = replace_syntax_block
 
 
 class BlockEngine:
@@ -80,7 +76,7 @@ class BlockEngine:
         if not folder or not folder.exists() or not folder.is_dir():
             return
         try:
-            exts = {e.lower().strip() for e in extensions} if extensions else {".txt", ".md"}
+            exts = {e.lower().strip() for e in extensions} if extensions else {".txt"}
             files = [p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in exts]
             files.sort(key=lambda x: x.stat().st_mtime if x.exists() else 0)
             for p in files:

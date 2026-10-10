@@ -248,7 +248,7 @@ class DocumentOutlineManager:
     ) -> list[dict[str, Any]]:
         """
         Разбор документа на плоские блоки:
-        1. Для файлов структуры проекта (_notes.md) поддерживаются списки файлов - [[...]].
+        1. Для файлов структуры проекта (_notes.txt) поддерживаются списки файлов - [[...]].
         2. Для обычных заметок парсинг выполняется через единый `parse_user_dialect`:
            - Именованные блоки `Имя { ... }` формируют карточки оглавления.
            - Если блоков нет, свободный текст делится на карточки параграфов.
@@ -343,7 +343,7 @@ class DocumentOutlineManager:
         return blocks
 
     def _parse_structure_tree(self, text: str) -> list[dict[str, Any]]:
-        """Разбор дерева проекта для файлов _notes.md."""
+        """Разбор дерева проекта для файлов _notes.txt."""
         lines = text.splitlines()
         blocks = []
         heading_rx = re.compile(r'^(#{1,6})\s+(.+)$')
@@ -449,7 +449,7 @@ class DocumentOutlineManager:
         for blk in blocks:
             content = blk.get("content", "").strip()
             heading = blk.get("heading", "").strip()
-            # Удаляем старые решетки Markdown
+            # Очищаем заголовки решетками, если встретились
             content = re.sub(r'^#{1,6}\s*', '', content, flags=re.MULTILINE).strip()
             
             # Если это прелюдия / свободный текст без имени
@@ -463,8 +463,6 @@ class DocumentOutlineManager:
                     block_strings.append(f"{heading} {{\n}}")
 
         return "\n\n".join(block_strings).rstrip() + "\n"
-
-    blocks_to_markdown = blocks_to_text
 
     def update_block_heading(self, text: str, block_index: int, new_heading: str, parse_list_items: bool | None = None) -> str:
         blocks = self.parse_document(text, parse_list_items=parse_list_items)

@@ -35,7 +35,7 @@ class FileHandlerMixin:
                     self._last_config_mtime = cfg_path.stat().st_mtime_ns
                 self.configUpdated.emit(json.dumps(self.config_service.current_config))
 
-                # Автоматическая синхронизация файла структуры проекта (_notes.md)
+                # Автоматическая синхронизация файла структуры проекта (_notes.txt)
                 if hasattr(self, "sync_project_structure_file"):
                     try:
                         self.sync_project_structure_file(folder_url)
@@ -190,7 +190,7 @@ class FileHandlerMixin:
         if not clean:
             return ""
         # 1. Мгновенная прямая проверка в корне каталога
-        clean_ext = f"{clean}.md" if not clean.endswith(".md") else clean
+        clean_ext = f"{clean}.txt" if not clean.endswith(".txt") else clean
         cand = folder / clean_ext
         if cand.exists() and cand.is_file():
             return QUrl.fromLocalFile(str(cand.resolve())).toString()
@@ -206,11 +206,11 @@ class FileHandlerMixin:
         except Exception:
             pass
 
-        # Если файла нет, создаем новую заметку с начальным заголовком
+        # Если файла нет, создаем новую заметку с начальным содержимым
         try:
-            title = clean.replace(".md", "")
-            target_path = folder / f"{title}.md"
-            target_path.write_text(f"# {title}\n\n", encoding="utf-8")
+            title = clean.replace(".txt", "")
+            target_path = folder / f"{title}.txt"
+            target_path.write_text(f"{title} {{\n}}\n", encoding="utf-8")
             return QUrl.fromLocalFile(str(target_path.resolve())).toString()
         except Exception as e:
             safe_print(f"[Backend] Ошибка создания заметки '{clean}': {e}")

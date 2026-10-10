@@ -101,7 +101,7 @@ class HistoryService:
                     continue
                 # Пропускаем скрытые файлы и папки (.git, .asleep, __pycache__ и т.д.)
                 parts = p.relative_to(folder).parts
-                if any(part.startswith(".") for part in parts) or "_Граф связей.txt" in parts or "_Граф связей.md" in parts:
+                if any(part.startswith(".") for part in parts) or "_Граф связей.txt" in parts:
                     continue
                 if p.suffix.lower() not in exts:
                     continue
@@ -320,10 +320,11 @@ class HistoryService:
             rel_str = str(file_path).replace("\\", "/")
 
         file_name = Path(rel_str).name
-        name_with_md = file_name if file_name.lower().endswith(".md") else f"{file_name}.md"
-        name_no_md = file_name[:-3] if file_name.lower().endswith(".md") else file_name
-        rel_with_md = rel_str if rel_str.lower().endswith(".md") else f"{rel_str}.md"
-        rel_no_md = rel_str[:-3] if rel_str.lower().endswith(".md") else rel_str
+        file_stem = Path(rel_str).stem
+        name_with_txt = file_name if file_name.lower().endswith(".txt") else f"{file_name}.txt"
+        name_no_ext = file_stem
+        rel_with_txt = rel_str if rel_str.lower().endswith(".txt") else f"{rel_str}.txt"
+        rel_no_ext = rel_str[:-4] if rel_str.lower().endswith(".txt") else rel_str
 
         conn = None
         try:
@@ -336,8 +337,8 @@ class HistoryService:
                 JOIN snapshots s ON s.id = fs.snapshot_id
                 WHERE fs.file_path IN (?, ?, ?, ?) OR fs.file_name IN (?, ?, ?, ?)
                 ORDER BY s.timestamp ASC
-            """, (rel_with_md, rel_no_md, rel_str, file_name,
-                  name_with_md, name_no_md, rel_str, file_name))
+            """, (rel_with_txt, rel_no_ext, rel_str, file_name,
+                  name_with_txt, name_no_ext, rel_str, file_name))
             rows = cursor.fetchall()
 
             result = []
@@ -542,10 +543,10 @@ class HistoryService:
 
         norm_path = file_path.replace("\\", "/").strip()
         p = Path(norm_path)
-        name_with_md = p.name if p.name.lower().endswith(".md") else f"{p.name}.md"
-        name_no_md = p.name[:-3] if p.name.lower().endswith(".md") else p.name
-        rel_with_md = norm_path if norm_path.lower().endswith(".md") else f"{norm_path}.md"
-        rel_no_md = norm_path[:-3] if norm_path.lower().endswith(".md") else norm_path
+        name_with_txt = p.name if p.name.lower().endswith(".txt") else f"{p.name}.txt"
+        name_no_txt = p.name[:-4] if p.name.lower().endswith(".txt") else p.name
+        rel_with_txt = norm_path if norm_path.lower().endswith(".txt") else f"{norm_path}.txt"
+        rel_no_txt = norm_path[:-4] if norm_path.lower().endswith(".txt") else norm_path
 
         conn = None
 
@@ -557,8 +558,8 @@ class HistoryService:
                 WHERE snapshot_id = ? AND (
                     file_path IN (?, ?, ?, ?) OR file_name IN (?, ?, ?, ?)
                 )
-            """, (snapshot_id, rel_with_md, rel_no_md, norm_path, p.name,
-                  name_with_md, name_no_md, norm_path, p.name))
+            """, (snapshot_id, rel_with_txt, rel_no_txt, norm_path, p.name,
+                  name_with_txt, name_no_txt, norm_path, p.name))
             row = cursor.fetchone()
             if row and row[0]:
                 return zlib.decompress(row[0]).decode("utf-8")

@@ -148,11 +148,6 @@ class ConfigHandlerMixin:
         folder = self.file_service.to_path(folder_url) if folder_url else self._current_folder
         return self.config_service.get_syntax_config(folder)
 
-    @pyqtSlot(result="QVariantMap")
-    @pyqtSlot(str, result="QVariantMap")
-    def get_markdown_config(self, folder_url: str = "") -> dict:
-        return self.get_syntax_config(folder_url)
-
     @pyqtSlot(result=float)
     def get_screen_refresh_rate(self) -> float:
         """Возвращает физическую частоту развертки экрана в Гц"""
