@@ -187,36 +187,31 @@ Item {
         }
  
         // Вертикальный разделитель
-        Item {
+        MouseArea {
             id: splitterDivider
             visible: splitLayout.isSplit
             width: 7
             anchors.left: primaryBar.right
             anchors.top: parent.top
             anchors.bottom: parent.bottom
+            hoverEnabled: true
+            cursorShape: Qt.SplitHCursor
+            preventStealing: true
 
             Rectangle {
                 anchors.centerIn: parent
                 width: 1
                 height: parent.height
-                color: splitterMouseArea.pressed ? Theme.accentColor : (splitterMouseArea.containsMouse ? Theme.borderHover : Theme.borderColor)
+                color: splitterDivider.pressed ? Theme.accentColor : (splitterDivider.containsMouse ? Theme.borderHover : Theme.borderColor)
             }
 
-            MouseArea {
-                id: splitterMouseArea
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.SplitHCursor
-                preventStealing: true
-
-                onPositionChanged: (mouse) => {
-                    if (pressed) {
-                        let totalW = panesContainer.width - splitterDivider.width
-                        if (totalW > 100) {
-                            let pos = splitterMouseArea.mapToItem(panesContainer, mouse.x, 0)
-                            let newRatio = pos.x / totalW
-                            splitLayout.splitRatio = Math.max(0.15, Math.min(0.85, newRatio))
-                        }
+            onPositionChanged: (mouse) => {
+                if (pressed) {
+                    let totalW = panesContainer.width - splitterDivider.width
+                    if (totalW > 100) {
+                        let pos = splitterDivider.mapToItem(panesContainer, mouse.x, 0)
+                        let newRatio = pos.x / totalW
+                        splitLayout.splitRatio = Math.max(0.15, Math.min(0.85, newRatio))
                     }
                 }
             }
