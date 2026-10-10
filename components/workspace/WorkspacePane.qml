@@ -530,36 +530,73 @@ Item {
     // =========================================================================
     // 3. Интерактивные границы изменения ширины листа на ВСЮ высоту панели
     // =========================================================================
-    SheetResizeHandle {
-        id: leftHandle
-        isLeft: true
-        containerItem: workspacePane
+    component SheetHandle: MouseArea {
+        id: handleRoot
+        width: 24
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        x: (workspacePane.width - workspacePane.effectiveSheetWidth) / 2.0 - width / 2.0
+        cursorShape: Qt.SizeHorCursor
+        hoverEnabled: true
+        preventStealing: true
+        z: 20
+
+        property bool isLeft: true
+        property bool isDragging: false
+
         visible: workspacePane.isCenteredMode && !workspacePane.isEmpty && workspacePane.width > workspacePane.minSheetWidth
-        forceVisible: workspacePane.isResizingSheet
-        minWidth: workspacePane.minSheetWidth
-        maxWidth: workspacePane.width
-        onSheetWidthRequested: (w) => Controller.handleSheetWidthRequested(workspacePane, w)
-        onSheetWidthCommitted: (w) => Controller.handleSheetWidthCommitted(workspacePane, (typeof backend !== "undefined" ? backend : null), w)
-        onDoubleClickedToggle: workspacePane.toggleFullWidth()
+
+        onPressed: (mouse) => {
+            if (mouse.button === Qt.LeftButton) {
+                handleRoot.isDragging = true
+            }
+        }
+
+        onPositionChanged: (mouse) => {
+            if (handleRoot.isDragging || pressed) {
+                if (workspacePane.width <= 0) return
+                let pt = mapToItem(workspacePane, mouse.x, mouse.y)
+                let centerX = workspacePane.width / 2.0
+                let distFromCenter = isLeft ? (centerX - pt.x) : (pt.x - centerX)
+                let desiredWidth = Math.round(distFromCenter * 2.0)
+                let clamped = Math.max(workspacePane.minSheetWidth, Math.min(workspacePane.width, desiredWidth))
+                Controller.handleSheetWidthRequested(workspacePane, clamped)
+            }
+        }
+
+        onReleased: {
+            handleRoot.isDragging = false
+            Controller.handleSheetWidthCommitted(workspacePane, (typeof backend !== "undefined" ? backend : null), workspacePane.customSheetWidth)
+        }
+
+        onCanceled: {
+            handleRoot.isDragging = false
+            Controller.handleSheetWidthCommitted(workspacePane, (typeof backend !== "undefined" ? backend : null), workspacePane.customSheetWidth)
+        }
+
+        onDoubleClicked: workspacePane.toggleFullWidth()
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: 2
+            height: parent.height
+            color: (handleRoot.isDragging || handleRoot.pressed) ? Theme.textSelected : Theme.borderHover
+            opacity: (workspacePane.isResizingSheet || handleRoot.containsMouse || handleRoot.isDragging || handleRoot.pressed) ? 1.0 : 0.0
+            Behavior on opacity {
+                NumberAnimation { duration: Theme.animDurationFast }
+            }
+        }
     }
 
-    SheetResizeHandle {
+    SheetHandle {
+        id: leftHandle
+        isLeft: true
+        x: (workspacePane.width - workspacePane.effectiveSheetWidth) / 2.0 - width / 2.0
+    }
+
+    SheetHandle {
         id: rightHandle
         isLeft: false
-        containerItem: workspacePane
-        anchors.top: parent.top
-        anchors.bottom: parent.bottom
         x: (workspacePane.width + workspacePane.effectiveSheetWidth) / 2.0 - width / 2.0
-        visible: workspacePane.isCenteredMode && !workspacePane.isEmpty && workspacePane.width > workspacePane.minSheetWidth
-        forceVisible: workspacePane.isResizingSheet
-        minWidth: workspacePane.minSheetWidth
-        maxWidth: workspacePane.width
-        onSheetWidthRequested: (w) => Controller.handleSheetWidthRequested(workspacePane, w)
-        onSheetWidthCommitted: (w) => Controller.handleSheetWidthCommitted(workspacePane, (typeof backend !== "undefined" ? backend : null), w)
-        onDoubleClickedToggle: workspacePane.toggleFullWidth()
     }
 
     // Правая полоса со скроллбаром документа
