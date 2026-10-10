@@ -6,3 +6,5 @@
 [CENTERED_MODE] [CENTERED_MODE] Pane: Active | isCenteredMode: true | ViewMode: editor | PaneWidth: 900 | SheetWidth: 800 | CustomWidth: 800
 [CENTERED_MODE] [CENTERED_MODE] Pane: Active | isCenteredMode: false | ViewMode: editor | PaneWidth: 900 | SheetWidth: 900 | CustomWidth: 800
 [CENTERED_MODE] [CENTERED_MODE] Pane: Active | isCenteredMode: true | ViewMode: editor | PaneWidth: 900 | SheetWidth: 800 | CustomWidth: 800
+[CENTERED_MODE] [CENTERED_MODE] Pane: Active | isCenteredMode: false | ViewMode: editor | PaneWidth: 900 | SheetWidth: 900 | CustomWidth: 800
+[CENTERED_MODE] [CENTERED_MODE] Pane: Active | isCenteredMode: true | ViewMode: editor | PaneWidth: 900 | SheetWidth: 800 | CustomWidth: 800

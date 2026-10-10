@@ -102,21 +102,21 @@ class OutlineHandlerMixin:
             self._doc_sessions = {}
         key = file_url or "default"
         if key not in self._doc_sessions:
-            from services.core.document_session import DocumentSession
+            from services.content.document_session import DocumentSession
             self._doc_sessions[key] = DocumentSession()
         return self._doc_sessions[key]
 
     @pyqtSlot(str, int, result=int)
     def get_block_offset(self, text: str, block_idx: int) -> int:
         """Возвращает символьное смещение начала блока в тексте (Hierarchy -> Source)"""
-        from services.core.document_session import DocumentSession
+        from services.content.document_session import DocumentSession
         sess = DocumentSession(text)
         return sess.get_block_offset(block_idx)
 
     @pyqtSlot(str, int, result=int)
     def get_block_at_offset(self, text: str, char_offset: int) -> int:
         """Возвращает индекс блока под курсором (Source -> Hierarchy)"""
-        from services.core.document_session import DocumentSession
+        from services.content.document_session import DocumentSession
         sess = DocumentSession(text)
         return sess.get_block_at_offset(char_offset)
 

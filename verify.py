@@ -325,7 +325,7 @@ tags:
 
     # 9. Тест OutlineService и DocumentSession (блочная модель { ... }, reorder, undo/redo, cursor offsets)
     from services.content.outline_service import OutlineService
-    from services.core.document_session import DocumentSession
+    from services.content.document_session import DocumentSession
     osvc = OutlineService()
     test_doc = "Блок 1 {\n    Текст 1\n}\n\nБлок 2 {\n    Текст 2\n}\n\nБлок 3 {\n    Текст 3\n}"
     parsed_blks = osvc.parse_document(test_doc)
@@ -537,7 +537,7 @@ def test_qml():
 def test_structure():
     print("[3/3] Проверка структуры папок...")
     required = [
-        "services/core/document_session.py",
+        "services/content/document_session.py",
         "services/storage/file_service.py",
         "services/storage/config_service.py",
         "services/content/block_parser.py",

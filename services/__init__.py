@@ -1,5 +1,6 @@
 # services/__init__.py
-from services.core import Backend, DocumentSession
+from services.backend import Backend
+from services.content import DocumentSession
 from services.storage import FileService, ConfigService
 from services.content import (
     BlockEngine,
