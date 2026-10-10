@@ -20,5 +20,14 @@
   // Вертикальная синхронизация (VSync):
   // true — кадры синхронизируются с экраном (максимальная плавность без разрывов)
   // false — VSync выключен (минимальный инпут-лаг, возможен тиринг)
-  "vsync": true
+  "vsync": true,
+
+  // Геометрия окна по умолчанию
+  "window_default_width": 900,
+  "window_default_height": 650,
+  "window_min_width": 600,
+  "window_min_height": 400,
+  "window_resize_margin": 8,
+  "window_corner_margin": 16,
+  "window_save_geometry_delay_ms": 600
 }

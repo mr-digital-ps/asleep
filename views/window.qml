@@ -46,8 +46,8 @@ ApplicationWindow {
         z: 9999
         visible: root.visibility !== Window.Maximized
 
-        readonly property int resizeMargin: 8
-        readonly property int cornerMargin: 16
+        readonly property int resizeMargin: (typeof backend !== "undefined" && backend && backend.get_app_config().window_resize_margin) ? backend.get_app_config().window_resize_margin : 8
+        readonly property int cornerMargin: (typeof backend !== "undefined" && backend && backend.get_app_config().window_corner_margin) ? backend.get_app_config().window_corner_margin : 16
 
         // Визуальная граница
         Rectangle {

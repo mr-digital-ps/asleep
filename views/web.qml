@@ -68,10 +68,10 @@ Rectangle {
     property int targetFps: (typeof backend !== "undefined" && backend && typeof backend.get_target_fps === "function") ? backend.get_target_fps() : 60
     readonly property int animIntervalMs: targetFps <= 0 ? 1 : Math.max(1, Math.round(1000 / targetFps))
 
-    // Авто-сохранение изменений в файле с задержкой 1 сек после ввода
+    // Авто-сохранение изменений в файле после остановки ввода
     Timer {
         id: autoSaveTimer
-        interval: 1000
+        interval: (typeof backend !== "undefined" && backend && backend.get_app_config().auto_save_delay_ms) ? backend.get_app_config().auto_save_delay_ms : 1000
         repeat: false
         onTriggered: WebLifecycle.handleAutoSave(root, splitLayout, (typeof backend !== "undefined" ? backend : null))
     }
