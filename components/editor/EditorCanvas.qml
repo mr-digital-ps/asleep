@@ -52,14 +52,12 @@ RowLayout {
     }
 
     Layout.preferredHeight: editorArea.contentHeight
-    property bool isLiveMode: false
 
     // Левая полоса 36px для нумерации строк и фокуса
     EditorGutter {
         id: editorGutter
         barSize: canvasRoot.barSize
         showDots: canvasRoot.showLineDots
-        isLiveMode: canvasRoot.isLiveMode
         editorArea: editorArea
         Layout.preferredWidth: barSize
         Layout.fillHeight: true
@@ -226,7 +224,7 @@ RowLayout {
 
         Component.onCompleted: {
             if (typeof backend !== "undefined" && backend && typeof backend.attach_highlighter === "function") {
-                backend.attach_highlighter(editorArea, canvasRoot.isLiveMode)
+                backend.attach_highlighter(editorArea)
             }
         }
 

@@ -777,17 +777,7 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, acti
                 splitLayout.closeGraph()
             }
             break
-        case "toggle_live_preview":
-            if (backend && typeof backend.toggle_live_preview === "function") {
-                var activeArea = splitLayout ? splitLayout.activeEditorArea : null
-                backend.toggle_live_preview(activeArea)
-            }
-            break
-        case "toggle_live_mode":
-            if (splitLayout && typeof splitLayout.toggleLiveMode === "function") {
-                splitLayout.toggleLiveMode()
-            }
-            break
+
         case "open_structure":
             if (root && typeof root.toggleProjectStructure === "function") {
                 root.toggleProjectStructure()

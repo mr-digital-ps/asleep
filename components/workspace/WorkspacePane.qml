@@ -30,19 +30,14 @@ Item {
     property int tabSize: Theme.defaultTabSize
     readonly property var targetWindow: Window.window
 
-    // Режимы рабочей области (paneBody): "editor" | "live" | "graph"
+    // Режимы рабочей области (paneBody): "editor" | "graph"
     // isGraphMode приходит снаружи из WorkspaceSplit через reactive binding.
     // Прямое присвоение запрещено (HOTKEYS.md, Причина 1 и 5), иначе разрушается связь.
     property bool isGraphMode: false
-    property bool isLiveMode: false
-    readonly property string viewMode: isGraphMode ? "graph" : (isLiveMode ? "live" : "editor")
+    readonly property string viewMode: isGraphMode ? "graph" : "editor"
 
     onIsGraphModeChanged: {
         Controller.handleGraphModeChanged(workspacePane, editorScroll, paneGraphView, editorArea, smoothScrollAnim)
-    }
-
-    onIsLiveModeChanged: {
-        Controller.handleLiveModeChanged(workspacePane, editorArea, (typeof backend !== "undefined" ? backend : null))
     }
 
     property string folderUrl: ""

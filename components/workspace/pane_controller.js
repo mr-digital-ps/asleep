@@ -233,25 +233,7 @@ function handleGraphModeChanged(mainBar, editorScroll, sheetGraphView, editorAre
     }
 }
 
-function handleLiveModeChanged(mainBar, editorArea, backend) {
-    if (!mainBar) return
-    var targetArea = editorArea || (mainBar.paperSheet ? mainBar.paperSheet.editorArea : null)
-    if (!targetArea) return
 
-    if (backend && typeof backend.set_editor_line_height === "function") {
-        backend.set_editor_line_height(targetArea, mainBar.editorLineHeightPercent)
-    }
-
-    if (backend && typeof backend.set_live_preview === "function") {
-        backend.set_live_preview(targetArea, mainBar.isLiveMode)
-    }
-
-    Qt.callLater(function() {
-        if (targetArea) {
-            targetArea.forceActiveFocus()
-        }
-    })
-}
 
 function handleWheel(mainBar, editorArea, editorScroll, smoothScrollAnim, event, backend) {
     if (mainBar.isGraphMode) {
