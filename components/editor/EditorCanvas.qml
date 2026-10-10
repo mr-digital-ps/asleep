@@ -10,9 +10,9 @@ RowLayout {
     id: canvasRoot
     spacing: 0
 
-    property int barSize: 36
+    property int barSize: Theme.barSize
     property bool showLineDots: true
-    property int tabSize: 4
+    property int tabSize: Theme.defaultTabSize
     property real availableHeight: 600
     property bool hasHeader: true
     property bool hasFooter: true

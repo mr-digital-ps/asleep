@@ -5,13 +5,13 @@ Rectangle {
     id: sheetRoot
 
     // Основные свойства и привязки
-    property int barSize: 36
+    property int barSize: Theme.barSize
     property string fileName: "Новый документ"
     property string fileUrl: ""
     property string folderUrl: ""
     property bool isCenteredMode: true
-    property real customSheetWidth: 800
-    property real minSheetWidth: 380
+    property real customSheetWidth: Theme.defaultSheetWidth
+    property real minSheetWidth: Theme.minSheetWidth
     property bool isSplitMode: false
     property bool isActivePane: false
     property bool isEmpty: false
@@ -20,7 +20,7 @@ Rectangle {
     property bool isHeaderPinned: false
     property bool showHeader: true
     property bool showLineDots: true
-    property int tabSize: 4
+    property int tabSize: Theme.defaultTabSize
     property real scrollY: 0
     property string statsString: "0 слов · 0 знаков"
     property real availableHeight: 600

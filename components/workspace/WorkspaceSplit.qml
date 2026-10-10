@@ -5,7 +5,7 @@ Item {
     id: splitLayout
 
     // Свойства режима сплита
-    property int barSize: 36
+    property int barSize: Theme.barSize
     property bool isSplit: false
     property real splitRatio: 0.5
     property int activePane: 0 // 0: primary, 1: secondary

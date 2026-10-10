@@ -8,8 +8,8 @@ Item {
     property var editorScroll: null
     property var paperSheet: null
     property bool isEmpty: false
-    property int barSize: 36
-    property real sheetWidth: 800
+    property int barSize: Theme.barSize
+    property real sheetWidth: Theme.defaultSheetWidth
     signal activated()
 
     z: 30

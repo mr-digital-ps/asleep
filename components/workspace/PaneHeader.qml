@@ -17,7 +17,7 @@ Item {
     property bool isPinned: false
     property bool isGraphMode: false
     property bool isLocalGraphMode: false
-    property int barSize: 36
+    property int barSize: Theme.barSize
     property real scrollY: 0
     property real contentLeftPadding: 0
     property real contentRightPadding: 0

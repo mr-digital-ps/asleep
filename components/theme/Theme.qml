@@ -53,7 +53,7 @@ Item {
     property real minSheetWidth: 380
     property real maxSheetWidth: 2000
     property int defaultFontSize: 15
-    property string fontFamily: "Fira Code"
+    property string fontFamily: "Consolas"
     property real sheetPadding: 16
     property int defaultTabSize: 4
     property real defaultLineHeightPercent: 135.0

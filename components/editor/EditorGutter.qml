@@ -7,7 +7,7 @@ Item {
     id: gutterItem
 
     property var editorArea: null
-    property int barSize: 36
+    property int barSize: Theme.barSize
     property bool showDots: true
 
     signal activated()
