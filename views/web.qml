@@ -109,7 +109,7 @@ Rectangle {
         function onConfigUpdated(configJson) { root.applyFolderConfig(configJson) }
         function onAppConfigChanged() { root.reloadAppConfig() }
         function onNoteOpened(fileUrl, blockName) {
-            var fileName = backend.get_file_name_from_url(fileUrl)
+            var fileName = backend.get_filename(fileUrl)
             root.openFileFromFolder(fileUrl, fileName, false)
             if (blockName && splitLayout && splitLayout.activeEditorArea) {
                 var area = splitLayout.activeEditorArea

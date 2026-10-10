@@ -151,6 +151,10 @@ class FileHandlerMixin:
     def get_filename(self, file_url: str) -> str:
         return self.file_service.to_path(file_url).name or "Новый файл"
 
+    @pyqtSlot(str, result=str)
+    def get_file_name_from_url(self, file_url: str) -> str:
+        return self.get_filename(file_url)
+
     @pyqtSlot(result=str)
     def get_default_folder(self) -> str:
         return self.file_service.get_default_folder()
