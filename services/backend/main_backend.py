@@ -155,12 +155,6 @@ class Backend(
         exts = self.file_service.get_supported_extensions(self._current_folder)
         self.block_engine.reindex_folder(self._current_folder, exts)
 
-        # Синхронизация структуры проекта при обнаружении изменений в файлах
-        try:
-            self.sync_project_structure_file()
-        except Exception as e:
-            safe_print(f"[Backend] Ошибка sync_project_structure_file в _on_directory_changed: {e}")
-
         self.folderFilesChanged.emit()
         self.graphDataChanged.emit()
 

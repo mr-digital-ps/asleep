@@ -145,11 +145,13 @@ class GraphService:
                     n["x"] = self._node_positions[folder_key][nid]["x"]
                     n["y"] = self._node_positions[folder_key][nid]["y"]
 
-        # Сохраняем на диск в _graph_positions.json для персистентности между перезапусками
+        # Сохраняем на диск в .asleep/graph_positions.json для персистентности между перезапусками
         try:
             p = Path(folder_path) if isinstance(folder_path, str) else folder_path
             if p and p.exists() and p.is_dir():
-                f_pos = p / "_graph_positions.json"
+                asleep_dir = p / ".asleep"
+                asleep_dir.mkdir(parents=True, exist_ok=True)
+                f_pos = asleep_dir / "graph_positions.json"
                 f_pos.write_text(json.dumps(self._node_positions[folder_key], ensure_ascii=False, indent=2), encoding="utf-8")
         except Exception:
             pass
@@ -161,7 +163,9 @@ class GraphService:
             try:
                 p = Path(folder_path) if isinstance(folder_path, str) else folder_path
                 if p and p.exists() and p.is_dir():
-                    f_pos = p / "_graph_positions.json"
+                    f_pos = p / ".asleep" / "graph_positions.json"
+                    if not f_pos.exists():
+                        f_pos = p / "_graph_positions.json"
                     if f_pos.exists():
                         data = json.loads(f_pos.read_text(encoding="utf-8"))
                         if isinstance(data, dict):

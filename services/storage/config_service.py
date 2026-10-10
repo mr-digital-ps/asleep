@@ -235,8 +235,13 @@ class ConfigService:
                 _safe_print(f"[ConfigService] Ошибка чтения {user_file.name}: {e}")
 
         if folder_path and folder_path.exists() and folder_path.is_dir():
-            for fn in [f"_{category}_settings.json", f"{category}_settings.json"]:
-                v_file = folder_path / fn
+            candidates = [
+                folder_path / ".asleep" / f"{category}_settings.json",
+                folder_path / ".asleep" / f"_{category}_settings.json",
+                folder_path / f"_{category}_settings.json",
+                folder_path / f"{category}_settings.json"
+            ]
+            for v_file in candidates:
                 if v_file.exists():
                     try:
                         data = parse_json_with_comments(v_file.read_text(encoding="utf-8"))

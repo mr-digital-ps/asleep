@@ -35,13 +35,6 @@ class FileHandlerMixin:
                     self._last_config_mtime = cfg_path.stat().st_mtime_ns
                 self.configUpdated.emit(json.dumps(self.config_service.current_config))
 
-                # Автоматическая синхронизация файла структуры проекта (_notes.txt)
-                if hasattr(self, "sync_project_structure_file"):
-                    try:
-                        self.sync_project_structure_file(folder_url)
-                    except Exception as e:
-                        safe_print(f"[Backend] Ошибка синхронизации структуры при watch_folder: {e}")
-
                 self._last_user_files_snapshot = self._get_user_files_snapshot()
         except Exception as e:
             print(f"[Backend] Ошибка отслеживания папки: {e}")
@@ -54,11 +47,6 @@ class FileHandlerMixin:
     def delete_file(self, file_url: str) -> bool:
         success = self.file_service.delete_file(file_url)
         if success:
-            if hasattr(self, "sync_project_structure_file"):
-                try:
-                    self.sync_project_structure_file()
-                except Exception:
-                    pass
             self.folderFilesChanged.emit()
         return success
 
@@ -102,13 +90,6 @@ class FileHandlerMixin:
             elif "app" in fn:
                 self.appConfigChanged.emit()
 
-            # Если создан новый файл — обновляем структуру проекта
-            if is_new_file and hasattr(self, "sync_project_structure_file"):
-                try:
-                    self.sync_project_structure_file()
-                except Exception:
-                    pass
-
             # Неявная фиксация контрольной точки дня в историю проекта (не чаще 1 раза в день)
             target_folder = self._current_folder or path.parent
             if target_folder and target_folder.is_dir():
@@ -127,11 +108,6 @@ class FileHandlerMixin:
     def create_file_in_folder(self, folder_url: str, base_name: str = "Новый документ") -> dict:
         res = self.file_service.create_file_in_folder(folder_url, base_name)
         if res.get("success"):
-            if hasattr(self, "sync_project_structure_file"):
-                try:
-                    self.sync_project_structure_file(folder_url)
-                except Exception:
-                    pass
             self.folderFilesChanged.emit()
         return res
 
@@ -139,11 +115,6 @@ class FileHandlerMixin:
     def rename_file(self, file_url: str, new_name: str) -> dict:
         res = self.file_service.rename_file(file_url, new_name)
         if res.get("success"):
-            if hasattr(self, "sync_project_structure_file"):
-                try:
-                    self.sync_project_structure_file()
-                except Exception:
-                    pass
             self.folderFilesChanged.emit()
         return res
 
