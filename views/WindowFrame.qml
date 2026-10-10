@@ -1,5 +1,5 @@
 import QtQuick
-import "../theme"
+import "../components/theme"
 
 Item {
     id: frame

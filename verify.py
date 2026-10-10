@@ -424,8 +424,6 @@ tags:
 
     print("  -> Сервисы Python: OK")
 
-
-
 def test_qml():
     print("[2/3] Проверка компонентов QML...")
     import os
@@ -442,9 +440,9 @@ def test_qml():
 
     # 1. Проверяем компиляцию web.qml и вынесенных компонентов
     for qml_f in [
-        "components/dialogs/EditorDialogs.qml",
+        "components/editor/EditorDialogs.qml",
         "components/hotkeys/HotkeyManager.qml",
-        "components/window/WindowFrame.qml",
+        "views/WindowFrame.qml",
         "components/theme/Theme.qml",
         "components/workspace/WorkspaceSplit.qml",
         "components/workspace/WorkspacePane.qml",
@@ -565,11 +563,10 @@ def test_structure():
         "components/graph/graph_interaction.js",
 
         # QML компоненты
-        "components/dialogs/EditorDialogs.qml",
-        "components/dialogs/qmldir",
+        "components/editor/EditorDialogs.qml",
         "components/hotkeys/HotkeyManager.qml",
         "components/hotkeys/qmldir",
-        "components/window/WindowFrame.qml",
+        "views/WindowFrame.qml",
         "components/theme/Theme.qml",
         "components/theme/qmldir",
         "components/editor/EditorSheet.qml",

@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls
-import "../components/window"
 import "../components/theme"
 import "./window_controller.js" as WindowCtrl
 

@@ -7,3 +7,4 @@ EditorEmptyState 1.0 EditorEmptyState.qml
 EditorGutter 1.0 EditorGutter.qml
 EditorScrollbar 1.0 EditorScrollbar.qml
 SyncNotice 1.0 SyncNotice.qml
+EditorDialogs 1.0 EditorDialogs.qml
