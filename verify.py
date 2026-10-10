@@ -442,7 +442,6 @@ def test_qml():
     for qml_f in [
         "components/editor/EditorDialogs.qml",
         "components/hotkeys/HotkeyManager.qml",
-        "views/WindowFrame.qml",
         "components/theme/Theme.qml",
         "components/workspace/WorkspaceSplit.qml",
         "components/workspace/WorkspacePane.qml",
@@ -566,7 +565,6 @@ def test_structure():
         "components/editor/EditorDialogs.qml",
         "components/hotkeys/HotkeyManager.qml",
         "components/hotkeys/qmldir",
-        "views/WindowFrame.qml",
         "components/theme/Theme.qml",
         "components/theme/qmldir",
         "components/editor/EditorSheet.qml",
