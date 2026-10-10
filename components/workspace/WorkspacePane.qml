@@ -571,9 +571,9 @@ Item {
         barSize: workspacePane.barSize
         width: workspacePane.barSize
         anchors.top: parent.top
-        anchors.topMargin: (workspacePane.showHeader && workspacePane.isHeaderPinned) ? 76 : 16
+        anchors.topMargin: (workspacePane.showHeader && workspacePane.isHeaderPinned) ? (Theme.headerHeight + 6) : Theme.sheetPadding
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 16
+        anchors.bottomMargin: Theme.sheetPadding
         x: Math.round((workspacePane.width + workspacePane.effectiveSheetWidth) / 2.0 - workspacePane.barSize)
         isEmpty: workspacePane.isEmpty || workspacePane.isGraphMode
         visible: workspacePane.showScrollbar && !isEmpty
