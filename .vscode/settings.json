@@ -1,8 +1,0 @@
-{
-  "files.associations": {
-    "**/config/**/*.json": "jsonc",
-    "**/config/*.json": "jsonc",
-    "**/*.js": "qmljs"
-  },
-  "javascript.validate.enable": false
-}
