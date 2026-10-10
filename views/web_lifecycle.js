@@ -3,7 +3,7 @@
 
 function stripExt(name) {
     if (!name) return ""
-    return name.replace(/\.(txt|md|markdown)$/i, "")
+    return name.replace(/\.txt$/i, "")
 }
 
 function getOpenFileUrls(tabsModel, primaryTabIndex, secondaryTabIndex, isSplit) {

@@ -104,7 +104,7 @@ class FileService:
                     return {ext.lower().strip() for ext in app_cfg["supported_extensions"] if ext}
             except Exception:
                 pass
-        return {".txt", ".md", ".markdown"}
+        return {".txt"}
 
     def get_folder_files(self, folder_url: str) -> list:
         """Возвращает список файлов в рабочей папке с учетом настроек ignored_directories и supported_extensions"""
@@ -187,8 +187,6 @@ class FileService:
             raw_name = base_name.strip()
             if raw_name.endswith(".txt"):
                 raw_name = raw_name[:-4]
-            elif raw_name.endswith(".md"):
-                raw_name = raw_name[:-3]
             if not raw_name:
                 raw_name = "Новый документ"
 

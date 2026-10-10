@@ -418,9 +418,9 @@ class DocumentOutlineManager:
             return indices
         return [start_index]
 
-    def blocks_to_markdown(self, blocks: list[dict[str, Any]]) -> str:
+    def blocks_to_text(self, blocks: list[dict[str, Any]]) -> str:
         """
-        Сериализует список блоков в текст сценария/заметки:
+        Сериализует список блоков в текст заметки по каноническому синтаксису 14 единиц:
         - Именованные блоки форматируются как `Имя {\nСодержимое\n}`
         - Ликвидированы любые символы '#'
         """
@@ -464,6 +464,8 @@ class DocumentOutlineManager:
 
         return "\n\n".join(block_strings).rstrip() + "\n"
 
+    blocks_to_markdown = blocks_to_text
+
     def update_block_heading(self, text: str, block_index: int, new_heading: str, parse_list_items: bool | None = None) -> str:
         blocks = self.parse_document(text, parse_list_items=parse_list_items)
         if not blocks or block_index < 0 or block_index >= len(blocks):
@@ -471,7 +473,7 @@ class DocumentOutlineManager:
         val = new_heading.strip()
         blocks[block_index]["heading"] = val
         blocks[block_index]["label"] = val
-        return self.blocks_to_markdown(blocks)
+        return self.blocks_to_text(blocks)
 
     def update_block_content(self, text: str, block_index: int, new_content: str, parse_list_items: bool | None = None) -> str:
         blocks = self.parse_document(text, parse_list_items=parse_list_items)
@@ -479,7 +481,7 @@ class DocumentOutlineManager:
             return text
         val = new_content.strip()
         blocks[block_index]["content"] = val
-        return self.blocks_to_markdown(blocks)
+        return self.blocks_to_text(blocks)
 
     def reorder_blocks(self, text: str, source_index: int, target_index: int, position: str = "before", parse_list_items: bool | None = None) -> str:
         blocks = self.parse_document(text, parse_list_items=parse_list_items)
@@ -511,7 +513,7 @@ class DocumentOutlineManager:
         for idx, blk in enumerate(result_blocks):
             blk["index"] = idx
 
-        return self.blocks_to_markdown(result_blocks)
+        return self.blocks_to_text(result_blocks)
 
     def change_block_level(self, text: str, block_index: int, delta: int, parse_list_items: bool | None = None) -> str:
         return text
@@ -520,7 +522,7 @@ class DocumentOutlineManager:
         self,
         folder_path: Path,
         files: list[str] | None = None,
-        structure_filename: str = "_notes.md",
+        structure_filename: str = "_notes.txt",
         ignore_prefixes: tuple[str, ...] | list[str] = (".", "_")
     ) -> str:
         pfx = tuple(ignore_prefixes) if isinstance(ignore_prefixes, (list, tuple)) else (".", "_")
@@ -544,7 +546,7 @@ class DocumentOutlineManager:
                     if f.is_file()
                     and not f.name.startswith(pfx)
                     and f.name.lower() != struct_name_lower
-                    and f.suffix.lower() in (".md", ".markdown", ".txt")
+                    and f.suffix.lower() == ".txt"
                 ],
                 key=lambda x: x.name.lower()
             )
@@ -563,7 +565,7 @@ class DocumentOutlineManager:
         self,
         folder_path: Path,
         files: list[str] | None = None,
-        structure_filename: str = "_notes.md",
+        structure_filename: str = "_notes.txt",
         ignore_prefixes: tuple[str, ...] | list[str] = (".", "_")
     ) -> Path:
         fpath = folder_path / structure_filename

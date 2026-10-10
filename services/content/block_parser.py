@@ -17,7 +17,7 @@ def _safe_print(*args, **kwargs):
         pass
 
 
-def parse_markdown_blocks(text: str, heading_regex: re.Pattern | None = None) -> list:
+def parse_syntax_blocks(text: str, heading_regex: re.Pattern | None = None) -> list:
     """
     Разбивает текст на именованные блоки `Имя Блока { ... }` по спецификации диалекта.
     Возвращает список словарей со свойствами каждого блока.
@@ -40,8 +40,10 @@ def parse_markdown_blocks(text: str, heading_regex: re.Pattern | None = None) ->
         })
     return blocks
 
+parse_markdown_blocks = parse_syntax_blocks
 
-def replace_block_in_markdown(text: str, target_heading_norm: str, new_content: str, heading_regex: re.Pattern | None = None) -> tuple[str, bool]:
+
+def replace_syntax_block(text: str, target_heading_norm: str, new_content: str, heading_regex: re.Pattern | None = None) -> tuple[str, bool]:
     """
     Находит именованный блок с указанным именем (без учета регистра) и заменяет его содержимое.
     Возвращает (обновленный_текст, был_ли_заменен).
@@ -57,6 +59,8 @@ def replace_block_in_markdown(text: str, target_heading_norm: str, new_content: 
             new_text = text[:b["start_char"]] + formatted + text[b["end_char"]:]
             return new_text, True
     return text, False
+
+replace_block_in_markdown = replace_syntax_block
 
 
 class BlockEngine:
@@ -76,13 +80,13 @@ class BlockEngine:
         if not folder or not folder.exists() or not folder.is_dir():
             return
         try:
-            exts = {e.lower().strip() for e in extensions} if extensions else {".md", ".markdown", ".txt"}
+            exts = {e.lower().strip() for e in extensions} if extensions else {".txt", ".md"}
             files = [p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in exts]
             files.sort(key=lambda x: x.stat().st_mtime if x.exists() else 0)
             for p in files:
                 try:
                     text = p.read_text(encoding="utf-8")
-                    blocks = parse_markdown_blocks(text)
+                    blocks = parse_syntax_blocks(text)
                     file_url = QUrl.fromLocalFile(str(p.resolve())).toString()
                     mtime = p.stat().st_mtime
                     for b in blocks:
@@ -101,7 +105,7 @@ class BlockEngine:
 
     def index_file_content(self, file_url: str, text: str):
         """Обновляет индекс блоков из сохраненного файла"""
-        blocks = parse_markdown_blocks(text)
+        blocks = parse_syntax_blocks(text)
         now = time.time()
         for b in blocks:
             if b["content"]:

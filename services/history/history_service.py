@@ -85,7 +85,7 @@ class HistoryService:
         if not folder.exists() or not folder.is_dir():
             return {}, ""
 
-        exts = {".md", ".markdown", ".txt"}
+        exts = {".txt"}
         if self.file_service:
             try:
                 exts = self.file_service.get_supported_extensions(folder)
@@ -101,7 +101,7 @@ class HistoryService:
                     continue
                 # Пропускаем скрытые файлы и папки (.git, .asleep, __pycache__ и т.д.)
                 parts = p.relative_to(folder).parts
-                if any(part.startswith(".") for part in parts) or "_Граф связей.md" in parts:
+                if any(part.startswith(".") for part in parts) or "_Граф связей.txt" in parts or "_Граф связей.md" in parts:
                     continue
                 if p.suffix.lower() not in exts:
                     continue

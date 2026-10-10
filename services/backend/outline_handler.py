@@ -38,10 +38,10 @@ class OutlineHandlerMixin:
     def get_project_structure_filename(self, folder_url: str = "") -> str:
         """Возвращает настроенное имя файла структуры проекта из конфигурации (user -> default: _notes.md)."""
         folder = self.file_service.to_path(folder_url) if folder_url else self._current_folder
-        md_cfg = self.config_service.get_markdown_config(folder) or {}
-        struct_file = md_cfg.get("system_files", {}).get("structure_file", "_notes.md")
-        if not struct_file.endswith(".md"):
-            struct_file += ".md"
+        md_cfg = self.config_service.get_syntax_config(folder) or {}
+        struct_file = md_cfg.get("system_files", {}).get("structure_file", "_notes.txt")
+        if not struct_file.endswith(".txt") and not struct_file.endswith(".md"):
+            struct_file += ".txt"
         return struct_file
 
     @pyqtSlot(str, result=bool)
@@ -60,7 +60,7 @@ class OutlineHandlerMixin:
             return {}
         try:
             struct_file = self.get_project_structure_filename(folder_url)
-            md_cfg = self.config_service.get_markdown_config(folder) or {}
+            md_cfg = self.config_service.get_syntax_config(folder) or {}
             sys_cfg = md_cfg.get("system_files", {})
             ignore_pfx = tuple(sys_cfg.get("ignore_prefixes", [".", "_"]))
             files = [p.name for p in folder.iterdir() if p.is_file() and not p.name.startswith(ignore_pfx)]

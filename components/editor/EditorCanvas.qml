@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "./markdown_shortcuts.js" as Markdown
+import "./editor_shortcuts.js" as Shortcuts
 import "./editor_keys.js" as EditorKeys
 import "../theme"
 
@@ -149,20 +149,20 @@ RowLayout {
         onSelectionEndChanged: bracketHighlightOverlay.updateBracketHighlights()
 
         Keys.onShortcutOverride: (event) => {
-            EditorKeys.handleShortcutOverride(event, canvasRoot, editorArea, Markdown)
+            EditorKeys.handleShortcutOverride(event, canvasRoot, editorArea, Shortcuts)
         }
 
         Keys.onTabPressed: (event) => {
-            Markdown.handleTab(editorArea, false, canvasRoot.tabSize)
+            Shortcuts.handleTab(editorArea, false, canvasRoot.tabSize)
             event.accepted = true
         }
         Keys.onBacktabPressed: (event) => {
-            Markdown.handleTab(editorArea, true, canvasRoot.tabSize)
+            Shortcuts.handleTab(editorArea, true, canvasRoot.tabSize)
             event.accepted = true
         }
 
         Keys.onBackPressed: (event) => {
-            if (Markdown.handleSmartBackspace(editorArea)) {
+            if (Shortcuts.handleSmartBackspace(editorArea)) {
                 event.accepted = true
                 return
             }
@@ -170,7 +170,7 @@ RowLayout {
         }
 
         Keys.onDeletePressed: (event) => {
-            if (Markdown.handleSmartDelete(editorArea)) {
+            if (Shortcuts.handleSmartDelete(editorArea)) {
                 event.accepted = true
                 return
             }
@@ -178,7 +178,7 @@ RowLayout {
         }
 
         Keys.onSpacePressed: (event) => {
-            if (Markdown.handleAutoPair(editorArea, " ")) {
+            if (Shortcuts.handleAutoPair(editorArea, " ")) {
                 event.accepted = true
                 return
             }
@@ -186,7 +186,7 @@ RowLayout {
         }
 
         Keys.onPressed: (event) => {
-            EditorKeys.handleKeyPressed(event, canvasRoot, editorArea, Markdown)
+            EditorKeys.handleKeyPressed(event, canvasRoot, editorArea, Shortcuts)
         }
 
         Keys.onReleased: (event) => {
@@ -199,10 +199,10 @@ RowLayout {
         }
 
         Keys.onReturnPressed: (event) => {
-            event.accepted = Markdown.handleSmartEnter(editorArea, (typeof backend !== "undefined" ? backend : null), (t) => canvasRoot.syncNoticeRequested(t))
+            event.accepted = Shortcuts.handleSmartEnter(editorArea, (typeof backend !== "undefined" ? backend : null), (t) => canvasRoot.syncNoticeRequested(t))
         }
         Keys.onEnterPressed: (event) => {
-            event.accepted = Markdown.handleSmartEnter(editorArea, (typeof backend !== "undefined" ? backend : null), (t) => canvasRoot.syncNoticeRequested(t))
+            event.accepted = Shortcuts.handleSmartEnter(editorArea, (typeof backend !== "undefined" ? backend : null), (t) => canvasRoot.syncNoticeRequested(t))
         }
 
         Keys.onUpPressed: (event) => {

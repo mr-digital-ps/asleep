@@ -65,14 +65,14 @@ class GraphService:
         self._config_cache = {}
         self._node_positions = {}
 
-    def get_markdown_rules(self, folder_path: Path | None = None) -> dict:
-        """Загружает правила разбора Markdown с защитой от сломанных regex пользователя"""
+    def get_syntax_rules(self, folder_path: Path | None = None) -> dict:
+        """Загружает правила разбора синтаксиса с защитой от сломанных regex пользователя"""
         cs = self.config_service or ConfigService()
-        cfg = cs.get_markdown_config(folder_path) or {}
+        cfg = cs.get_syntax_config(folder_path) or {}
 
         wl_cfg = cfg.get("wikilinks", {})
         wl_regex = compile_safe_regex(wl_cfg.get("pattern"), DEFAULT_WIKILINK_REGEX)
-        md_regex = compile_safe_regex(wl_cfg.get("md_link_pattern"), DEFAULT_MD_LINK_REGEX, re.IGNORECASE)
+        md_regex = compile_safe_regex(wl_cfg.get("link_pattern") or wl_cfg.get("md_link_pattern"), DEFAULT_MD_LINK_REGEX, re.IGNORECASE)
 
         tag_cfg = cfg.get("tags", {})
         tag_regex = compile_safe_regex(tag_cfg.get("pattern"), DEFAULT_TAG_REGEX)
@@ -107,6 +107,8 @@ class GraphService:
             "block_min": blk_min,
             "ignore_prefixes": tuple(ignore_prefixes)
         }
+
+    get_markdown_rules = get_syntax_rules
 
     def _get_folder_key(self, folder_path: Path | str | None) -> str:
         if not folder_path:
@@ -258,7 +260,7 @@ class GraphService:
         block_min = rules["block_min"]
         tag_min = rules["tag_min"]
 
-        supported_exts = self.file_service.get_supported_extensions(folder_path) if self.file_service else {".md", ".markdown", ".txt"}
+        supported_exts = self.file_service.get_supported_extensions(folder_path) if self.file_service else {".txt"}
         for p in folder_path.iterdir():
             if not p.is_file() or p.suffix.lower() not in supported_exts:
                 continue

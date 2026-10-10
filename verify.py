@@ -102,11 +102,11 @@ tags:
     assert parsed["physics"]["repulsion"] == 3600, "Ошибка парсинга числа с комментариями"
     assert parsed["physics"]["url"] == "http://example.com//not-a-comment", "Строка с // не должна искажаться"
 
-    # 4.6. Тест конфигурации Markdown диалекта и безопасной компиляции regex
+    # 4.6. Тест конфигурации синтаксиса и безопасной компиляции regex
     from services.storage.config_service import compile_safe_regex
-    md_cfg = cfg_service.get_markdown_config()
-    assert "wikilinks" in md_cfg and "pattern" in md_cfg["wikilinks"], "markdown.json должен содержать секцию wikilinks"
-    assert "tags" in md_cfg and "blocks" in md_cfg, "markdown.json должен содержать tags и blocks"
+    md_cfg = cfg_service.get_syntax_config()
+    assert "wikilinks" in md_cfg and "pattern" in md_cfg["wikilinks"], "syntax.json должен содержать секцию wikilinks"
+    assert "tags" in md_cfg and "blocks" in md_cfg, "syntax.json должен содержать tags и blocks"
 
     # Проверка Safe Regex Fallback: сломанный regex пользователя не роняет систему
     import re
@@ -215,8 +215,8 @@ tags:
     from services.graph.graph_service import GraphService
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_p = Path(tmp_dir)
-        (tmp_p / "doc1.md").write_text("# ОбщийБлок\nТекст 1\nСмотри [[doc2]] и #проект\n", encoding="utf-8")
-        (tmp_p / "doc2.md").write_text("# ОбщийБлок\nТекст 2\nТоже #проект\n", encoding="utf-8")
+        (tmp_p / "doc1.txt").write_text("# ОбщийБлок\nТекст 1\nСмотри [[doc2]] и #проект\n", encoding="utf-8")
+        (tmp_p / "doc2.txt").write_text("# ОбщийБлок\nТекст 2\nТоже #проект\n", encoding="utf-8")
         gs = GraphService()
         gdata = gs.build_graph(tmp_p)
         assert len(gdata["nodes"]) >= 3, f"Ожидалось >= 3 узлов, получено {len(gdata['nodes'])}"
@@ -272,7 +272,7 @@ tags:
     assert refresh_rate > 0, f"get_screen_refresh_rate должен быть > 0, получено {refresh_rate}"
     target_fps = backend.get_target_fps()
     assert target_fps >= 0, f"get_target_fps должен быть >= 0, получено {target_fps}"
-    assert ".md" in backend.file_service.get_supported_extensions(), "FileService должен динамически считывать supported_extensions"
+    assert ".txt" in backend.file_service.get_supported_extensions(), "FileService должен динамически считывать supported_extensions"
     assert ".git" in backend.file_service.get_ignored_directories(), "FileService должен динамически считывать ignored_directories"
     sync_res = backend.sync_graph_file()
     assert isinstance(sync_res, dict), "backend.sync_graph_file должен возвращать словарь"
@@ -284,8 +284,8 @@ tags:
     from services.history.history_service import HistoryService
     with tempfile.TemporaryDirectory() as tmp_hist_dir:
         th_p = Path(tmp_hist_dir)
-        (th_p / "note1.md").write_text("# Заметка 1\nТекст с [[note2]]", encoding="utf-8")
-        (th_p / "note2.md").write_text("# Заметка 2\nОтвет", encoding="utf-8")
+        (th_p / "note1.txt").write_text("# Заметка 1\nТекст с [[note2]]", encoding="utf-8")
+        (th_p / "note2.txt").write_text("# Заметка 2\nОтвет", encoding="utf-8")
         hs = HistoryService(backend.file_service, backend.graph_service)
         snap1 = hs.create_snapshot(th_p, trigger="session_start", graph_data={"nodes": [{"id": "note1"}], "links": []})
         assert snap1 is not None, "Снимок истории должен создаваться"
@@ -296,7 +296,7 @@ tags:
         assert snap_dup is None, "Дублирующий снимок без изменений не должен создаваться"
 
         # Новый снимок с изменением
-        (th_p / "note3.md").write_text("# Заметка 3\nНовая", encoding="utf-8")
+        (th_p / "note3.txt").write_text("# Заметка 3\nНовая", encoding="utf-8")
         snap2 = hs.create_snapshot(th_p, trigger="save", description="Добавлена заметка 3")
         assert snap2 is not None, "Снимок с новым файлом должен создаваться"
 
@@ -304,24 +304,24 @@ tags:
         assert len(tline) == 2, f"Ожидалось 2 снимка в таймлайне, получено {len(tline)}"
         g_snap = hs.get_snapshot_graph(th_p, snap1["id"])
         assert "nodes" in g_snap, "Граф снимка должен содержать nodes"
-        f_content = hs.get_snapshot_file_content(th_p, snap1["id"], "note1.md")
+        f_content = hs.get_snapshot_file_content(th_p, snap1["id"], "note1.txt")
         assert "[[note2]]" in f_content, "Содержимое файла из снимка должно восстанавливаться"
 
         # Тест таймлайна отдельного файла
-        file_tline = hs.get_file_timeline(th_p, "note1.md")
-        assert len(file_tline) >= 1, "Таймлайн note1.md должен содержать хотя бы 1 срез"
+        file_tline = hs.get_file_timeline(th_p, "note1.txt")
+        assert len(file_tline) >= 1, "Таймлайн note1.txt должен содержать хотя бы 1 срез"
         assert file_tline[0]["id"] == snap1["id"]
 
-        # Изменение note1.md и проверка добавления второго среза в таймлайн файла
-        (th_p / "note1.md").write_text("# Заметка 1 ред.\nНовый текст", encoding="utf-8")
+        # Изменение note1.txt и проверка добавления второго среза в таймлайн файла
+        (th_p / "note1.txt").write_text("# Заметка 1 ред.\nНовый текст", encoding="utf-8")
         snap3 = hs.create_snapshot(th_p, trigger="save", description="Правка note1")
         assert snap3 is not None
-        file_tline_updated = hs.get_file_timeline(th_p, "note1.md")
-        assert len(file_tline_updated) == 2, f"Ожидалось 2 среза note1.md, получено {len(file_tline_updated)}"
+        file_tline_updated = hs.get_file_timeline(th_p, "note1.txt")
+        assert len(file_tline_updated) == 2, f"Ожидалось 2 среза note1.txt, получено {len(file_tline_updated)}"
 
-        # note3.md изменялся только в snap2 и не менялся в snap3
-        note3_tline = hs.get_file_timeline(th_p, "note3.md")
-        assert len(note3_tline) == 1, f"Ожидался 1 срез для note3.md, получено {len(note3_tline)}"
+        # note3.txt изменялся только в snap2 и не менялся в snap3
+        note3_tline = hs.get_file_timeline(th_p, "note3.txt")
+        assert len(note3_tline) == 1, f"Ожидался 1 срез для note3.txt, получено {len(note3_tline)}"
 
     # 9. Тест OutlineService и DocumentSession (блочная модель { ... }, reorder, undo/redo, cursor offsets)
     from services.content.outline_service import OutlineService
@@ -384,17 +384,17 @@ tags:
     # Проверка sync_project_structure_file с кастомным именем файла
     with tempfile.TemporaryDirectory() as tmp_struct_dir:
         tmp_s_p = Path(tmp_struct_dir)
-        custom_struct = osvc.sync_project_structure_file(tmp_s_p, ["note1.md"], structure_filename="_MyStructure.md")
-        assert custom_struct.exists() and custom_struct.name == "_MyStructure.md", "sync_project_structure_file должен поддерживать кастомное имя структуры"
+        custom_struct = osvc.sync_project_structure_file(tmp_s_p, ["note1.txt"], structure_filename="_MyStructure.txt")
+        assert custom_struct.exists() and custom_struct.name == "_MyStructure.txt", "sync_project_structure_file должен поддерживать кастомное имя структуры"
         content = custom_struct.read_text(encoding="utf-8")
         assert "[[note1]]" in content, "Созданный файл структуры должен содержать вики-ссылку на note1"
 
         # 10.1. Тест неограниченной вложенности через табы (\t) в Python-стиле
         (tmp_s_p / "sub1" / "sub2" / "sub3").mkdir(parents=True, exist_ok=True)
-        (tmp_s_p / "sub1" / "sub2" / "sub3" / "deep_note.md").write_text("# Deep", encoding="utf-8")
-        (tmp_s_p / "root_note.md").write_text("# Root", encoding="utf-8")
+        (tmp_s_p / "sub1" / "sub2" / "sub3" / "deep_note.txt").write_text("# Deep", encoding="utf-8")
+        (tmp_s_p / "root_note.txt").write_text("# Root", encoding="utf-8")
 
-        tree_path = osvc.sync_project_structure_file(tmp_s_p, structure_filename="_notes.md")
+        tree_path = osvc.sync_project_structure_file(tmp_s_p, structure_filename="_notes.txt")
         tree_text = tree_path.read_text(encoding="utf-8")
         assert "- sub1" in tree_text
         assert "\t- sub2" in tree_text
@@ -498,7 +498,7 @@ def test_qml():
     # 3. Тест клиентской логики auto-pair скобок и кавычек в JS
     from PyQt6.QtQml import QJSEngine
     js_engine = QJSEngine()
-    js_code = (PROJECT_DIR / "components" / "editor" / "markdown_shortcuts.js").read_text(encoding="utf-8")
+    js_code = (PROJECT_DIR / "components" / "editor" / "editor_shortcuts.js").read_text(encoding="utf-8")
     js_engine.evaluate(js_code)
     test_js = """
     (function() {
@@ -554,11 +554,11 @@ def test_structure():
         "config/default/graph.json",
         "config/default/theme.json",
         "config/default/app.json",
-        "config/default/markdown.json",
+        "config/default/syntax.json",
         # JS-контроллеры и логика фич (Feature-based)
         "views/web_lifecycle.js",
         "views/window_controller.js",
-        "components/editor/markdown_shortcuts.js",
+        "components/editor/editor_shortcuts.js",
         "components/history/timeline_controller.js",
         "components/graph/graph_physics.js",
         "components/graph/graph_renderer.js",

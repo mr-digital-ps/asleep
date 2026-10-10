@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from PyQt6.QtCore import QObject, pyqtSlot, pyqtSignal, QFileSystemWatcher, QCoreApplication
 
-from services.content.block_parser import BlockEngine, replace_block_in_markdown
+from services.content.block_parser import BlockEngine, replace_syntax_block, replace_block_in_markdown
 from services.system.window_manager import WindowManager
 from services.storage.file_service import FileService
 from services.storage.config_service import ConfigService
@@ -84,10 +84,10 @@ class Backend(
             return {}
         try:
             exts = self.file_service.get_supported_extensions(self._current_folder)
-            md_cfg = self.config_service.get_markdown_config(self._current_folder) or {}
+            md_cfg = self.config_service.get_syntax_config(self._current_folder) or {}
             sys_cfg = md_cfg.get("system_files", {})
-            graph_file = sys_cfg.get("graph_file", "_Граф связей.md")
-            struct_file = sys_cfg.get("structure_file", "_notes.md")
+            graph_file = sys_cfg.get("graph_file", "_Граф связей.txt")
+            struct_file = sys_cfg.get("structure_file", "_notes.txt")
             ignore_pfx = tuple(sys_cfg.get("ignore_prefixes", [".", "_"]))
             snap = {}
             for p in self._current_folder.rglob("*"):

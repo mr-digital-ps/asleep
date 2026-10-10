@@ -1,4 +1,5 @@
-// markdown_shortcuts.js — чистая логика форматирования и горячих клавиш редактора
+// editor_shortcuts.js — чистая логика форматирования и горячих клавиш редактора
+// Канонические 14 единиц синтаксиса asleep-pyqt
 
 function wrapSelection(editor, prefix, suffix) {
     let start = editor.selectionStart
@@ -160,7 +161,6 @@ function handleTabIndent(editor, isShift, tabSize) {
             editor.text = before + unindented + after
             editor.select(start, blockStart + unindented.length)
         } else {
-            // Без выделения: снимаем отступ на текущей строке
             let lineEnd = fullText.indexOf("\n", blockStart)
             if (lineEnd === -1) lineEnd = fullText.length
             let currentLine = fullText.substring(blockStart, lineEnd)
@@ -226,7 +226,6 @@ function handleAutoPair(editor, char) {
     let fullText = editor.text || ""
     let pos = editor.cursorPosition
 
-    // 1. Если введен закрывающий символ, и курсор уже стоит перед ним — просто перешагиваем
     let closingKeys = [")", "]", "}", "\"", "'", "`"]
     if (closingKeys.indexOf(char) !== -1) {
         if (pos < fullText.length && fullText.charAt(pos) === char) {
@@ -235,7 +234,6 @@ function handleAutoPair(editor, char) {
         }
     }
 
-    // 2. Если введен открывающий символ — вставляем пару и ставим курсор в середину
     let close = pairs[char]
     if (close) {
         editor.insert(pos, char + close)
@@ -285,7 +283,27 @@ function handleSmartEnter(editor, backend, onSyncNotice) {
     let lineStart = fullText.lastIndexOf("\n", Math.max(0, pos - 1)) + 1
     let textBeforeCursor = fullText.substring(lineStart, pos)
 
-    // 0. Синхронизированный блок заголовка (Трансклюзия по #..###### Заголовок)
+    // 0. Трансклюзия или авто-заполнение именованного блока: Имя { ... }
+    let blockMatch = textBeforeCursor.match(/^[ \t]*([a-zA-Zа-яА-ЯёЁ0-9_\-\s]+?)\s*\{\s*$/)
+    if (blockMatch) {
+        let blockName = blockMatch[1].trim()
+        if (typeof backend !== "undefined" && backend) {
+            let block = backend.get_block(blockName)
+            if (block && block.found && block.content && block.content.trim().length > 0) {
+                let insertText = "\n" + block.content.trim() + "\n}\n"
+                editor.insert(pos, insertText)
+                editor.cursorPosition = pos + insertText.length
+                if (typeof onSyncNotice === "function") {
+                    onSyncNotice(block.title)
+                }
+                return true
+            }
+        }
+        editor.insert(pos, "\n")
+        return true
+    }
+
+    // Обратная совместимость с # Заголовок
     let headingMatch = textBeforeCursor.match(/^[ \t]*(#{1,6})\s+(.+)$/)
     if (headingMatch) {
         let headingText = headingMatch[2].trim()
@@ -472,4 +490,3 @@ function updateBracketHighlights(editorArea, primaryHighlight, matchHighlight) {
         matchHighlight.visible = false;
     }
 }
-

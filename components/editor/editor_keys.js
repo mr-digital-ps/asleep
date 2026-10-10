@@ -33,7 +33,7 @@ function isItalicKey(event) {
 }
 
 // Перехват шорткатов на уровне ShortcutOverride сообщает Qt, что активный редактор забирает комбинацию себе (только текст и форматирование)
-function handleShortcutOverride(event, canvasRoot, editorArea, Markdown) {
+function handleShortcutOverride(event, canvasRoot, editorArea, Shortcuts) {
     if (isBoldKey(event) || isItalicKey(event)) {
         event.accepted = true
         return true
@@ -61,7 +61,7 @@ function handleShortcutOverride(event, canvasRoot, editorArea, Markdown) {
 }
 
 // Непосредственное выполнение действий при нажатии клавиши (Keys.onPressed)
-function handleKeyPressed(event, canvasRoot, editorArea, Markdown) {
+function handleKeyPressed(event, canvasRoot, editorArea, Shortcuts) {
     // Поддержка системного редактирования для русской раскладки (Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+Z, Ctrl+Y)
     if (event.modifiers & Qt.ControlModifier) {
         var scan = event.nativeScanCode
@@ -123,35 +123,35 @@ function handleKeyPressed(event, canvasRoot, editorArea, Markdown) {
         return true
     }
     // Автозакрытие парных скобок и кавычек
-    if (event.key === Qt.Key_ParenRight && Markdown.handleAutoPair(editorArea, ")")) {
+    if (event.key === Qt.Key_ParenRight && Shortcuts.handleAutoPair(editorArea, ")")) {
         event.accepted = true
         return true
     }
-    if (event.key === Qt.Key_BracketRight && Markdown.handleAutoPair(editorArea, "]")) {
+    if (event.key === Qt.Key_BracketRight && Shortcuts.handleAutoPair(editorArea, "]")) {
         event.accepted = true
         return true
     }
-    if (event.key === Qt.Key_BraceRight && Markdown.handleAutoPair(editorArea, "}")) {
+    if (event.key === Qt.Key_BraceRight && Shortcuts.handleAutoPair(editorArea, "}")) {
         event.accepted = true
         return true
     }
-    if ((event.key === Qt.Key_QuoteDbl || event.key === 1069) && Markdown.handleAutoPair(editorArea, "\"")) {
+    if ((event.key === Qt.Key_QuoteDbl || event.key === 1069) && Shortcuts.handleAutoPair(editorArea, "\"")) {
         event.accepted = true
         return true
     }
-    if ((event.text === "`" || event.key === 1025 || event.key === 1105) && Markdown.handleAutoPair(editorArea, "`")) {
+    if ((event.text === "`" || event.key === 1025 || event.key === 1105) && Shortcuts.handleAutoPair(editorArea, "`")) {
         event.accepted = true
         return true
     }
-    if (event.key === Qt.Key_ParenLeft && Markdown.handleAutoPair(editorArea, "(")) {
+    if (event.key === Qt.Key_ParenLeft && Shortcuts.handleAutoPair(editorArea, "(")) {
         event.accepted = true
         return true
     }
-    if (event.key === Qt.Key_BracketLeft && Markdown.handleAutoPair(editorArea, "[")) {
+    if (event.key === Qt.Key_BracketLeft && Shortcuts.handleAutoPair(editorArea, "[")) {
         event.accepted = true
         return true
     }
-    if (event.key === Qt.Key_BraceLeft && Markdown.handleAutoPair(editorArea, "{")) {
+    if (event.key === Qt.Key_BraceLeft && Shortcuts.handleAutoPair(editorArea, "{")) {
         event.accepted = true
         return true
     }
@@ -159,12 +159,12 @@ function handleKeyPressed(event, canvasRoot, editorArea, Markdown) {
     // Форматирование текста
     if (isBoldKey(event)) {
         event.accepted = true
-        Markdown.toggleBold(editorArea)
+        Shortcuts.toggleBold(editorArea)
         return true
     }
     if (isItalicKey(event)) {
         event.accepted = true
-        Markdown.toggleItalic(editorArea)
+        Shortcuts.toggleItalic(editorArea)
         return true
     }
 

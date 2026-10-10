@@ -88,20 +88,20 @@ def deep_merge(base: dict, override: dict) -> dict:
             result[key] = copy.deepcopy(value)
     return result
 
-def extract_frontmatter(md_text: str) -> tuple[dict, str, bool]:
+def extract_frontmatter(text: str) -> tuple[dict, str, bool]:
     """
-    Извлекает YAML frontmatter из начала Markdown текста.
+    Извлекает YAML frontmatter из начала текста документа.
     Возвращает (parsed_dict, remaining_body, has_frontmatter).
-    В случае синтаксических ошибок в YAML возвращает ({}, md_text, False) без падений.
+    В случае синтаксических ошибок в YAML возвращает ({}, text, False) без падений.
     """
-    if not md_text:
+    if not text:
         return {}, "", False
-    match = FRONTMATTER_REGEX.match(md_text)
+    match = FRONTMATTER_REGEX.match(text)
     if not match:
-        return {}, md_text, False
+        return {}, text, False
     
     yaml_block = match.group(1)
-    body = md_text[match.end():]
+    body = text[match.end():]
     try:
         loaded = yaml.safe_load(yaml_block)
         if isinstance(loaded, dict):
@@ -112,7 +112,7 @@ def extract_frontmatter(md_text: str) -> tuple[dict, str, bool]:
         return {}, body, False
 
 def generate_folder_config_template(folder_name: str) -> str:
-    """Генерирует стандартный самодокументированный Markdown файл настроек с комментариями."""
+    """Генерирует стандартный самодокументированный файл настроек с комментариями."""
     return f"""---
 # === Настройки редактора для этого каталога ===
 editor:
@@ -135,7 +135,7 @@ hotkeys:
   Alt+Up: move_line_up              # Переместить строку выше
   Alt+Down: move_line_down          # Переместить строку ниже
 
-  # Быстрое форматирование Markdown
+  # Быстрое форматирование
   Ctrl+B: bold_text                 # **Жирный текст**
   Ctrl+I: italic_text               # *Курсив*
   Ctrl+E: code_inline               # `Встроенный код`
@@ -190,7 +190,7 @@ def compile_safe_regex(pattern: str | None, default_pattern: re.Pattern | str, f
 class ConfigService:
     """
     Сервис управления конфигурациями каталогов, редактора и модульных настроек приложения (config/).
-    Отвечает за чтение Markdown Frontmatter, модульных JSON-конфигов, слияние с эталоном и генерацию шаблонов.
+    Отвечает за чтение Frontmatter, модульных JSON-конфигов, слияние с эталоном и генерацию шаблонов.
     """
     def __init__(self):
         this_p = Path(__file__).resolve()
@@ -257,15 +257,21 @@ class ConfigService:
     def get_app_config(self, folder_path: Path | None = None) -> dict:
         return self.load_category_config("app", folder_path)
 
+    def get_syntax_config(self, folder_path: Path | None = None) -> dict:
+        cfg = self.load_category_config("syntax", folder_path)
+        if not cfg:
+            cfg = self.load_category_config("markdown", folder_path)
+        return cfg
+
     def get_markdown_config(self, folder_path: Path | None = None) -> dict:
-        return self.load_category_config("markdown", folder_path)
+        return self.get_syntax_config(folder_path)
 
     def get_session_config(self) -> dict:
         return self.load_category_config("session")
 
     @staticmethod
     def get_config_filename(folder_name: str) -> str:
-        return f"_Настройка каталога {folder_name}.md"
+        return f"_Настройка каталога {folder_name}.txt"
 
     @staticmethod
     def is_config_filename(filename: str) -> bool:
@@ -278,7 +284,7 @@ class ConfigService:
         preferred = folder_path / self.get_config_filename(folder_path.name)
         if preferred.exists():
             return preferred
-        legacy = folder_path / f"Настройка каталога {folder_path.name}.md"
+        legacy = folder_path / f"Настройка каталога {folder_path.name}.txt"
         if legacy.exists():
             return legacy
         return preferred

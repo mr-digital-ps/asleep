@@ -1,5 +1,5 @@
 import QtQuick
-import "./markdown_shortcuts.js" as Markdown
+import "./editor_shortcuts.js" as Shortcuts
 import "../theme"
 
 Item {
@@ -27,6 +27,6 @@ Item {
     }
 
     function updateBracketHighlights() {
-        Markdown.updateBracketHighlights(editorArea, primaryBracketHighlight, matchBracketHighlight)
+        Shortcuts.updateBracketHighlights(editorArea, primaryBracketHighlight, matchBracketHighlight)
     }
 }
