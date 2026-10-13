@@ -237,10 +237,10 @@ Item {
                     titleDebounceTimer.stop()
                     if (!titleField.isUserEdited) return
                     titleField.isUserEdited = false
-                    // Если пользователь редактирует имя в строке хлебных крошек, извлекаем имя файла
+                    // Если пользователь редактирует имя в строке хлебных крошек (Папка/Подпапка/Файл), извлекаем имя файла
                     let raw = text.trim()
-                    let parts = raw.split(".").filter(function(p) { return p.length > 0 })
-                    let clean = parts.length > 0 ? headerRoot.stripExt(parts[parts.length - 1]) : "Новый документ"
+                    let parts = raw.split(/[\/\\]/).filter(function(p) { return p.trim().length > 0 })
+                    let clean = parts.length > 0 ? headerRoot.stripExt(parts[parts.length - 1].trim()) : "Новый документ"
                     if (!clean) clean = "Новый документ"
                     if (clean !== headerRoot.stripExt(headerRoot.fileName)) {
                         headerRoot.titleCommitted(clean)
