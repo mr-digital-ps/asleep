@@ -72,7 +72,7 @@ function formatBreadcrumbTitle(folderUrl, currentFolderName, fileUrl, fileName, 
         parts.push(activeBlockName.trim())
     }
 
-    return parts.join("/")
+    return parts.join(".")
 }
 
 function updateConfigParameterInText(fileName, text, key, value) {

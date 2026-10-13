@@ -272,12 +272,12 @@ class GraphService:
             stem_norm = p.stem.strip().lower()
             file_url = QUrl.fromLocalFile(str(p.resolve())).toString()
             clean_name = p.stem.strip()
-            # Полный путь от корня проекта (Папка/.../Файл без .txt)
+            # Полный путь от корня проекта (Папка.Подпапка.Файл без .txt)
             try:
-                rel_path = p.relative_to(folder_path).with_suffix("").as_posix()
-                full_label = f"{folder_path.name}/{rel_path}"
+                rel_parts = p.relative_to(folder_path).with_suffix("").parts
+                full_label = ".".join([folder_path.name] + list(rel_parts))
             except Exception:
-                full_label = f"{folder_path.name}/{clean_name}"
+                full_label = f"{folder_path.name}.{clean_name}"
 
             files_data[stem_norm] = {
                 "path": p,
