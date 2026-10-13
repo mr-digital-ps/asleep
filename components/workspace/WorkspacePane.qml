@@ -315,17 +315,16 @@ Item {
         isEmpty: workspacePane.isEmpty
         isPinned: workspacePane.isHeaderPinned
         isGraphMode: workspacePane.isGraphMode
-        isLocalGraphMode: workspacePane.isLocalGraphMode
         scrollY: workspacePane.scrollY
         contentLeftPadding: editorArea ? editorArea.leftPadding : 0
         contentRightPadding: editorArea ? editorArea.rightPadding : 0
         statsText: workspacePane.isGraphMode ? workspacePane.graphStatsText : workspacePane.statsString
-        visible: workspacePane.showHeader && (!workspacePane.isEmpty || workspacePane.isGraphMode)
+        visible: workspacePane.showHeader && (workspacePane.isGraphMode ? workspacePane.isHeaderPinned : !workspacePane.isEmpty)
         z: 10
 
-        // Когда закреплен или в режиме графа — y: 0.
-        // Когда откреплен — уезжает вверх со скроллом листа:
-        y: (workspacePane.isHeaderPinned || workspacePane.isGraphMode)
+        // Когда закреплен — y: 0.
+        // Когда откреплен в редакторе — уезжает вверх со скроллом листа:
+        y: workspacePane.isHeaderPinned
             ? 0
             : -Math.min(paneHeader.height, workspacePane.scrollY)
 
