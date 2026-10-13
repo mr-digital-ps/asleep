@@ -76,28 +76,14 @@ Item {
         switchMode("search")
     }
 
-    // Режим отображения заголовка: полное имя файла (false) или полный путь от корня (true)
-    property bool showFullPath: false
-
     function togglePathMode() {
-        if (headerMode !== "title") {
-            switchMode("title")
-        }
-        showFullPath = !showFullPath
+        switchMode("title")
     }
 
     function showPathMode() {
         if (headerMode !== "title") {
             switchMode("title")
         }
-        showFullPath = true
-    }
-
-    function showFileNameMode() {
-        if (headerMode !== "title") {
-            switchMode("title")
-        }
-        showFullPath = false
     }
 
     function toggleTabsMode() {
@@ -206,7 +192,7 @@ Item {
                 rightPadding: headerRoot.contentRightPadding
                 topPadding: 6
                 bottomPadding: 6
-                text: (headerRoot.showFullPath && headerRoot.breadcrumbTitle) ? headerRoot.breadcrumbTitle : headerRoot.stripExt(headerRoot.fileName)
+                text: headerRoot.breadcrumbTitle ? headerRoot.breadcrumbTitle : "Новый документ"
                 font.pixelSize: Theme.headerTitleFontSize
                 font.bold: true
                 color: (headerRoot.isSplitMode && !headerRoot.isActivePane) ? Theme.textSecondary : Theme.textPrimary
@@ -222,17 +208,12 @@ Item {
                     target: headerRoot
                     function onBreadcrumbTitleChanged() {
                         if (!titleField.activeFocus) {
-                            titleField.text = (headerRoot.showFullPath && headerRoot.breadcrumbTitle) ? headerRoot.breadcrumbTitle : headerRoot.stripExt(headerRoot.fileName)
+                            titleField.text = headerRoot.breadcrumbTitle ? headerRoot.breadcrumbTitle : "Новый документ"
                         }
                     }
                     function onFileNameChanged() {
                         if (!titleField.activeFocus) {
-                            titleField.text = (headerRoot.showFullPath && headerRoot.breadcrumbTitle) ? headerRoot.breadcrumbTitle : headerRoot.stripExt(headerRoot.fileName)
-                        }
-                    }
-                    function onShowFullPathChanged() {
-                        if (!titleField.activeFocus) {
-                            titleField.text = (headerRoot.showFullPath && headerRoot.breadcrumbTitle) ? headerRoot.breadcrumbTitle : headerRoot.stripExt(headerRoot.fileName)
+                            titleField.text = headerRoot.breadcrumbTitle ? headerRoot.breadcrumbTitle : "Новый документ"
                         }
                     }
                 }
