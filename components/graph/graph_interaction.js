@@ -788,7 +788,8 @@ function handleMouseUp(graphRoot, canvas, animTimer, mouse, graphMouse, backend)
             if (clickedNode.type === "file" && clickedNode.fileUrl) {
                 graphRoot.nodeClicked(clickedNode.fileUrl, clickedNode.label, "file")
             } else if (clickedNode.type === "block" && clickedNode.sourceFileUrl) {
-                graphRoot.nodeClicked(clickedNode.sourceFileUrl, clickedNode.label, "block")
+                var targetBlockName = clickedNode.blockName || clickedNode.label
+                graphRoot.nodeClicked(clickedNode.sourceFileUrl, targetBlockName, "block")
             }
         }
     }
