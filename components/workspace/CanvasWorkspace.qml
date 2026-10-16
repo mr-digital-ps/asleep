@@ -103,6 +103,47 @@ Rectangle {
         }
     }
 
+    // Фоновая сетка холста: точечная матрица (Dot Grid), привязанная к координатам мира
+    Canvas {
+        id: gridCanvas
+        anchors.fill: parent
+        z: 0
+
+        Connections {
+            target: canvasWorkspaceRoot
+            function onPanXChanged() { gridCanvas.requestPaint() }
+            function onPanYChanged() { gridCanvas.requestPaint() }
+            function onZoomScaleChanged() { gridCanvas.requestPaint() }
+            function onWidthChanged() { gridCanvas.requestPaint() }
+            function onHeightChanged() { gridCanvas.requestPaint() }
+        }
+
+        onPaint: {
+            var ctx = getContext("2d")
+            ctx.clearRect(0, 0, width, height)
+
+            var step = 32 * canvasWorkspaceRoot.zoomScale
+            if (step < 12) return // Слишком мелкий шаг при сильном удалении
+
+            // Смещение с учётом panX, panY и центра окна
+            var offsetX = (width / 2 + canvasWorkspaceRoot.panX) % step
+            if (offsetX < 0) offsetX += step
+            var offsetY = (height / 2 + canvasWorkspaceRoot.panY) % step
+            if (offsetY < 0) offsetY += step
+
+            ctx.fillStyle = Theme.borderHover
+            var dotSize = Math.max(1.8, Math.min(3.5, 2.2 * canvasWorkspaceRoot.zoomScale))
+
+            for (var x = offsetX; x < width; x += step) {
+                for (var y = offsetY; y < height; y += step) {
+                    ctx.beginPath()
+                    ctx.arc(x, y, dotSize / 2, 0, Math.PI * 2)
+                    ctx.fill()
+                }
+            }
+        }
+    }
+
     // 2. Виртуальный слой мира (подвержен panX, panY, zoomScale)
     Item {
         id: worldLayer
@@ -110,26 +151,7 @@ Rectangle {
         y: canvasWorkspaceRoot.height / 2 + canvasWorkspaceRoot.panY
         scale: canvasWorkspaceRoot.zoomScale
         transformOrigin: Item.Center
-
-        // Фоновая сетка холста (деликатные точки)
-        Canvas {
-            id: gridCanvas
-            anchors.centerIn: parent
-            width: 8000
-            height: 8000
-            opacity: 0.18
-            onPaint: {
-                var ctx = getContext("2d")
-                ctx.clearRect(0, 0, width, height)
-                ctx.fillStyle = Theme.borderHover
-                var step = 32
-                for (var gx = 0; gx < width; gx += step) {
-                    for (var gy = 0; gy < height; gy += step) {
-                        ctx.fillRect(gx, gy, 1.5, 1.5)
-                    }
-                }
-            }
-        }
+        z: 1
 
         // =====================================================================
         // ПАНЕЛЬ 1 (Основной лист)
