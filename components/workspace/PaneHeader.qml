@@ -77,7 +77,10 @@ Item {
     }
 
     function togglePathMode() {
-        switchMode("title")
+        // Alt+P: если уже в режиме полного пути (title), ничего не стираем и не переключаем
+        if (headerMode !== "title") {
+            switchMode("title")
+        }
     }
 
     function showPathMode() {
