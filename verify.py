@@ -529,6 +529,24 @@ def test_qml():
     days_res = js_engine.evaluate('getDaysList(test_tl)')
     assert days_res.property('length').toInt() >= 1, "Таймлайн должен формировать список дней"
 
+    # 5. Тест математического движка магнетизма (snap_engine.js)
+    snap_js = (PROJECT_DIR / "components" / "workspace" / "snap_engine.js").read_text(encoding="utf-8")
+    clean_snap_js = snap_js.replace(".pragma library", "")
+    js_engine.evaluate(clean_snap_js)
+    snap_test = """
+    (function() {
+        var dragged = { id: "p1", x: 195, y: 100, width: 200, height: 300 };
+        var others = [{ id: "p2", x: 0, y: 100, width: 200, height: 300 }];
+        var res = calculateSnap(dragged, others, 18);
+        if (!res.isSnappedX || res.snappedX !== 200) return "SnapX_Failed: " + res.snappedX;
+        if (!res.isSnappedY || res.snappedY !== 100) return "SnapY_Failed: " + res.snappedY;
+        if (res.dockSide !== "right") return "DockSide_Failed: " + res.dockSide;
+        return "OK";
+    })()
+    """
+    snap_res = js_engine.evaluate(snap_test)
+    assert snap_res.toString() == "OK", f"Ошибка SnapEngine: {snap_res.toString()}"
+
     print(f"  -> QML и компоненты: OK (создано окон: {len(objects)}, интерфейс активен, JS тесты пройдены)")
 
 def test_structure():
