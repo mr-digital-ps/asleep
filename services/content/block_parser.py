@@ -4,6 +4,7 @@ import time
 from pathlib import Path
 from PyQt6.QtCore import QUrl
 from services.content.document_outline import parse_user_dialect
+from services.storage.file_service import list_project_notes
 
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -76,8 +77,11 @@ class BlockEngine:
         if not folder or not folder.exists() or not folder.is_dir():
             return
         try:
-            exts = {e.lower().strip() for e in extensions} if extensions else {".txt"}
-            files = [p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in exts]
+            files = list_project_notes(folder, config_service=self.config_service)
+            if extensions is not None:
+                exts = {e.lower().strip() for e in extensions}
+                files = [p for p in files if p.suffix.lower() in exts]
+            self._block_cache.clear()
             files.sort(key=lambda x: x.stat().st_mtime if x.exists() else 0)
             for p in files:
                 try:

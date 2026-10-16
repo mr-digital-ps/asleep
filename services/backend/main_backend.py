@@ -80,23 +80,12 @@ class Backend(
                 self.config_watcher.addPath(str(f))
 
     def _get_user_files_snapshot(self) -> dict:
-        if not self._current_folder or not self._current_folder.exists() or not self._current_folder.is_dir():
+        if not self._current_folder:
             return {}
         try:
-            exts = self.file_service.get_supported_extensions(self._current_folder)
-            md_cfg = self.config_service.get_syntax_config(self._current_folder) or {}
-            sys_cfg = md_cfg.get("system_files", {})
-            graph_file = sys_cfg.get("graph_file", "_Граф связей.txt")
-            struct_file = sys_cfg.get("structure_file", "_notes.txt")
-            ignore_pfx = tuple(sys_cfg.get("ignore_prefixes", [".", "_"]))
-            snap = {}
-            for p in self._current_folder.rglob("*"):
-                if p.is_file() and p.suffix.lower() in exts:
-                    rel_parts = p.relative_to(self._current_folder).parts
-                    if not any(part.startswith(ignore_pfx) for part in rel_parts) and p.name != graph_file and p.name != struct_file:
-                        snap[str(p.relative_to(self._current_folder))] = p.stat().st_mtime_ns
-            return snap
-        except Exception:
+            return {str(p.relative_to(self._current_folder)): p.stat().st_mtime_ns
+                    for p in self.file_service.list_project_notes(self._current_folder)}
+        except OSError:
             return {}
 
     def _on_config_dir_changed(self, path: str):
@@ -206,10 +195,7 @@ class Backend(
 
         self._is_syncing_files = True
         try:
-            exts = self.file_service.get_supported_extensions(self._current_folder)
-            for p in self._current_folder.iterdir():
-                if not p.is_file() or p.suffix.lower() not in exts:
-                    continue
+            for p in self.file_service.list_project_notes(self._current_folder):
                 if source_path and p.resolve() == source_path:
                     continue
                 try:

@@ -5,6 +5,7 @@ from pathlib import Path
 from PyQt6.QtCore import QUrl
 from services.storage.config_service import parse_json_with_comments, compile_safe_regex, ConfigService
 from services.content.document_outline import parse_user_dialect
+from services.storage.file_service import FileService
 
 DEFAULT_WIKILINK_REGEX = re.compile(r'\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]')
 DEFAULT_TXT_LINK_REGEX = re.compile(r'\[([^\]]+)\]\(([^)]+\.txt)\)', re.IGNORECASE)
@@ -16,37 +17,6 @@ TXT_LINK_REGEX = DEFAULT_TXT_LINK_REGEX
 TAG_REGEX = DEFAULT_TAG_REGEX
 H1_REGEX = DEFAULT_H1_REGEX
 
-def load_default_graph_config(project_root: Path | None = None) -> dict:
-    """Динамически загружает эталонные дефолты из config/default/graph.json."""
-    if project_root is None:
-        this_p = Path(__file__).resolve()
-        if (this_p.parent.parent / "config").exists():
-            project_root = this_p.parent.parent
-        else:
-            project_root = this_p.parent.parent.parent
-    f = project_root / "config" / "default" / "graph.json"
-    if f.exists():
-        try:
-            data = parse_json_with_comments(f.read_text(encoding="utf-8"))
-            if isinstance(data, dict):
-                return data
-        except Exception as e:
-            print(f"[GraphService] Ошибка чтения {f.name}: {e}")
-    return {"physics": {}, "visual": {}}
-
-DEFAULT_GRAPH_CONFIG = load_default_graph_config()
-
-def _deep_merge(base: dict, override: dict) -> dict:
-    result = copy.deepcopy(base)
-    if not isinstance(override, dict):
-        return result
-    for k, v in override.items():
-        if k in result and isinstance(result[k], dict) and isinstance(v, dict):
-            result[k] = _deep_merge(result[k], v)
-        else:
-            result[k] = copy.deepcopy(v)
-    return result
-
 class GraphService:
     """
     Сервис сбора и построения интерактивного графа связей между заметками,
@@ -54,13 +24,9 @@ class GraphService:
     """
     def __init__(self, block_engine=None, file_service=None, config_service=None):
         self.block_engine = block_engine
-        self.file_service = file_service
-        self.config_service = config_service
-        this_p = Path(__file__).resolve()
-        if (this_p.parent.parent / "config").exists():
-            self.project_root = this_p.parent.parent
-        else:
-            self.project_root = this_p.parent.parent.parent
+        self.config_service = config_service or ConfigService()
+        self.file_service = file_service or FileService(self.config_service)
+        self.project_root = self.config_service.project_root
         self._graph_cache = {}
         self._config_cache = {}
         self._node_positions = {}
@@ -185,37 +151,8 @@ class GraphService:
             self._config_cache.clear()
 
     def get_config(self, folder_path: Path | None = None) -> dict:
-        """
-        Каскадная загрузка конфигурации графа:
-        1. config/default/graph.json
-        2. config/user/graph.json
-        3. folder_path/_graph_settings.json
-        """
-        cfg = load_default_graph_config(self.project_root)
-
-        user_file = self.project_root / "config" / "user" / "graph.json"
-        if user_file.exists():
-            try:
-                data = parse_json_with_comments(user_file.read_text(encoding="utf-8"))
-                if isinstance(data, dict):
-                    cfg = _deep_merge(cfg, data)
-            except Exception as e:
-                print(f"[GraphService] Ошибка чтения {user_file.name}: {e}")
-
-        # Локальные настройки текущего каталога заметок (если есть)
-        if folder_path and folder_path.exists() and folder_path.is_dir():
-            for v_name in ["_graph_settings.json", "graph_settings.json"]:
-                vault_cfg = folder_path / v_name
-                if vault_cfg.exists():
-                    try:
-                        data = parse_json_with_comments(vault_cfg.read_text(encoding="utf-8"))
-                        if isinstance(data, dict):
-                            cfg = _deep_merge(cfg, data)
-                        break
-                    except Exception as e:
-                        print(f"[GraphService] Ошибка чтения {v_name}: {e}")
-
-        return cfg
+        """Use the same config precedence as every other application category."""
+        return self.config_service.get_graph_config(folder_path)
 
     def save_graph_visual_layers(self, layers: dict):
         """Сохраняет пользовательские фильтры слоев (B, T, L и их рёбра) в config/user/graph.json"""
@@ -262,14 +199,8 @@ class GraphService:
         block_min = rules["block_min"]
         tag_min = rules["tag_min"]
 
-        supported_exts = self.file_service.get_supported_extensions(folder_path) if self.file_service else {".txt"}
-        for p in folder_path.iterdir():
-            if not p.is_file() or p.suffix.lower() not in supported_exts:
-                continue
-            if any(p.name.startswith(pre) for pre in ignore_prefixes):
-                continue
-
-            stem_norm = p.stem.strip().lower()
+        for p in self.file_service.list_project_notes(folder_path):
+            stem_norm = p.relative_to(folder_path).as_posix().lower()
             file_url = QUrl.fromLocalFile(str(p.resolve())).toString()
             clean_name = p.stem.strip()
             # Полный путь от корня проекта (Папка.Подпапка.Файл без .txt)
@@ -294,6 +225,18 @@ class GraphService:
                 "val": 1
             }
 
+        aliases = {}
+        for key, info in files_data.items():
+            relative = info["path"].relative_to(folder_path)
+            for alias in {key, relative.with_suffix("").as_posix().lower(),
+                          ".".join(relative.with_suffix("").parts).lower(),
+                          info["path"].stem.lower(), info["name"].lower()}:
+                aliases.setdefault(alias, set()).add(key)
+
+        def resolve_note(target):
+            matches = aliases.get(target.strip().replace("\\", "/").lower(), set())
+            return next(iter(matches)) if len(matches) == 1 else None
+
         # 2. Второй проход: анализируем контент каждого файла через диалект
         all_blocks_defs = {}  # (file_norm, block_norm) -> {"id": block_node_id, "name": b["name"], "fileUrl": file_url}
         transclusion_calls = []  # (source_file_url, target_file_norm, target_block_norm)
@@ -312,7 +255,7 @@ class GraphService:
 
             # А. Вики-ссылки [[Имя заметки]] из диалекта
             for target_name in parsed["wikilinks"]:
-                target_norm = target_name.strip().lower()
+                target_norm = resolve_note(target_name)
                 if target_norm in files_data:
                     target_url = files_data[target_norm]["fileUrl"]
                     if target_url != file_url:
@@ -323,7 +266,7 @@ class GraphService:
             # Б. Ссылки [текст](файл.txt) как fallback
             for m in txt_regex.finditer(content):
                 raw_target = m.group(2).strip()
-                target_stem = Path(raw_target).stem.strip().lower()
+                target_stem = resolve_note(raw_target)
                 if target_stem in files_data:
                     target_url = files_data[target_stem]["fileUrl"]
                     if target_url != file_url:
@@ -335,7 +278,8 @@ class GraphService:
             for b in parsed["blocks"]:
                 b_name = b["name"]
                 b_norm = b["name_norm"]
-                block_id = f"block:{stem_norm}:{b_norm}"
+                # Preserve existing .txt node IDs and saved positions.
+                block_id = f"block:{stem_norm.removesuffix('.txt')}:{b_norm}"
                 all_blocks_defs[(stem_norm, b_norm)] = {
                     "id": block_id,
                     "name": b_name,
@@ -350,7 +294,7 @@ class GraphService:
 
             # Д. Внешние вызовы Файл.Блок()
             for ec in parsed["external_calls"]:
-                t_f_norm = ec["target_file"].strip().lower()
+                t_f_norm = resolve_note(ec["target_file"])
                 t_b_norm = ec["target_block"].strip().lower()
                 transclusion_calls.append((file_url, t_f_norm, t_b_norm))
 

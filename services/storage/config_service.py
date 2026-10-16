@@ -211,7 +211,8 @@ class ConfigService:
         Загружает настройки указанной категории (editor, theme, app, hotkeys, graph):
         1. config/default/<category>.json
         2. config/user/<category>.json
-        3. folder_path/_<category>_settings.json (если передан)
+        3. folder_path/.asleep/<category>.json
+        4. Первое найденное локальное *_settings.json (совместимость).
         """
         cfg = {}
         # 1. Системные дефолты (config/default/<category>.json)
@@ -235,6 +236,14 @@ class ConfigService:
                 _safe_print(f"[ConfigService] Ошибка чтения {user_file.name}: {e}")
 
         if folder_path and folder_path.exists() and folder_path.is_dir():
+            category_file = folder_path / ".asleep" / f"{category}.json"
+            if category_file.exists():
+                try:
+                    data = parse_json_with_comments(category_file.read_text(encoding="utf-8"))
+                    if isinstance(data, dict):
+                        cfg = deep_merge(cfg, data)
+                except Exception as e:
+                    _safe_print(f"[ConfigService] Ошибка чтения {category_file.name}: {e}")
             candidates = [
                 folder_path / ".asleep" / f"{category}_settings.json",
                 folder_path / ".asleep" / f"_{category}_settings.json",
@@ -255,6 +264,9 @@ class ConfigService:
 
     def get_editor_config(self, folder_path: Path | None = None) -> dict:
         return self.load_category_config("editor", folder_path)
+
+    def get_graph_config(self, folder_path: Path | None = None) -> dict:
+        return self.load_category_config("graph", folder_path)
 
     def get_theme_config(self, folder_path: Path | None = None) -> dict:
         return self.load_category_config("theme", folder_path)

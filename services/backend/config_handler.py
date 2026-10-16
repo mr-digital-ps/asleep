@@ -1,7 +1,7 @@
 # services/backend/config_handler.py — Обработчик конфигураций редактора, темы и сессии
 import json
 from PyQt6.QtWidgets import QApplication
-from PyQt6.QtCore import QObject, pyqtSlot, QUrl
+from PyQt6.QtCore import QObject, pyqtSlot
 from PyQt6.QtGui import QTextCursor, QTextOption
 from PyQt6.QtQuick import QQuickTextDocument
 from services.storage.file_service import save_session_config, load_session_config
@@ -15,20 +15,6 @@ class ConfigHandlerMixin:
     def get_current_config(self) -> str:
         return json.dumps(self.config_service.current_config)
 
-    @pyqtSlot(str, result="QVariantMap")
-    @pyqtSlot(result="QVariantMap")
-    def open_or_create_folder_config(self, folder_url: str = "") -> dict:
-        folder = self.file_service.to_path(folder_url) if folder_url else self._current_folder
-        if not folder or not folder.exists():
-            return {"success": False, "error": "Рабочая папка не выбрана"}
-        config_path = self.config_service.ensure_folder_config(folder)
-        file_url = QUrl.fromLocalFile(str(config_path.resolve())).toString()
-        self.folderFilesChanged.emit()
-        return {
-            "success": True,
-            "fileUrl": file_url,
-            "fileName": config_path.name
-        }
 
     @pyqtSlot(str, result=bool)
     def is_config_file(self, file_url: str) -> bool:

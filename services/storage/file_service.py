@@ -69,6 +69,32 @@ def save_session_config(data: dict):
     except Exception as e:
         _safe_print(f"[FileService] Ошибка сохранения сессии: {e}")
 
+def list_project_notes(folder_path: Path, *, config_service=None) -> list[Path]:
+    """List project notes deterministically, without traversing hidden/service folders."""
+    if not folder_path or not folder_path.is_dir():
+        return []
+    config = config_service or ConfigService()
+    app = config.get_app_config(folder_path)
+    syntax = config.get_syntax_config(folder_path).get("system_files", {})
+    extensions = {ext.lower() for ext in app.get("supported_extensions", [".txt", ".md"])}
+    ignored = {name.lower() for name in app.get("ignored_directories", [])}
+    ignored.update({".git", ".asleep", "__pycache__", ".obsidian", "node_modules"})
+    prefixes = tuple(syntax.get("ignore_prefixes", [".", "_"]))
+    system_files = {syntax.get("graph_file", "_Граф связей.txt"), syntax.get("structure_file", "_notes.txt")}
+    notes = []
+    for directory, dirs, files in os.walk(folder_path, followlinks=False):
+        dirs[:] = sorted(name for name in dirs if name.lower() not in ignored
+                         and not name.startswith(".") and not name.startswith(prefixes)
+                         and not (Path(directory) / name).is_symlink())
+        for name in files:
+            path = Path(directory) / name
+            if (not name.startswith(".") and not name.startswith(prefixes)
+                    and name not in system_files and path.suffix.lower() in extensions
+                    and not path.is_symlink() and path.is_file()):
+                notes.append(path)
+    return sorted(notes, key=lambda path: path.relative_to(folder_path).as_posix())
+
+
 class FileService:
     """
     Сервис файловой системы.
@@ -76,6 +102,9 @@ class FileService:
     """
     def __init__(self, config_service=None):
         self.config_service = config_service
+
+    def list_project_notes(self, folder_path: Path) -> list[Path]:
+        return list_project_notes(folder_path, config_service=self.config_service)
 
     @staticmethod
     def to_path(file_url: str) -> Path:
@@ -114,7 +143,7 @@ class FileService:
                     return {ext.lower().strip() for ext in app_cfg["supported_extensions"] if ext}
             except Exception:
                 pass
-        return {".txt"}
+        return {".txt", ".md"}
 
     def get_folder_files(self, folder_url: str) -> list:
         """Возвращает список файлов в рабочей папке с учетом настроек ignored_directories и supported_extensions"""

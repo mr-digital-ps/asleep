@@ -609,6 +609,9 @@ def main():
     print("=== Запуск самодиагностики my-text-editor ===\n")
     try:
         test_structure()
+        import unittest
+        suite = unittest.defaultTestLoader.discover(str(PROJECT_DIR / "tests"), pattern="test_project_architecture.py")
+        assert unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful(), "Architecture regression tests failed"
         test_services()
         test_qml()
         print("\n[УСПЕХ] Все тесты пройдены! Приложение 100% готово к работе.")

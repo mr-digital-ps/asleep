@@ -7,6 +7,7 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 from services.content.document_outline import parse_user_dialect
+from services.storage.file_service import FileService
 
 
 class HistoryService:
@@ -15,7 +16,7 @@ class HistoryService:
     Хранит снимки файлов и структуры графа с zlib-компрессией и дедупликацией.
     """
     def __init__(self, file_service=None, graph_service=None):
-        self.file_service = file_service
+        self.file_service = file_service or FileService()
         self.graph_service = graph_service
         self._last_fingerprints: dict[str, str] = {}  # folder_key -> fingerprint
 
@@ -85,27 +86,11 @@ class HistoryService:
         if not folder.exists() or not folder.is_dir():
             return {}, ""
 
-        exts = {".txt"}
-        if self.file_service:
-            try:
-                exts = self.file_service.get_supported_extensions(folder)
-            except Exception:
-                pass
-
         files_data = {}
         hash_list = []
 
         try:
-            for p in sorted(folder.rglob("*")):
-                if not p.is_file():
-                    continue
-                # Пропускаем скрытые файлы и папки (.git, .asleep, __pycache__ и т.д.)
-                parts = p.relative_to(folder).parts
-                if any(part.startswith(".") for part in parts) or "_Граф связей.txt" in parts:
-                    continue
-                if p.suffix.lower() not in exts:
-                    continue
-
+            for p in self.file_service.list_project_notes(folder):
                 rel_str = str(p.relative_to(folder)).replace("\\", "/")
                 try:
                     text = p.read_text(encoding="utf-8", errors="replace")
