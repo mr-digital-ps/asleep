@@ -710,6 +710,11 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, acti
                 root.toggleSplit()
             }
             break
+        case "toggle_canvas":
+            if (root && typeof root.toggleCanvasMode === "function") {
+                root.toggleCanvasMode()
+            }
+            break
         case "toggle_centered_mode":
             if (splitLayout && splitLayout.primaryBar) {
                 if (typeof splitLayout.primaryBar.toggleCenteredMode === "function") {

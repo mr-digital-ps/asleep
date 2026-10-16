@@ -73,6 +73,14 @@ class HotkeyMatcher:
                     qt_keys.update([83, 1067, 1099])
                     chars.update(['S', 'Ы'])
 
+                # Для toggle_canvas (Alt+C) гарантируем скан-коды и виртуальные клавиши:
+                # C (scan 46, VK 0x43, ru 'С', qt 67, 1057, 1089)
+                if action == "toggle_canvas" and alt and not ctrl and not shift:
+                    vks.add(0x43)
+                    scan_codes.add(46)
+                    qt_keys.update([67, 1057, 1089])
+                    chars.update(['C', 'С'])
+
                 # Для close_tab гарантируем только W (scan 17, 'Ц')
                 if action == "close_tab" and ctrl and not shift and not alt:
                     vks.add(0x57)

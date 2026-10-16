@@ -196,11 +196,37 @@ Rectangle {
     Keys.onPressed: (event) => handleGlobalKeyEvent(event)
 
     // =========================================================================
-    // ГЛАВНАЯ ОБЛАСТЬ РЕДАКТОРА (ЧИСТЫЙ МОНОЛИТ)
+    // ГЛАВНАЯ ОБЛАСТЬ РЕДАКТОРА (МОНОЛИТ СПЛИТА ИЛИ БЕСКОНЕЧНЫЙ ХОЛСТ)
     // =========================================================================
+    property bool isCanvasMode: false
+
+    function toggleCanvasMode() {
+        isCanvasMode = !isCanvasMode
+    }
+
+    CanvasWorkspace {
+        id: canvasLayout
+        anchors.fill: parent
+        visible: root.isCanvasMode
+        currentFolderUrl: root.currentFolderUrl
+        currentFolderName: root.currentFolderName
+        openFileUrls: root.openFileUrls
+
+        onSaveRequested: root.executeAction("save_file")
+        onOpenRequested: root.executeAction("open_file")
+        onOpenSplitRequested: root.executeAction("open_file_split")
+        onNewRequested: root.createNewTab(false)
+        onNewSplitRequested: root.executeAction("new_tab_split")
+        onToggleGraphRequested: root.executeAction("toggle_graph")
+        onToggleLocalGraphRequested: root.executeAction("toggle_local_graph")
+        onToggleSplitRequested: root.toggleSplit()
+        onOpenStructureRequested: root.executeAction("open_structure")
+    }
+
     WorkspaceSplit {
         id: splitLayout
         anchors.fill: parent
+        visible: !root.isCanvasMode
         barSize: root.barSize
         isSplit: root.isSplit
         activePane: root.activePane
