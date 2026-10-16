@@ -40,15 +40,9 @@
     "description": "Показать / скрыть панель вкладок (Tab Bar)"
   },
 
-  // Включение/выключение режима разделенного экрана (Split View)
-  "toggle_split": {
-    "keys": ["Alt+S"],
-    "description": "Разделить экран (Split View)"
-  },
-
   // Включение/выключение режима свободного бесконечного холста (Canvas Mode)
   "toggle_canvas": {
-    "keys": ["Alt+C"],
+    "keys": ["Alt+S", "Alt+C"],
     "description": "Переключить режим свободного бесконечного холста (Canvas Mode)"
   },
 

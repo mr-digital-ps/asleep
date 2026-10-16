@@ -148,11 +148,11 @@ tags:
     ev_q = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 16, 0x51, 0)
     assert matcher.match_event(ev_q) != "close_tab", "Ctrl+Q не должен быть привязан к close_tab"
 
-    # 3. Проверка toggle_split: Alt+S (EN scan 31, VK 0x53), Alt+Ы (RU scan 31)
-    ev_split_en = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_S, Qt.KeyboardModifier.AltModifier, 31, 0x53, 0)
-    ev_split_ru = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.AltModifier, 31, 0x53, 0)
-    assert matcher.match_event(ev_split_en) == "toggle_split", "Alt+S (EN) должен распознаваться"
-    assert matcher.match_event(ev_split_ru) == "toggle_split", "Alt+Ы (RU) должен распознаваться"
+    # 3. Проверка toggle_canvas: Alt+S (scan 31, VK 0x53), Alt+C (scan 46, VK 0x43)
+    ev_canvas_s = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_S, Qt.KeyboardModifier.AltModifier, 31, 0x53, 0)
+    ev_canvas_c = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_C, Qt.KeyboardModifier.AltModifier, 46, 0x43, 0)
+    assert matcher.match_event(ev_canvas_s) == "toggle_canvas", "Alt+S должен переключать canvas"
+    assert matcher.match_event(ev_canvas_c) == "toggle_canvas", "Alt+C должен переключать canvas"
 
     # 4. Проверка toggle_header: F9 (scan 67) и Alt+U
     ev_f9 = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_F9, Qt.KeyboardModifier.NoModifier, 67, 0x78, 0)
@@ -475,13 +475,12 @@ def test_qml():
     primary_bar.toggleCenteredMode()
     assert primary_bar.property("isCenteredMode") is True, "toggleCenteredMode должен переключать обратно в True"
 
-    # 2.2. Проверка toggleSplit (Фаза 4)
-    assert split.property("isSplit") is False, "Сплит по умолчанию должен быть выключен"
-    web_item.toggleSplit()
-    assert split.property("isSplit") is True, "toggleSplit должен включать режим двух панелей"
-    assert split.property("secondaryBar").property("visible") is True, "secondaryBar должна быть видима при включенном сплите"
-    web_item.toggleSplit()
-    assert split.property("isSplit") is False, "toggleSplit должен выключать режим двух панелей"
+    # 2.2. Проверка toggleCanvasMode
+    assert web_item.property("isCanvasMode") is False, "isCanvasMode по умолчанию должен быть выключен"
+    web_item.toggleCanvasMode()
+    assert web_item.property("isCanvasMode") is True, "toggleCanvasMode должен включать холст"
+    web_item.toggleCanvasMode()
+    assert web_item.property("isCanvasMode") is False, "toggleCanvasMode должен выключать холст"
 
     # 2.3. Проверка интерактивного графа связей (Фаза 5)
     assert web_item.property("isGraphVisible") is False, "Граф по умолчанию скрыт"
