@@ -11,7 +11,6 @@ from services.system.hotkey_service import HotkeyService, GlobalHotkeyFilter
 from services.graph_service import GraphService
 from services.history_service import HistoryService
 from services.content.outline_service import OutlineService
-from services.content.document_session import DocumentSession
 
 from services.backend.app_initializer import safe_print, configure_app_font
 from services.backend.file_handler import FileHandlerMixin

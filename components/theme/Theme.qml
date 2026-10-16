@@ -5,6 +5,18 @@ Item {
     id: theme
     visible: false
 
+    property real canvasPanelWidth: 800
+    property real canvasPanelHeight: 720
+    property real canvasPanelGap: 40
+    property real canvasDragHeight: 24
+    property real canvasResizeMargin: 6
+    property real canvasMinHeight: 300
+    property real canvasSnapDistance: 18
+    property real canvasGridStep: 32
+    property real canvasMinZoom: 0.3
+    property real canvasMaxZoom: 2.5
+    property real canvasZoomStep: 1.1
+
     // 1. Поверхности и фоны (Surfaces & Backgrounds)
     property color bgApp: "#141414"
     property color bgPaper: "#181818"

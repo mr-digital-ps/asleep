@@ -49,101 +49,6 @@ function toggleItalic(editor) {
     wrapSelection(editor, "*", "*")
 }
 
-function toggleHeading(editor, level) {
-    let fullText = editor.text
-    let pos = editor.cursorPosition
-    let lineStart = fullText.lastIndexOf("\n", Math.max(0, pos - 1)) + 1
-    let lineEnd = fullText.indexOf("\n", pos)
-    if (lineEnd === -1) lineEnd = fullText.length
-    let currentLine = fullText.substring(lineStart, lineEnd)
-
-    let cleaned = currentLine.replace(/^([ \t]*)(#{1,6}\s*)/, "$1")
-    let newHeading = ""
-    if (level > 0) {
-        let matchIndent = cleaned.match(/^([ \t]*)/)
-        let indent = matchIndent ? matchIndent[1] : ""
-        let rest = cleaned.substring(indent.length)
-        newHeading = indent + "#".repeat(level) + " " + rest
-    } else {
-        newHeading = cleaned
-    }
-
-    editor.remove(lineStart, lineEnd)
-    editor.insert(lineStart, newHeading)
-    editor.cursorPosition = Math.min(lineStart + newHeading.length, pos + (newHeading.length - currentLine.length))
-}
-
-function toggleTask(editor) {
-    let fullText = editor.text
-    let pos = editor.cursorPosition
-    let lineStart = fullText.lastIndexOf("\n", Math.max(0, pos - 1)) + 1
-    let lineEnd = fullText.indexOf("\n", pos)
-    if (lineEnd === -1) lineEnd = fullText.length
-    let currentLine = fullText.substring(lineStart, lineEnd)
-
-    let newLine = currentLine
-    if (/\[ \]/.test(currentLine)) {
-        newLine = currentLine.replace(/\[ \]/, "[x]")
-    } else if (/\[[xX]\]/.test(currentLine)) {
-        newLine = currentLine.replace(/\[[xX]\]/, "[ ]")
-    } else if (/^([ \t]*)([-*+]) (.*)$/.test(currentLine)) {
-        newLine = currentLine.replace(/^([ \t]*)([-*+]) (.*)$/, "$1$2 [ ] $3")
-    } else {
-        let match = currentLine.match(/^([ \t]*)(.*)$/)
-        let indent = match ? match[1] : ""
-        let rest = match ? match[2] : ""
-        newLine = indent + "- [ ] " + rest
-    }
-
-    editor.remove(lineStart, lineEnd)
-    editor.insert(lineStart, newLine)
-    editor.cursorPosition = Math.min(lineStart + newLine.length, pos + (newLine.length - currentLine.length))
-}
-
-function duplicateLine(editor) {
-    let fullText = editor.text
-    let pos = editor.cursorPosition
-    let lineStart = fullText.lastIndexOf("\n", Math.max(0, pos - 1)) + 1
-    let lineEnd = fullText.indexOf("\n", pos)
-    if (lineEnd === -1) lineEnd = fullText.length
-    let currentLine = fullText.substring(lineStart, lineEnd)
-    editor.insert(lineEnd, "\n" + currentLine)
-}
-
-function moveLineUp(editor) {
-    let fullText = editor.text
-    let pos = editor.cursorPosition
-    let lineStart = fullText.lastIndexOf("\n", Math.max(0, pos - 1)) + 1
-    if (lineStart > 0) {
-        let prevLineStart = fullText.lastIndexOf("\n", lineStart - 2) + 1
-        let lineEnd = fullText.indexOf("\n", pos)
-        if (lineEnd === -1) lineEnd = fullText.length
-        let currentLine = fullText.substring(lineStart, lineEnd)
-        let prevLine = fullText.substring(prevLineStart, lineStart - 1)
-        let before = fullText.substring(0, prevLineStart)
-        let after = fullText.substring(lineEnd)
-        editor.text = before + currentLine + "\n" + prevLine + after
-        editor.cursorPosition = prevLineStart + (pos - lineStart)
-    }
-}
-
-function moveLineDown(editor) {
-    let fullText = editor.text
-    let pos = editor.cursorPosition
-    let lineStart = fullText.lastIndexOf("\n", Math.max(0, pos - 1)) + 1
-    let lineEnd = fullText.indexOf("\n", pos)
-    if (lineEnd !== -1) {
-        let nextLineEnd = fullText.indexOf("\n", lineEnd + 1)
-        if (nextLineEnd === -1) nextLineEnd = fullText.length
-        let currentLine = fullText.substring(lineStart, lineEnd)
-        let nextLine = fullText.substring(lineEnd + 1, nextLineEnd)
-        let before = fullText.substring(0, lineStart)
-        let after = fullText.substring(nextLineEnd)
-        editor.text = before + nextLine + "\n" + currentLine + after
-        editor.cursorPosition = lineStart + nextLine.length + 1 + (pos - lineStart)
-    }
-}
-
 function handleTabIndent(editor, isShift, tabSize) {
     let size = (typeof tabSize === "number" && tabSize > 0) ? Math.floor(tabSize) : 4
     let tabSpaces = " ".repeat(size)
@@ -190,22 +95,6 @@ function handleTabIndent(editor, isShift, tabSize) {
 
 function handleTab(editor, isShift, tabSize) {
     return handleTabIndent(editor, isShift, tabSize)
-}
-
-function handleAutoWrap(editor, char) {
-    let pairs = {
-        "*": "*", "_": "_", "~": "~", "`": "`",
-        "(": ")", ")": ")",
-        "[": "]", "]": "]",
-        "{": "}", "}": "}",
-        "\"": "\"", "'": "'"
-    }
-    let suffix = pairs[char]
-    if (suffix) {
-        wrapSelection(editor, char === ")" ? "(" : (char === "]" ? "[" : (char === "}" ? "{" : char)), suffix)
-        return true
-    }
-    return false
 }
 
 function handleAutoPair(editor, char) {

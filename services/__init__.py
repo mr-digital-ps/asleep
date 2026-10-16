@@ -1,6 +1,5 @@
 # services/__init__.py
 from services.backend import Backend
-from services.content import DocumentSession
 from services.storage import FileService, ConfigService
 from services.content import (
     BlockEngine,
@@ -13,7 +12,6 @@ from services.system import WindowManager, HotkeyService, setup_live_reload
 
 __all__ = [
     "Backend",
-    "DocumentSession",
     "FileService",
     "ConfigService",
     "BlockEngine",

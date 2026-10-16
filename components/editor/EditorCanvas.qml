@@ -39,11 +39,11 @@ RowLayout {
     signal toggleCenteredModeRequested()
     signal saveRequested()
     signal openRequested()
-    signal openSplitRequested()
     signal newRequested()
-    signal newSplitRequested()
     signal toggleGraphRequested()
-    signal toggleSplitRequested()
+    signal panelDragStarted(var mouse, var item)
+    signal panelDragUpdated(var mouse, var item)
+    signal panelDragFinished()
 
     function updateBracketHighlights() {
         if (bracketHighlightOverlay) {
@@ -62,6 +62,9 @@ RowLayout {
         Layout.preferredWidth: barSize
         Layout.fillHeight: true
         onActivated: canvasRoot.paneActivated()
+        onDragStarted: (mouse, item) => canvasRoot.panelDragStarted(mouse, item)
+        onDragUpdated: (mouse, item) => canvasRoot.panelDragUpdated(mouse, item)
+        onDragFinished: () => canvasRoot.panelDragFinished()
     }
 
     // Текстовое поле документа

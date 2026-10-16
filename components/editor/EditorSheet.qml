@@ -12,7 +12,6 @@ Rectangle {
     property bool isCenteredMode: true
     property real customSheetWidth: Theme.defaultSheetWidth
     property real minSheetWidth: Theme.minSheetWidth
-    property bool isSplitMode: false
     property bool isActivePane: false
     property bool isEmpty: false
     property bool typewriterMode: false
@@ -51,11 +50,8 @@ Rectangle {
     signal detachRequested()
     signal saveRequested()
     signal newRequested()
-    signal newSplitRequested()
     signal toggleGraphRequested()
-    signal toggleSplitRequested()
     signal openRequested()
-    signal openSplitRequested()
     signal cursorVisibilityRequested()
     signal toggleHistoryRequested()
     signal toggleInfoRequested()
@@ -71,17 +67,21 @@ Rectangle {
     signal fontSizeChanged(int newSize)
     signal syncNoticeRequested(string title)
     signal headerPinToggled(bool pinned)
+    signal panelDragStarted(var mouse, var item)
+    signal panelDragUpdated(var mouse, var item)
+    signal panelDragFinished()
 
     visible: !isEmpty
-    width: isCenteredMode ? Math.min(parent.width, Math.max(minSheetWidth, customSheetWidth)) : parent.width
+    width: parent ? parent.width : minSheetWidth
     height: Math.max(sheetRoot.viewHeight, contentNaturalHeight)
     y: 0
-    anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
+    anchors.left: parent ? parent.left : undefined
+    anchors.right: parent ? parent.right : undefined
     anchors.top: parent ? parent.top : undefined
 
     color: Theme.bgPaper
 
-    opacity: (isSplitMode && !isActivePane) ? 0.55 : 1.0
+    opacity: 1.0
     Behavior on opacity {
         NumberAnimation { duration: Theme.animDurationNormal }
     }
@@ -108,6 +108,9 @@ Rectangle {
         hasFooter: false
 
         onPaneActivated: sheetRoot.paneActivated()
+        onPanelDragStarted: (mouse, item) => sheetRoot.panelDragStarted(mouse, item)
+        onPanelDragUpdated: (mouse, item) => sheetRoot.panelDragUpdated(mouse, item)
+        onPanelDragFinished: () => sheetRoot.panelDragFinished()
         onCursorVisibilityRequested: sheetRoot.cursorVisibilityRequested()
         onToggleHistoryRequested: sheetRoot.toggleHistoryRequested()
         onToggleInfoRequested: sheetRoot.toggleInfoRequested()
@@ -119,11 +122,8 @@ Rectangle {
         onToggleCenteredModeRequested: sheetRoot.toggleCenteredModeRequested()
         onSaveRequested: sheetRoot.saveRequested()
         onOpenRequested: sheetRoot.openRequested()
-        onOpenSplitRequested: sheetRoot.openSplitRequested()
         onNewRequested: sheetRoot.newRequested()
-        onNewSplitRequested: sheetRoot.newSplitRequested()
         onToggleGraphRequested: sheetRoot.toggleGraphRequested()
-        onToggleSplitRequested: sheetRoot.toggleSplitRequested()
         onTextChangedByUser: sheetRoot.textChangedByUser()
         onScrollRequested: (dy) => sheetRoot.scrollRequested(dy)
         onScrollToTopRequested: sheetRoot.scrollToTopRequested()
@@ -131,6 +131,10 @@ Rectangle {
         onCloseRequested: sheetRoot.closeRequested()
         onDetachRequested: sheetRoot.detachRequested()
         onSyncNoticeRequested: (t) => sheetRoot.syncNoticeRequested(t)
+    }
+
+    function getLiveText() {
+        return typeof _liveDraftText === "string" ? _liveDraftText : editorArea.text
     }
 
     function loadHistoricalSnapshot(snapshotId) {

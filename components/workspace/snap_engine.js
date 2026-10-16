@@ -207,3 +207,261 @@ function calculateSnap(draggedRect, otherPanes, threshold) {
         dockSide: dockSide
     }
 }
+
+/**
+ * Расчёт магнетизма при изменении размера прямоугольника к соседним панелям.
+ * Магнитит как по граням (Flush/Dock), так и по совпадающим габаритам (Same Width/Height).
+ *
+ * @param {Object} draggedRect - { id, x, y, width, height }
+ * @param {Array} otherPanes - массив { id, x, y, width, height }
+ * @param {string} handleType - "right"|"left"|"bottom"|"top"|"bottom-right"|"bottom-left"|"top-right"|"top-left"
+ * @param {number} threshold - радиус магнетизма в пикселях
+ * @param {number} minWidth - минимальная ширина
+ * @param {number} minHeight - минимальная высота
+ * @returns {Object} результат: { snappedX, snappedY, snappedWidth, snappedHeight, guidelines }
+ */
+function calculateResizeSnap(draggedRect, otherPanes, handleType, threshold, minWidth, minHeight) {
+    var snapDist = (typeof threshold === "number" && threshold > 0) ? threshold : DEFAULT_SNAP_THRESHOLD
+    var minW = (typeof minWidth === "number" && minWidth > 0) ? minWidth : 380
+    var minH = (typeof minHeight === "number" && minHeight > 0) ? minHeight : 300
+
+    var curX = draggedRect.x
+    var curY = draggedRect.y
+    var curW = Math.max(minW, draggedRect.width)
+    var curH = Math.max(minH, draggedRect.height)
+    var curRight = curX + curW
+    var curBottom = curY + curH
+
+    var modifiesRight = (handleType === "right" || handleType === "bottom-right" || handleType === "top-right")
+    var modifiesLeft = (handleType === "left" || handleType === "bottom-left" || handleType === "top-left")
+    var modifiesBottom = (handleType === "bottom" || handleType === "bottom-right" || handleType === "bottom-left")
+    var modifiesTop = (handleType === "top" || handleType === "top-right" || handleType === "top-left")
+
+    var finalX = curX
+    var finalY = curY
+    var finalW = curW
+    var finalH = curH
+
+    var bestDiffX = snapDist + 1
+    var bestDiffY = snapDist + 1
+    var guidelines = []
+
+    if (!otherPanes || otherPanes.length === 0) {
+        return {
+            snappedX: finalX,
+            snappedY: finalY,
+            snappedWidth: finalW,
+            snappedHeight: finalH,
+            isSnappedX: false,
+            isSnappedY: false,
+            isSnappedWidth: false,
+            isSnappedHeight: false,
+            guidelines: []
+        }
+    }
+
+    var bestSnapOtherX = null
+    var bestSnapOtherY = null
+    var bestGuideX = null
+    var bestGuideY = null
+
+    for (var i = 0; i < otherPanes.length; i++) {
+        var other = otherPanes[i]
+        if (!other || other.id === draggedRect.id) continue
+
+        var oX = other.x
+        var oY = other.y
+        var oW = other.width
+        var oH = other.height
+        var oRight = oX + oW
+        var oBottom = oY + oH
+
+        // =====================================================================
+        // ГОРИЗОНТАЛЬНЫЙ РЕСАЙЗ-МАГНЕТИЗМ (Width / X)
+        // =====================================================================
+        if (modifiesRight) {
+            // 1. Совпадение по ширине с соседом (Same Width)
+            var diffWidth = Math.abs(curW - oW)
+            if (diffWidth < snapDist && diffWidth < bestDiffX) {
+                bestDiffX = diffWidth
+                finalW = oW
+                bestGuideX = curX + oW
+                bestSnapOtherX = other
+            }
+
+            // 2. Правый край к правому краю соседа (Flush Right)
+            var diffFlushRight = Math.abs(curRight - oRight)
+            if (diffFlushRight < snapDist && diffFlushRight < bestDiffX) {
+                var candidateW = oRight - curX
+                if (candidateW >= minW) {
+                    bestDiffX = diffFlushRight
+                    finalW = candidateW
+                    bestGuideX = oRight
+                    bestSnapOtherX = other
+                }
+            }
+
+            // 3. Правый край к левому краю соседа (Dock Left)
+            var diffDockLeft = Math.abs(curRight - oX)
+            if (diffDockLeft < snapDist && diffDockLeft < bestDiffX) {
+                var candidateW = oX - curX
+                if (candidateW >= minW) {
+                    bestDiffX = diffDockLeft
+                    finalW = candidateW
+                    bestGuideX = oX
+                    bestSnapOtherX = other
+                }
+            }
+        } else if (modifiesLeft) {
+            var fixedRight = curX + curW
+
+            // 1. Совпадение по ширине с соседом (Same Width)
+            var diffWidth = Math.abs(curW - oW)
+            if (diffWidth < snapDist && diffWidth < bestDiffX) {
+                bestDiffX = diffWidth
+                finalW = oW
+                finalX = fixedRight - oW
+                bestGuideX = finalX
+                bestSnapOtherX = other
+            }
+
+            // 2. Левый край к левому краю соседа (Flush Left)
+            var diffFlushLeft = Math.abs(curX - oX)
+            if (diffFlushLeft < snapDist && diffFlushLeft < bestDiffX) {
+                var candidateW = fixedRight - oX
+                if (candidateW >= minW) {
+                    bestDiffX = diffFlushLeft
+                    finalX = oX
+                    finalW = candidateW
+                    bestGuideX = oX
+                    bestSnapOtherX = other
+                }
+            }
+
+            // 3. Левый край к правому краю соседа (Dock Right)
+            var diffDockRight = Math.abs(curX - oRight)
+            if (diffDockRight < snapDist && diffDockRight < bestDiffX) {
+                var candidateW = fixedRight - oRight
+                if (candidateW >= minW) {
+                    bestDiffX = diffDockRight
+                    finalX = oRight
+                    finalW = candidateW
+                    bestGuideX = oRight
+                    bestSnapOtherX = other
+                }
+            }
+        }
+
+        // =====================================================================
+        // ВЕРТИКАЛЬНЫЙ РЕСАЙЗ-МАГНЕТИЗМ (Height / Y)
+        // =====================================================================
+        if (modifiesBottom) {
+            // 1. Совпадение по высоте с соседом (Same Height)
+            var diffHeight = Math.abs(curH - oH)
+            if (diffHeight < snapDist && diffHeight < bestDiffY) {
+                bestDiffY = diffHeight
+                finalH = oH
+                bestGuideY = curY + oH
+                bestSnapOtherY = other
+            }
+
+            // 2. Нижний край к нижнему краю соседа (Flush Bottom)
+            var diffFlushBottom = Math.abs(curBottom - oBottom)
+            if (diffFlushBottom < snapDist && diffFlushBottom < bestDiffY) {
+                var candidateH = oBottom - curY
+                if (candidateH >= minH) {
+                    bestDiffY = diffFlushBottom
+                    finalH = candidateH
+                    bestGuideY = oBottom
+                    bestSnapOtherY = other
+                }
+            }
+
+            // 3. Нижний край к верхнему краю соседа (Dock Top)
+            var diffDockTop = Math.abs(curBottom - oY)
+            if (diffDockTop < snapDist && diffDockTop < bestDiffY) {
+                var candidateH = oY - curY
+                if (candidateH >= minH) {
+                    bestDiffY = diffDockTop
+                    finalH = candidateH
+                    bestGuideY = oY
+                    bestSnapOtherY = other
+                }
+            }
+        } else if (modifiesTop) {
+            var fixedBottom = curY + curH
+
+            // 1. Совпадение по высоте с соседом (Same Height)
+            var diffHeight = Math.abs(curH - oH)
+            if (diffHeight < snapDist && diffHeight < bestDiffY) {
+                bestDiffY = diffHeight
+                finalH = oH
+                finalY = fixedBottom - oH
+                bestGuideY = finalY
+                bestSnapOtherY = other
+            }
+
+            // 2. Верхний край к верхнему краю соседа (Flush Top)
+            var diffFlushTop = Math.abs(curY - oY)
+            if (diffFlushTop < snapDist && diffFlushTop < bestDiffY) {
+                var candidateH = fixedBottom - oY
+                if (candidateH >= minH) {
+                    bestDiffY = diffFlushTop
+                    finalY = oY
+                    finalH = candidateH
+                    bestGuideY = oY
+                    bestSnapOtherY = other
+                }
+            }
+
+            // 3. Верхний край к нижнему краю соседа (Dock Bottom)
+            var diffDockBottom = Math.abs(curY - oBottom)
+            if (diffDockBottom < snapDist && diffDockBottom < bestDiffY) {
+                var candidateH = fixedBottom - oBottom
+                if (candidateH >= minH) {
+                    bestDiffY = diffDockBottom
+                    finalY = oBottom
+                    finalH = candidateH
+                    bestGuideY = oBottom
+                    bestSnapOtherY = other
+                }
+            }
+        }
+    }
+
+    if (bestGuideX !== null) {
+        var minY = Math.min(finalY, bestSnapOtherX ? bestSnapOtherX.y : finalY) - 20
+        var maxY = Math.max(finalY + finalH, bestSnapOtherX ? (bestSnapOtherX.y + bestSnapOtherX.height) : (finalY + finalH)) + 20
+        guidelines.push({
+            x1: bestGuideX,
+            y1: minY,
+            x2: bestGuideX,
+            y2: maxY,
+            orientation: "v"
+        })
+    }
+
+    if (bestGuideY !== null) {
+        var minX = Math.min(finalX, bestSnapOtherY ? bestSnapOtherY.x : finalX) - 20
+        var maxX = Math.max(finalX + finalW, bestSnapOtherY ? (bestSnapOtherY.x + bestSnapOtherY.width) : (finalX + finalW)) + 20
+        guidelines.push({
+            x1: minX,
+            y1: bestGuideY,
+            x2: maxX,
+            y2: bestGuideY,
+            orientation: "h"
+        })
+    }
+
+    return {
+        snappedX: finalX,
+        snappedY: finalY,
+        snappedWidth: finalW,
+        snappedHeight: finalH,
+        isSnappedX: Math.abs(finalX - curX) > 0.001,
+        isSnappedY: Math.abs(finalY - curY) > 0.001,
+        isSnappedWidth: Math.abs(finalW - curW) > 0.001,
+        isSnappedHeight: Math.abs(finalH - curH) > 0.001,
+        guidelines: guidelines
+    }
+}

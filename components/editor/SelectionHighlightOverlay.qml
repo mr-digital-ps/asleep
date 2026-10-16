@@ -1,14 +1,17 @@
 import QtQuick
 import "../theme"
 
-// Органическое непрерывное выделение: единый контур-полигон строк,
-// каждая вершина которого скругляется через arcTo (выпуклые и вогнутые углы одинаково).
+// Органическое выделение текста:
+// Связанные (перекрывающиеся по горизонтали) строки объединяются в единый непрерывный полигон
+// со скруглёнными внешними и внутренними углами через arcTo.
+// Строки без достаточного горизонтального перекрытия (< 2 * radius) рендерятся как
+// независимые аккуратные скруглённые блоки.
 Canvas {
     id: root
     anchors.fill: parent
 
     property var editorArea: null
-    property var outline: []          // вершины полигона [{x, y}]
+    property var polygons: []
 
     FontMetrics {
         id: fm
@@ -20,6 +23,7 @@ Canvas {
         ignoreUnknownSignals: true
         function onSelectionStartChanged() { root.rebuild() }
         function onSelectionEndChanged() { root.rebuild() }
+        function onCursorPositionChanged() { root.rebuild() }
         function onWidthChanged() { root.rebuild() }
         function onTextChanged() { root.rebuild() }
         function onFontChanged() { root.rebuild() }
@@ -37,7 +41,7 @@ Canvas {
                 else hi = mid - 1
             }
             let re = editorArea.positionToRectangle(best)
-            rows.push({ x: rs.x, y: rs.y, w: re.x - rs.x, h: rs.height })
+            rows.push({ x: rs.x, y: rs.y, w: re.x - rs.x, h: rs.height, startPos: pos, endPos: best })
             if (best >= end) break
             pos = best + 1
         }
@@ -45,53 +49,117 @@ Canvas {
     }
 
     function rebuild() {
-        let pts = []
+        let resultPolygons = []
         if (editorArea) {
             let s = Math.min(editorArea.selectionStart, editorArea.selectionEnd)
             let e = Math.max(editorArea.selectionStart, editorArea.selectionEnd)
             if (s >= 0 && e > s) {
                 let rows = collectRows(s, e)
-                let cw = Math.max(1, Math.round(fm.advanceWidth(" ")))
-                let lineStep = rows.length > 1 ? (rows[1].y - rows[0].y) : rows[0].h
-
-                // Нормализуем строки: смежные без зазоров и наложений (bottom_i == top_{i+1})
                 let n = rows.length
-                let L = [], R = [], T = [], B = []
-                for (let i = 0; i < n; i++) {
-                    let r = rows[i]
-                    let step = Math.max(r.h, lineStep)
-                    let top = Math.round(r.y - (step - r.h) / 2)
-                    L.push(Math.round(r.x))
-                    R.push(Math.round(r.x + Math.max(0, r.w)) + cw)   // всегда +1 визуальный пробел
-                    T.push(top)
-                    B.push(top + step)
-                }
-                for (let i = 0; i < n - 1; i++) B[i] = T[i + 1]
+                if (n > 0) {
+                    let cw = Math.max(1, Math.round(fm.advanceWidth(" ")))
+                    let snap = Theme.selectionRadius * 2
 
-                // Склеиваем микро-ступеньки (< 2 радиусов) — иначе arcTo даёт зубцы
-                let snap = Theme.selectionRadius * 2
-                for (let pass = 0; pass < 2; pass++) {
+                    // Вычисляем базовую геометрию каждой строки
+                    let normRows = []
+                    for (let i = 0; i < n; i++) {
+                        let r = rows[i]
+                        let isLastRow = (i === n - 1)
+                        // Пробел добавляется только если строка пустая (r.w <= 0)
+                        // или на промежуточных строках до конца строки (!isLastRow).
+                        // На строке, где заканчивается выделение / стоит курсор, лишний отступ не добавляется.
+                        let addSpace = (r.w <= 0) || (!isLastRow)
+                        let rowW = Math.max(0, r.w) + (addSpace ? cw : 0)
+
+                        let rowStep = (i < n - 1) ? (rows[i + 1].y - rows[i].y) : (n > 1 ? (rows[i].y - rows[i - 1].y) : rows[i].h)
+                        if (rowStep <= 0) rowStep = rows[i].h
+                        if (rowStep <= 0) rowStep = Math.max(1, fm.height)
+
+                        let step = Math.max(r.h, rowStep)
+                        let top = Math.round(r.y - (step - r.h) / 2)
+                        let left = Math.round(r.x)
+                        let right = Math.round(r.x + rowW)
+                        if (right <= left) right = left + cw
+
+                        normRows.push({
+                            L: left,
+                            R: right,
+                            T: top,
+                            B: top + step
+                        })
+                    }
+
+                    // Разбиваем строки на связные кластеры по достаточному горизонтальному перекрытию (>= snap)
+                    let clusters = []
+                    let currentCluster = [normRows[0]]
                     for (let i = 0; i < n - 1; i++) {
-                        if (Math.abs(R[i] - R[i + 1]) < snap) R[i] = R[i + 1] = Math.max(R[i], R[i + 1])
-                        if (Math.abs(L[i] - L[i + 1]) < snap) L[i] = L[i + 1] = Math.min(L[i], L[i + 1])
+                        let r1 = normRows[i]
+                        let r2 = normRows[i + 1]
+                        let overlap = Math.min(r1.R, r2.R) - Math.max(r1.L, r2.L)
+                        if (overlap >= snap) {
+                            currentCluster.push(r2)
+                        } else {
+                            clusters.push(currentCluster)
+                            currentCluster = [r2]
+                        }
+                    }
+                    clusters.push(currentCluster)
+
+                    // Строим сглаженный полигон для каждого кластера
+                    for (let c = 0; c < clusters.length; c++) {
+                        let pts = buildClusterPolygon(clusters[c], snap)
+                        if (pts && pts.length >= 3) {
+                            resultPolygons.push(pts)
+                        }
                     }
                 }
-
-                // Обход по часовой: правый край сверху вниз, левый край снизу вверх
-                pts.push({ x: L[0], y: T[0] })
-                for (let i = 0; i < n; i++) {
-                    pts.push({ x: R[i], y: T[i] })
-                    pts.push({ x: R[i], y: B[i] })
-                }
-                for (let i = n - 1; i >= 0; i--) {
-                    pts.push({ x: L[i], y: B[i] })
-                    pts.push({ x: L[i], y: T[i] })
-                }
-                pts = simplify(pts)
             }
         }
-        outline = pts
+        polygons = resultPolygons
         requestPaint()
+    }
+
+    function buildClusterPolygon(cluster, snap) {
+        let m = cluster.length
+        if (m === 0) return []
+        if (m === 1) {
+            let r0 = cluster[0]
+            return [
+                { x: r0.L, y: r0.T },
+                { x: r0.R, y: r0.T },
+                { x: r0.R, y: r0.B },
+                { x: r0.L, y: r0.B }
+            ]
+        }
+
+        // Выравниваем вертикальные границы смежных строк внутри кластера без зазоров
+        for (let i = 0; i < m - 1; i++) {
+            cluster[i].B = cluster[i + 1].T
+        }
+
+        // Склеиваем микро-ступеньки (< snap) строго внутри кластера
+        for (let pass = 0; pass < 2; pass++) {
+            for (let i = 0; i < m - 1; i++) {
+                if (Math.abs(cluster[i].R - cluster[i + 1].R) < snap) {
+                    cluster[i].R = cluster[i + 1].R = Math.max(cluster[i].R, cluster[i + 1].R)
+                }
+                if (Math.abs(cluster[i].L - cluster[i + 1].L) < snap) {
+                    cluster[i].L = cluster[i + 1].L = Math.min(cluster[i].L, cluster[i + 1].L)
+                }
+            }
+        }
+
+        let pts = []
+        pts.push({ x: cluster[0].L, y: cluster[0].T })
+        for (let i = 0; i < m; i++) {
+            pts.push({ x: cluster[i].R, y: cluster[i].T })
+            pts.push({ x: cluster[i].R, y: cluster[i].B })
+        }
+        for (let i = m - 1; i >= 0; i--) {
+            pts.push({ x: cluster[i].L, y: cluster[i].B })
+            pts.push({ x: cluster[i].L, y: cluster[i].T })
+        }
+        return simplify(pts)
     }
 
     // Убираем дубли и коллинеарные точки, чтобы скругления ставились только на реальных изломах
@@ -118,23 +186,27 @@ Canvas {
     onPaint: {
         let ctx = getContext("2d")
         ctx.reset()
-        let p = outline
-        let n = p.length
-        if (n < 3) return
+        if (!polygons || polygons.length === 0) return
 
         let rad = Theme.selectionRadius
         function dist(a, b) { return Math.abs(a.x - b.x) + Math.abs(a.y - b.y) }
 
         ctx.fillStyle = Theme.selectionColor
-        ctx.beginPath()
-        // Старт — середина первого ребра
-        ctx.moveTo((p[0].x + p[1].x) / 2, (p[0].y + p[1].y) / 2)
-        for (let k = 1; k <= n; k++) {
-            let prev = p[(k - 1) % n], cur = p[k % n], next = p[(k + 1) % n]
-            let r = Math.min(rad, dist(prev, cur) / 2, dist(cur, next) / 2)
-            ctx.arcTo(cur.x, cur.y, next.x, next.y, r)
+
+        for (let idx = 0; idx < polygons.length; idx++) {
+            let p = polygons[idx]
+            let n = p.length
+            if (n < 3) continue
+
+            ctx.beginPath()
+            ctx.moveTo((p[0].x + p[1].x) / 2, (p[0].y + p[1].y) / 2)
+            for (let k = 1; k <= n; k++) {
+                let prev = p[(k - 1) % n], cur = p[k % n], next = p[(k + 1) % n]
+                let r = Math.min(rad, dist(prev, cur) / 2, dist(cur, next) / 2)
+                ctx.arcTo(cur.x, cur.y, next.x, next.y, r)
+            }
+            ctx.closePath()
+            ctx.fill()
         }
-        ctx.closePath()
-        ctx.fill()
     }
 }

@@ -20,6 +20,8 @@ test_notes/
 .asleep/
 *.db
 *_graph_positions.json
+.canvas-baseline.json
+.canvas-preview.png
 
 # Third-party tools
 .obsidian/

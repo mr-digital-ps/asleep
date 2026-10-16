@@ -99,15 +99,3 @@ function getDayIndexForSnapshot(snapIdx, daysArr, timelineList) {
     if (snapIdx < 0) return daysArr.length - 1
     return Math.max(0, Math.min(daysArr.length - 1, snapIdx))
 }
-
-function getStepTitleText(daysList, isHistoricalMode, currentDayIndex) {
-    if (!daysList || daysList.length === 0) return "История пуста"
-    if (!isHistoricalMode) {
-        return "Live • Текущее состояние"
-    }
-    var dIdx = currentDayIndex
-    var dayObj = (dIdx >= 0 && dIdx < daysList.length) ? daysList[dIdx] : null
-    if (!dayObj) return ""
-    var desc = (dayObj.snapshot && dayObj.snapshot.description) ? (" • " + dayObj.snapshot.description) : ""
-    return dayObj.label + desc
-}

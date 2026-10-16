@@ -47,19 +47,6 @@ function applyEditorConfig(mainBar, editorArea, cfg, backend) {
     }
 }
 
-function initSessionConfig(mainBar, backend) {
-    if (!backend || typeof backend.get_session_config !== "function") return
-    try {
-        let sess = backend.get_session_config()
-        if (sess) {
-            if (typeof sess.header_pinned === "boolean") mainBar.isHeaderPinned = sess.header_pinned
-            if (typeof sess.header_visible === "boolean") mainBar.showHeader = sess.header_visible
-            if (typeof sess.show_scrollbar === "boolean") mainBar.showScrollbar = sess.show_scrollbar
-            if (typeof sess.show_line_dots === "boolean") mainBar.showLineDots = sess.show_line_dots
-        }
-    } catch(e) {}
-}
-
 function savePinnedState(backend, isHeader, pinned) {
     if (!backend) return
     if (isHeader && typeof backend.save_header_pinned === "function") {

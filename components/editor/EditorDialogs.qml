@@ -28,7 +28,7 @@ Item {
         title: "Открыть файл"
         fileMode: FileDialog.OpenFile
         currentFolder: dialogsRoot.currentFolderUrl
-        nameFilters: ["Текстовые файлы (*.txt)", "Все файлы (*.*)"]
+        nameFilters: ["Текстовые файлы (*.txt *.md)", "Все файлы (*.*)"]
         defaultSuffix: "txt"
         onAccepted: {
             dialogsRoot.fileOpenAccepted(selectedFile.toString())
@@ -40,7 +40,7 @@ Item {
         title: "Сохранить файл как..."
         fileMode: FileDialog.SaveFile
         currentFolder: dialogsRoot.currentFolderUrl
-        nameFilters: ["Текстовые файлы (*.txt)", "Все файлы (*.*)"]
+        nameFilters: ["Текстовые файлы (*.txt *.md)", "Все файлы (*.*)"]
         defaultSuffix: "txt"
         onAccepted: {
             dialogsRoot.fileSaveAccepted(selectedFile.toString())

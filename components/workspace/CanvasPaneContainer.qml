@@ -1,10 +1,17 @@
 import QtQuick
+import QtQuick.Controls
 import "./snap_engine.js" as SnapEngine
 import "../theme"
 
 // components/workspace/CanvasPaneContainer.qml — Контейнер плавающей/примагниченной панели на холсте
 Item {
     id: containerRoot
+
+    property string savedText: ""
+    signal closeRequested()
+    signal actionRequested(string action)
+    signal renameRequested(string title)
+    signal contentChanged()
 
     property string paneId: ""
     property alias pane: innerPane
@@ -23,119 +30,318 @@ Item {
     WorkspacePane {
         id: innerPane
         anchors.fill: parent
+        onTextChanged: containerRoot.contentChanged()
+        onTitleChangedByUser: (title) => containerRoot.renameRequested(title)
+        onCloseRequested: containerRoot.closeRequested()
+        onSaveRequested: containerRoot.actionRequested("save_file")
+        onNewRequested: containerRoot.actionRequested("new_tab")
+        onOpenRequested: containerRoot.actionRequested("open_file")
+        onToggleGraphRequested: containerRoot.actionRequested("toggle_graph")
+        onToggleLocalGraphRequested: containerRoot.actionRequested("toggle_local_graph")
+        onCloseGraphRequested: innerPane.isGraphMode = false
+        onOpenStructureRequested: containerRoot.actionRequested("open_structure")
         onPaneActivated: containerRoot.paneActivated()
+        onPanelDragStarted: (mouse, item) => containerRoot.startDrag(mouse, item)
+        onPanelDragUpdated: (mouse, item) => containerRoot.updateDrag(mouse, item)
+        onPanelDragFinished: () => containerRoot.endDrag()
     }
 
-    // Верхняя область перетаскивания (Header Drag Handler)
-    MouseArea {
-        id: headerDragArea
-        x: 0
-        y: 0
-        width: parent.width
-        height: Theme.headerHeight
-        z: 50 // Поверх контента шапки, но под кнопками и полем ввода
-        cursorShape: pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+    // Тонкая деликатная граница блокнота на холсте
+    Rectangle {
+        id: paneBorder
+        anchors.fill: parent
+        color: "transparent"
+        border.width: 1
+        border.color: innerPane.isActivePane ? Theme.borderFocus : Theme.borderColor
+        z: 50 // Поверх контента, но под интерактивными рамками ресайза (z: 60/70)
 
-        property real startMouseX: 0
-        property real startMouseY: 0
-        property real startPaneX: 0
-        property real startPaneY: 0
-        property bool isDragging: false
-
-        onPressed: (mouse) => {
-            // Активируем панель при клике
-            containerRoot.paneActivated()
-            startMouseX = mouse.x
-            startMouseY = mouse.y
-            startPaneX = containerRoot.x
-            startPaneY = containerRoot.y
-            isDragging = false
+        Behavior on border.color {
+            ColorAnimation { duration: Theme.animDurationNormal }
         }
+    }
 
-        onPositionChanged: (mouse) => {
-            var dx = mouse.x - startMouseX
-            var dy = mouse.y - startMouseY
-            if (!isDragging && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
+    property real startMouseX: 0
+    property real startMouseY: 0
+    property real startPaneX: 0
+    property real startPaneY: 0
+    property bool isDragPressed: false
+    property bool isDragging: false
+
+    function startDrag(mouse, item) {
+        if (!mouse || !item) return
+        containerRoot.paneActivated()
+        var pt = item.mapToItem(containerRoot.parent, mouse.x, mouse.y)
+        startMouseX = pt.x
+        startMouseY = pt.y
+        startPaneX = containerRoot.x
+        startPaneY = containerRoot.y
+        isDragPressed = true
+        isDragging = false
+    }
+
+    function updateDrag(mouse, item) {
+        if (!isDragPressed || !mouse || !item) return
+        var pt = item.mapToItem(containerRoot.parent, mouse.x, mouse.y)
+        var dx = pt.x - startMouseX
+        var dy = pt.y - startMouseY
+        if (!isDragging) {
+            if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
                 isDragging = true
                 containerRoot.isFloating = true
-            }
-
-            if (isDragging) {
-                var rawX = containerRoot.x + dx
-                var rawY = containerRoot.y + dy
-
-                var others = otherPanesProvider ? otherPanesProvider(containerRoot.paneId) : []
-                var draggedRect = {
-                    id: containerRoot.paneId,
-                    x: rawX,
-                    y: rawY,
-                    width: containerRoot.width,
-                    height: containerRoot.height
-                }
-
-                // Расчёт магнетизма
-                var snapResult = SnapEngine.calculateSnap(draggedRect, others, 18)
-                containerRoot.x = snapResult.snappedX
-                containerRoot.y = snapResult.snappedY
-
-                containerRoot.snapMoved(snapResult.guidelines, snapResult.dockSide, snapResult.dockTargetId)
+            } else {
+                return
             }
         }
 
-        onReleased: {
-            if (isDragging) {
-                isDragging = false
-                containerRoot.snapEnded()
+        if (isDragging) {
+            var rawX = startPaneX + dx
+            var rawY = startPaneY + dy
+
+            var others = otherPanesProvider ? otherPanesProvider(containerRoot.paneId) : []
+            var draggedRect = {
+                id: containerRoot.paneId,
+                x: rawX,
+                y: rawY,
+                width: containerRoot.width,
+                height: containerRoot.height
             }
+
+            // Расчёт магнетизма
+            var snapResult = SnapEngine.calculateSnap(draggedRect, others, Theme.canvasSnapDistance)
+            containerRoot.x = snapResult.snappedX
+            containerRoot.y = snapResult.snappedY
+
+            containerRoot.snapMoved(snapResult.guidelines, snapResult.dockSide, snapResult.dockTargetId)
         }
     }
 
-    // Рамка ресайза (8 направлений: грани и углы)
-    // 1. Правый край (Resize Right)
+    function endDrag() {
+        isDragPressed = false
+        if (isDragging) {
+            isDragging = false
+            containerRoot.snapEnded()
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Стандартная рамка изменения размера панели (8 направлений: грани и углы)
+    // -------------------------------------------------------------------------
+    property real resizeStartPaneX: 0
+    property real resizeStartPaneY: 0
+    property real resizeStartPaneW: 0
+    property real resizeStartPaneH: 0
+    property real resizeStartMouseX: 0
+    property real resizeStartMouseY: 0
+
+    function initResize(mouse, item) {
+        var pt = item.mapToItem(containerRoot.parent, mouse.x, mouse.y)
+        resizeStartMouseX = pt.x
+        resizeStartMouseY = pt.y
+        resizeStartPaneX = containerRoot.x
+        resizeStartPaneY = containerRoot.y
+        resizeStartPaneW = containerRoot.width
+        resizeStartPaneH = containerRoot.height
+    }
+
+    function applyResize(rawX, rawY, rawW, rawH, handleType) {
+        var others = otherPanesProvider ? otherPanesProvider(containerRoot.paneId) : []
+        var candidateRect = {
+            id: containerRoot.paneId,
+            x: rawX,
+            y: rawY,
+            width: rawW,
+            height: rawH
+        }
+        var snap = SnapEngine.calculateResizeSnap(
+            candidateRect,
+            others,
+            handleType,
+            Theme.canvasSnapDistance,
+            Theme.minSheetWidth,
+            Theme.canvasMinHeight
+        )
+        containerRoot.x = snap.snappedX
+        containerRoot.y = snap.snappedY
+        containerRoot.width = snap.snappedWidth
+        containerRoot.height = snap.snappedHeight
+        containerRoot.snapMoved(snap.guidelines, null, null)
+    }
+
+    function endResize() {
+        containerRoot.snapEnded()
+    }
+
+    // 1. Грани (Edges, z: 60)
+    // Правый край (Right)
     MouseArea {
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        width: 6
+        anchors.topMargin: Theme.canvasResizeMargin
+        anchors.bottomMargin: Theme.canvasResizeMargin
+        width: Theme.canvasResizeMargin
         z: 60
         cursorShape: Qt.SizeHorCursor
+        onPressed: (mouse) => containerRoot.initResize(mouse, this)
         onPositionChanged: (mouse) => {
             if (pressed) {
-                var newW = containerRoot.width + mouse.x
-                containerRoot.width = Math.max(Theme.minSheetWidth, newW)
+                var pt = mapToItem(containerRoot.parent, mouse.x, mouse.y)
+                var dx = pt.x - resizeStartMouseX
+                containerRoot.applyResize(resizeStartPaneX, resizeStartPaneY, resizeStartPaneW + dx, resizeStartPaneH, "right")
             }
         }
+        onReleased: containerRoot.endResize()
+        onCanceled: containerRoot.endResize()
     }
 
-    // 2. Нижний край (Resize Bottom)
+    // Левый край (Left)
+    MouseArea {
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.topMargin: Theme.canvasResizeMargin
+        anchors.bottomMargin: Theme.canvasResizeMargin
+        width: Theme.canvasResizeMargin
+        z: 60
+        cursorShape: Qt.SizeHorCursor
+        onPressed: (mouse) => containerRoot.initResize(mouse, this)
+        onPositionChanged: (mouse) => {
+            if (pressed) {
+                var pt = mapToItem(containerRoot.parent, mouse.x, mouse.y)
+                var dx = pt.x - resizeStartMouseX
+                containerRoot.applyResize(resizeStartPaneX + dx, resizeStartPaneY, resizeStartPaneW - dx, resizeStartPaneH, "left")
+            }
+        }
+        onReleased: containerRoot.endResize()
+        onCanceled: containerRoot.endResize()
+    }
+
+    // Нижний край (Bottom)
     MouseArea {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        height: 6
+        anchors.leftMargin: Theme.canvasResizeMargin
+        anchors.rightMargin: Theme.canvasResizeMargin
+        height: Theme.canvasResizeMargin
         z: 60
         cursorShape: Qt.SizeVerCursor
+        onPressed: (mouse) => containerRoot.initResize(mouse, this)
         onPositionChanged: (mouse) => {
             if (pressed) {
-                var newH = containerRoot.height + mouse.y
-                containerRoot.height = Math.max(300, newH)
+                var pt = mapToItem(containerRoot.parent, mouse.x, mouse.y)
+                var dy = pt.y - resizeStartMouseY
+                containerRoot.applyResize(resizeStartPaneX, resizeStartPaneY, resizeStartPaneW, resizeStartPaneH + dy, "bottom")
             }
         }
+        onReleased: containerRoot.endResize()
+        onCanceled: containerRoot.endResize()
     }
 
-    // 3. Правый нижний угол (Resize Corner)
+    // Верхний край (Top)
+    MouseArea {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.leftMargin: Theme.canvasResizeMargin
+        anchors.rightMargin: Theme.canvasResizeMargin
+        height: Theme.canvasResizeMargin
+        z: 60
+        cursorShape: Qt.SizeVerCursor
+        onPressed: (mouse) => containerRoot.initResize(mouse, this)
+        onPositionChanged: (mouse) => {
+            if (pressed) {
+                var pt = mapToItem(containerRoot.parent, mouse.x, mouse.y)
+                var dy = pt.y - resizeStartMouseY
+                containerRoot.applyResize(resizeStartPaneX, resizeStartPaneY + dy, resizeStartPaneW, resizeStartPaneH - dy, "top")
+            }
+        }
+        onReleased: containerRoot.endResize()
+        onCanceled: containerRoot.endResize()
+    }
+
+    // 2. Углы (Corners, z: 70)
+    // Правый нижний угол (Bottom-Right)
     MouseArea {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        width: 12
-        height: 12
+        width: Theme.canvasResizeMargin * 2
+        height: Theme.canvasResizeMargin * 2
         z: 70
         cursorShape: Qt.SizeFDiagCursor
+        onPressed: (mouse) => containerRoot.initResize(mouse, this)
         onPositionChanged: (mouse) => {
             if (pressed) {
-                containerRoot.width = Math.max(Theme.minSheetWidth, containerRoot.width + mouse.x)
-                containerRoot.height = Math.max(300, containerRoot.height + mouse.y)
+                var pt = mapToItem(containerRoot.parent, mouse.x, mouse.y)
+                var dx = pt.x - resizeStartMouseX
+                var dy = pt.y - resizeStartMouseY
+                containerRoot.applyResize(resizeStartPaneX, resizeStartPaneY, resizeStartPaneW + dx, resizeStartPaneH + dy, "bottom-right")
             }
         }
+        onReleased: containerRoot.endResize()
+        onCanceled: containerRoot.endResize()
+    }
+
+    // Левый нижний угол (Bottom-Left)
+    MouseArea {
+        anchors.left: parent.left
+        anchors.bottom: parent.bottom
+        width: Theme.canvasResizeMargin * 2
+        height: Theme.canvasResizeMargin * 2
+        z: 70
+        cursorShape: Qt.SizeBDiagCursor
+        onPressed: (mouse) => containerRoot.initResize(mouse, this)
+        onPositionChanged: (mouse) => {
+            if (pressed) {
+                var pt = mapToItem(containerRoot.parent, mouse.x, mouse.y)
+                var dx = pt.x - resizeStartMouseX
+                var dy = pt.y - resizeStartMouseY
+                containerRoot.applyResize(resizeStartPaneX + dx, resizeStartPaneY, resizeStartPaneW - dx, resizeStartPaneH + dy, "bottom-left")
+            }
+        }
+        onReleased: containerRoot.endResize()
+        onCanceled: containerRoot.endResize()
+    }
+
+    // Правый верхний угол (Top-Right)
+    MouseArea {
+        anchors.right: parent.right
+        anchors.top: parent.top
+        width: Theme.canvasResizeMargin * 2
+        height: Theme.canvasResizeMargin * 2
+        z: 70
+        cursorShape: Qt.SizeBDiagCursor
+        onPressed: (mouse) => containerRoot.initResize(mouse, this)
+        onPositionChanged: (mouse) => {
+            if (pressed) {
+                var pt = mapToItem(containerRoot.parent, mouse.x, mouse.y)
+                var dx = pt.x - resizeStartMouseX
+                var dy = pt.y - resizeStartMouseY
+                containerRoot.applyResize(resizeStartPaneX, resizeStartPaneY + dy, resizeStartPaneW + dx, resizeStartPaneH - dy, "top-right")
+            }
+        }
+        onReleased: containerRoot.endResize()
+        onCanceled: containerRoot.endResize()
+    }
+
+    // Левый верхний угол (Top-Left)
+    MouseArea {
+        anchors.left: parent.left
+        anchors.top: parent.top
+        width: Theme.canvasResizeMargin * 2
+        height: Theme.canvasResizeMargin * 2
+        z: 70
+        cursorShape: Qt.SizeFDiagCursor
+        onPressed: (mouse) => containerRoot.initResize(mouse, this)
+        onPositionChanged: (mouse) => {
+            if (pressed) {
+                var pt = mapToItem(containerRoot.parent, mouse.x, mouse.y)
+                var dx = pt.x - resizeStartMouseX
+                var dy = pt.y - resizeStartMouseY
+                containerRoot.applyResize(resizeStartPaneX + dx, resizeStartPaneY + dy, resizeStartPaneW - dx, resizeStartPaneH - dy, "top-left")
+            }
+        }
+        onReleased: containerRoot.endResize()
+        onCanceled: containerRoot.endResize()
     }
 }

@@ -23,7 +23,7 @@ Rectangle {
     readonly property string currentFileUrl: canvasLayout.activePane ? canvasLayout.activePane.fileUrl : ""
     readonly property string currentFileName: canvasLayout.activePane ? canvasLayout.activePane.fileName : ""
     property bool initialStateApplied: false
-    property int targetFps: backend.get_target_fps()
+    property int targetFps: (typeof backend !== "undefined" && backend && typeof backend.get_target_fps === "function") ? backend.get_target_fps() : 60
     readonly property int animIntervalMs: targetFps <= 0 ? 1 : Math.max(1, Math.round(1000 / targetFps))
 
     function createNewTab() { return Documents.createDocument(canvasLayout, backend, currentFolderUrl) }
@@ -58,16 +58,25 @@ Rectangle {
 
     Timer {
         id: autoSaveTimer
-        interval: backend.get_app_config().auto_save_delay_ms || 1000
+        interval: (typeof backend !== "undefined" && backend && typeof backend.get_app_config === "function" && backend.get_app_config()) ? (backend.get_app_config().auto_save_delay_ms || 1000) : 1000
         onTriggered: root.saveAll()
     }
     Connections {
         target: backend
         function onNoteOpened(url, block) {
-            var panel = root.openFileFromFolder(url, backend.get_filename(url))
-            if (panel && block) {
-                var index = panel.pane.text.indexOf(block)
-                if (index >= 0) panel.pane.editorArea.cursorPosition = index
+            var active = canvasLayout.activePanel
+            var panel = null
+            if (active && active.pane && active.pane.isGraphMode) {
+                panel = Documents.navigatePanel(canvasLayout, backend, active, url, backend.get_filename(url), block)
+            } else {
+                panel = root.openFileFromFolder(url, backend.get_filename(url))
+                if (panel) {
+                    panel.pane.isGraphMode = false
+                    if (block) {
+                        var index = panel.pane.text.indexOf(block)
+                        if (index >= 0) panel.pane.editorArea.cursorPosition = index
+                    }
+                }
             }
         }
         function onBlockUpdated(name, text, source) { canvasLayout.applyBlockUpdate(name, text, source) }

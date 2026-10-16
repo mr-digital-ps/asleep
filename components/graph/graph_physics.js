@@ -225,18 +225,3 @@ function stepSimulation(sim, dt) {
 
     return true
 }
-
-function findNodeAt(sim, worldX, worldY, padding) {
-    if (!sim || !sim.nodes) return null
-    padding = padding || 4
-    for (var i = sim.nodes.length - 1; i >= 0; i--) {
-        var n = sim.nodes[i]
-        var dx = worldX - n.x
-        var dy = worldY - n.y
-        var r = (n.radius || 8) + padding
-        if (dx * dx + dy * dy <= r * r) {
-            return n
-        }
-    }
-    return null
-}

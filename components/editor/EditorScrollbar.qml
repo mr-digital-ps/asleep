@@ -11,6 +11,9 @@ Item {
     property int barSize: Theme.barSize
     property real sheetWidth: Theme.defaultSheetWidth
     signal activated()
+    signal dragStarted(var mouse, var item)
+    signal dragUpdated(var mouse, var item)
+    signal dragFinished()
 
     z: 30
     readonly property real totalHeight: (editorScroll && editorScroll.contentItem) ? editorScroll.contentItem.contentHeight : 0
@@ -19,28 +22,22 @@ Item {
 
     visible: !isEmpty && (totalHeight > viewHeight)
 
-    // Зона перетаскивания окна по правой полосе
     MouseArea {
+        id: scrollbarBgArea
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton
-        cursorShape: Qt.ArrowCursor
+        cursorShape: pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
         onPressed: (mouse) => {
             scrollbarOverlay.activated()
-            let win = Window.window
-            if (win && typeof win.startSystemMove === "function") {
-                win.startSystemMove()
+            scrollbarOverlay.dragStarted(mouse, scrollbarBgArea)
+        }
+        onPositionChanged: (mouse) => {
+            if (pressed) {
+                scrollbarOverlay.dragUpdated(mouse, scrollbarBgArea)
             }
         }
-        onDoubleClicked: {
-            let win = Window.window
-            if (win) {
-                if (win.visibility === Window.Maximized) {
-                    win.showNormal()
-                } else {
-                    win.showMaximized()
-                }
-            }
-        }
+        onReleased: scrollbarOverlay.dragFinished()
+        onCanceled: scrollbarOverlay.dragFinished()
     }
 
     // Скроллбар документа

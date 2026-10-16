@@ -172,13 +172,17 @@ Item {
     signal fileDragMoved(real gx, real gy)
     signal fileDragEnded(string url, string name, real gx, real gy)
     signal openStructureRequested()
+    signal panelDragStarted(var mouse, var item)
+    signal panelDragUpdated(var mouse, var item)
+    signal panelDragFinished()
 
-    readonly property bool isResizingSheet: (leftHandle && (leftHandle.containsMouse || leftHandle.isDragging)) || (rightHandle && (rightHandle.containsMouse || rightHandle.isDragging))
+    readonly property bool isResizingSheet: false
 
     function openDocument(url, name, content) {
         fileUrl = url
-        fileName = name.replace(/\.(txt|md)$/i, "")
+        fileName = (name || "").replace(/\.(txt|md)$/i, "")
         text = content
+        isGraphMode = false
     }
     function getDocumentState() {
         return { fileUrl: fileUrl, fileName: fileName, text: paperSheet.getLiveText() }
@@ -250,7 +254,7 @@ Item {
     }
 
     readonly property string breadcrumbTitle: {
-        if (workspacePane.isGraphMode || workspacePane.isEmpty) return ""
+        if (workspacePane.isEmpty) return ""
         return Controller.formatBreadcrumbTitle(
             workspacePane.folderUrl,
             workspacePane.currentFolderName,
@@ -275,30 +279,28 @@ Item {
         syncNotice.showNotice(title)
     }
 
-    readonly property real effectiveSheetWidth: isCenteredMode ? Math.min(width, Math.max(minSheetWidth, customSheetWidth)) : width
+    readonly property real effectiveSheetWidth: width
 
     // =========================================================================
-    // 0. ФОН ПАНЕЛИ: активация и перетаскивание окна за пустые места в ЛЮБОМ режиме
+    // 0. ФОН ПАНЕЛИ: активация и перетаскивание вкладки по холсту
     // =========================================================================
     MouseArea {
         id: paneBackgroundDrag
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton
+        cursorShape: pressed ? Qt.ClosedHandCursor : Qt.ArrowCursor
         onPressed: (mouse) => {
             if (paneHeader && paneHeader.titleField && paneHeader.titleField.activeFocus) return
             workspacePane.paneActivated()
-            let win = workspacePane.targetWindow
-            if (win && !workspacePane.isSplitMode && typeof win.startSystemMove === "function" && parent === win.contentItem) {
-                win.startSystemMove()
+            workspacePane.panelDragStarted(mouse, paneBackgroundDrag)
+        }
+        onPositionChanged: (mouse) => {
+            if (pressed) {
+                workspacePane.panelDragUpdated(mouse, paneBackgroundDrag)
             }
         }
-        onDoubleClicked: {
-            var win = workspacePane.targetWindow
-            if (win) {
-                if (win.visibility === Window.Maximized) win.showNormal()
-                else win.showMaximized()
-            }
-        }
+        onReleased: workspacePane.panelDragFinished()
+        onCanceled: workspacePane.panelDragFinished()
     }
 
     // =========================================================================
@@ -321,7 +323,7 @@ Item {
         contentLeftPadding: editorArea ? editorArea.leftPadding : 0
         contentRightPadding: editorArea ? editorArea.rightPadding : 0
         statsText: workspacePane.isGraphMode ? workspacePane.graphStatsText : workspacePane.statsString
-        visible: workspacePane.showHeader && (workspacePane.isGraphMode ? workspacePane.isHeaderPinned : !workspacePane.isEmpty)
+        visible: workspacePane.showHeader && !workspacePane.isEmpty
         z: 10
 
         // Когда закреплен — y: 0.
@@ -356,6 +358,9 @@ Item {
                 paperSheet.restoreLive()
             }
         }
+        onDragStarted: (mouse, item) => workspacePane.panelDragStarted(mouse, item)
+        onDragUpdated: (mouse, item) => workspacePane.panelDragUpdated(mouse, item)
+        onDragFinished: () => workspacePane.panelDragFinished()
     }
 
     // =========================================================================
@@ -393,32 +398,29 @@ Item {
             }
 
             MouseArea {
+                id: editorEmptyAreaDrag
                 width: editorScroll.availableWidth
                 height: paperSheet ? paperSheet.height : 0
                 acceptedButtons: Qt.LeftButton
-                cursorShape: Qt.ArrowCursor
-                hoverEnabled: true
+                cursorShape: pressed ? Qt.ClosedHandCursor : Qt.ArrowCursor
                 preventStealing: true
 
                 onPressed: (mouse) => {
                     if (mouse.button === Qt.LeftButton) {
                         workspacePane.paneActivated()
-                        var win = workspacePane.targetWindow
-                        if (win && typeof win.startSystemMove === "function") {
-                            win.startSystemMove()
+                        if (workspacePane.editorArea) {
+                            workspacePane.editorArea.forceActiveFocus()
                         }
+                        workspacePane.panelDragStarted(mouse, editorEmptyAreaDrag)
                     }
                 }
-                onDoubleClicked: {
-                    var win = workspacePane.targetWindow
-                    if (win) {
-                        if (win.visibility === Window.Maximized) {
-                            win.showNormal()
-                        } else {
-                            win.showMaximized()
-                        }
+                onPositionChanged: (mouse) => {
+                    if (pressed) {
+                        workspacePane.panelDragUpdated(mouse, editorEmptyAreaDrag)
                     }
                 }
+                onReleased: workspacePane.panelDragFinished()
+                onCanceled: workspacePane.panelDragFinished()
             }
 
             EditorEmptyState {
@@ -450,6 +452,9 @@ Item {
                     onTitleChangedByUser: (t) => workspacePane.titleChangedByUser(t)
                     onPaneActivated: workspacePane.paneActivated()
                     onCloseRequested: workspacePane.closeRequested()
+                    onPanelDragStarted: (mouse, item) => workspacePane.panelDragStarted(mouse, item)
+                    onPanelDragUpdated: (mouse, item) => workspacePane.panelDragUpdated(mouse, item)
+                    onPanelDragFinished: () => workspacePane.panelDragFinished()
                     onDetachRequested: workspacePane.detachRequested()
                     onSaveRequested: workspacePane.saveRequested()
                     onNewRequested: workspacePane.newRequested()
@@ -486,6 +491,7 @@ Item {
         GraphView {
             id: paneGraphView
             anchors.top: parent.top
+            anchors.topMargin: (paneHeader.visible) ? paneHeader.height : 0
             anchors.bottom: parent.bottom
             anchors.horizontalCenter: parent.horizontalCenter
             width: workspacePane.effectiveSheetWidth
@@ -513,81 +519,10 @@ Item {
                 workspacePane.toggleInfoMode()
             }
             onCloseRequested: {
+                workspacePane.isGraphMode = false
                 workspacePane.closeGraphRequested()
             }
         }
-    }
-
-    // =========================================================================
-    // 3. Интерактивные границы изменения ширины листа на ВСЮ высоту панели
-    // =========================================================================
-    component SheetHandle: MouseArea {
-        id: handleRoot
-        width: 24
-        anchors.top: parent.top
-        anchors.bottom: parent.bottom
-        cursorShape: Qt.SizeHorCursor
-        hoverEnabled: true
-        preventStealing: true
-        z: 20
-
-        property bool isLeft: true
-        property bool isDragging: false
-
-        visible: workspacePane.isCenteredMode && !workspacePane.isEmpty && workspacePane.width > workspacePane.minSheetWidth
-
-        onPressed: (mouse) => {
-            if (mouse.button === Qt.LeftButton) {
-                handleRoot.isDragging = true
-            }
-        }
-
-        onPositionChanged: (mouse) => {
-            if (handleRoot.isDragging || pressed) {
-                if (workspacePane.width <= 0) return
-                let pt = mapToItem(workspacePane, mouse.x, mouse.y)
-                let centerX = workspacePane.width / 2.0
-                let distFromCenter = isLeft ? (centerX - pt.x) : (pt.x - centerX)
-                let desiredWidth = Math.round(distFromCenter * 2.0)
-                let clamped = Math.max(workspacePane.minSheetWidth, Math.min(workspacePane.width, desiredWidth))
-                Controller.handleSheetWidthRequested(workspacePane, clamped)
-            }
-        }
-
-        onReleased: {
-            handleRoot.isDragging = false
-            Controller.handleSheetWidthCommitted(workspacePane, (typeof backend !== "undefined" ? backend : null), workspacePane.customSheetWidth)
-        }
-
-        onCanceled: {
-            handleRoot.isDragging = false
-            Controller.handleSheetWidthCommitted(workspacePane, (typeof backend !== "undefined" ? backend : null), workspacePane.customSheetWidth)
-        }
-
-        onDoubleClicked: workspacePane.toggleFullWidth()
-
-        Rectangle {
-            anchors.centerIn: parent
-            width: 2
-            height: parent.height
-            color: (handleRoot.isDragging || handleRoot.pressed) ? Theme.textSelected : Theme.borderHover
-            opacity: (workspacePane.isResizingSheet || handleRoot.containsMouse || handleRoot.isDragging || handleRoot.pressed) ? 1.0 : 0.0
-            Behavior on opacity {
-                NumberAnimation { duration: Theme.animDurationFast }
-            }
-        }
-    }
-
-    SheetHandle {
-        id: leftHandle
-        isLeft: true
-        x: (workspacePane.width - workspacePane.effectiveSheetWidth) / 2.0 - width / 2.0
-    }
-
-    SheetHandle {
-        id: rightHandle
-        isLeft: false
-        x: (workspacePane.width + workspacePane.effectiveSheetWidth) / 2.0 - width / 2.0
     }
 
     // Правая полоса со скроллбаром документа
@@ -595,17 +530,21 @@ Item {
         id: editorScrollbar
         editorScroll: editorScroll
         paperSheet: paperSheet
-        sheetWidth: workspacePane.effectiveSheetWidth
+        sheetWidth: workspacePane.width
         barSize: workspacePane.barSize
         width: workspacePane.barSize
         anchors.top: parent.top
         anchors.topMargin: (workspacePane.showHeader && workspacePane.isHeaderPinned) ? (Theme.headerHeight + 6) : Theme.sheetPadding
         anchors.bottom: parent.bottom
         anchors.bottomMargin: Theme.sheetPadding
-        x: Math.round((workspacePane.width + workspacePane.effectiveSheetWidth) / 2.0 - workspacePane.barSize)
+        anchors.right: parent.right
+        anchors.rightMargin: 4
         isEmpty: workspacePane.isEmpty || workspacePane.isGraphMode
         visible: workspacePane.showScrollbar && !isEmpty
         onActivated: workspacePane.paneActivated()
+        onDragStarted: (mouse, item) => workspacePane.panelDragStarted(mouse, item)
+        onDragUpdated: (mouse, item) => workspacePane.panelDragUpdated(mouse, item)
+        onDragFinished: () => workspacePane.panelDragFinished()
     }
 }
 

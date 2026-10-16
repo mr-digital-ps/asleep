@@ -11,7 +11,6 @@ Item {
     property string fileUrl: ""
     property string folderUrl: ""
     property string breadcrumbTitle: ""
-    property bool isSplitMode: false
     property bool isActivePane: false
     property bool isEmpty: false
     property bool isPinned: false
@@ -34,6 +33,9 @@ Item {
     signal openStructureRequested()
     signal snapshotSelected(int snapshotId)
     signal liveRequested()
+    signal dragStarted(var mouse, var item)
+    signal dragUpdated(var mouse, var item)
+    signal dragFinished()
 
     // Стек истории режимов хедера (LIFO)
     property var modeStack: []
@@ -105,27 +107,22 @@ Item {
     }
 
     MouseArea {
+        id: headerBgArea
         anchors.fill: parent
         z: -1
         acceptedButtons: Qt.LeftButton
-        cursorShape: Qt.ArrowCursor
+        cursorShape: pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
         onPressed: (mouse) => {
             headerRoot.paneActivated()
-            let win = Window.window
-            if (win && typeof win.startSystemMove === "function") {
-                win.startSystemMove()
+            headerRoot.dragStarted(mouse, headerBgArea)
+        }
+        onPositionChanged: (mouse) => {
+            if (pressed) {
+                headerRoot.dragUpdated(mouse, headerBgArea)
             }
         }
-        onDoubleClicked: {
-            let win = Window.window
-            if (win) {
-                if (win.visibility === Window.Maximized) {
-                    win.showNormal()
-                } else {
-                    win.showMaximized()
-                }
-            }
-        }
+        onReleased: headerRoot.dragFinished()
+        onCanceled: headerRoot.dragFinished()
     }
 
     ColumnLayout {
@@ -187,6 +184,7 @@ Item {
                 id: titleField
                 visible: headerRoot.headerMode === "title"
                 objectName: "titleField"
+                readOnly: headerRoot.isGraphMode
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Layout.alignment: Qt.AlignVCenter
@@ -195,13 +193,13 @@ Item {
                 rightPadding: headerRoot.contentRightPadding
                 topPadding: 6
                 bottomPadding: 6
-                text: headerRoot.breadcrumbTitle ? headerRoot.breadcrumbTitle : "Новый документ"
+                text: headerRoot.breadcrumbTitle ? headerRoot.breadcrumbTitle : (headerRoot.fileName || "Новый документ")
                 font.pixelSize: Theme.headerTitleFontSize
                 font.bold: true
-                color: (headerRoot.isSplitMode && !headerRoot.isActivePane) ? Theme.textSecondary : Theme.textPrimary
+                color: (!headerRoot.isActivePane) ? Theme.textSecondary : Theme.textPrimary
                 placeholderText: "Без названия"
                 placeholderTextColor: Theme.textMuted
-                selectByMouse: true
+                selectByMouse: !headerRoot.isGraphMode
                 selectionColor: Theme.selectionColor
                 selectedTextColor: Theme.textSelected
                 activeFocusOnTab: false
@@ -211,12 +209,12 @@ Item {
                     target: headerRoot
                     function onBreadcrumbTitleChanged() {
                         if (!titleField.activeFocus) {
-                            titleField.text = headerRoot.breadcrumbTitle ? headerRoot.breadcrumbTitle : "Новый документ"
+                            titleField.text = headerRoot.breadcrumbTitle ? headerRoot.breadcrumbTitle : (headerRoot.fileName || "Новый документ")
                         }
                     }
                     function onFileNameChanged() {
                         if (!titleField.activeFocus) {
-                            titleField.text = headerRoot.breadcrumbTitle ? headerRoot.breadcrumbTitle : "Новый документ"
+                            titleField.text = headerRoot.breadcrumbTitle ? headerRoot.breadcrumbTitle : (headerRoot.fileName || "Новый документ")
                         }
                     }
                 }

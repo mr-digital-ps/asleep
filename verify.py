@@ -168,15 +168,15 @@ tags:
     ev_new = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 49, 0x4E, 0)
     assert matcher.match_event(ev_new) == "new_tab", "Ctrl+N/Ctrl+Т должен распознаваться"
 
-    ev_new_split = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier, 49, 0x4E, 0)
-    assert matcher.match_event(ev_new_split) == "new_tab_split", "Ctrl+Shift+N должен распознаваться как new_tab_split"
+    ev_new_panel = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier, 49, 0x4E, 0)
+    assert matcher.match_event(ev_new_panel) == "new_tab", "Ctrl+Shift+N должен распознаваться как new_tab"
 
     # 7. Проверка open_file: Ctrl+O (RU 'Щ', scan 24, VK 0x4F)
     ev_open = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 24, 0x4F, 0)
     assert matcher.match_event(ev_open) == "open_file", "Ctrl+O/Ctrl+Щ должен распознаваться"
 
-    ev_open_split = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier, 24, 0x4F, 0)
-    assert matcher.match_event(ev_open_split) == "open_file_split", "Ctrl+Shift+O должен распознаваться как open_file_split"
+    ev_open_panel = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier, 24, 0x4F, 0)
+    assert matcher.match_event(ev_open_panel) == "open_file", "Ctrl+Shift+O должен распознаваться как open_file"
 
     # 8. Проверка toggle_bold: Ctrl+B (RU 'И', scan 48, VK 0x42)
     ev_bold = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 48, 0x42, 0)
@@ -323,9 +323,8 @@ tags:
         note3_tline = hs.get_file_timeline(th_p, "note3.txt")
         assert len(note3_tline) == 1, f"Ожидался 1 срез для note3.txt, получено {len(note3_tline)}"
 
-    # 9. Тест OutlineService и DocumentSession (блочная модель { ... }, reorder, undo/redo, cursor offsets)
+    # 9. Тест OutlineService (блочная модель { ... }, reorder)
     from services.content.outline_service import OutlineService
-    from services.content.document_session import DocumentSession
     osvc = OutlineService()
     test_doc = "Блок 1 {\n    Текст 1\n}\n\nБлок 2 {\n    Текст 2\n}\n\nБлок 3 {\n    Текст 3\n}"
     parsed_blks = osvc.parse_document(test_doc)
@@ -341,28 +340,6 @@ tags:
     assert new_blks[0]["heading"] == "Блок 3", "Блок 3 должен переместиться на первое место"
     assert new_blks[1]["heading"] == "Блок 1"
     assert new_blks[2]["heading"] == "Блок 2"
-
-    # Тест DocumentSession: Single Source of Truth и Undo/Redo стека
-    session = DocumentSession(test_doc)
-    assert session.can_undo is False
-    assert session.can_redo is False
-    session.set_text(reordered_doc)
-    assert session.can_undo is True
-    assert session.get_text() == reordered_doc
-    # Undo
-    assert session.undo() is not None
-    assert session.get_text() == test_doc
-    # Redo
-    assert session.redo() is not None
-    assert session.get_text() == reordered_doc
-
-    # Тест проекции курсора и смещений блоков
-    offsets = session.parse_blocks_offsets()
-    assert len(offsets) == 3
-    b_idx = session.get_block_at_offset(offsets[1]["start"] + 2)
-    assert b_idx == 1
-    off = session.get_block_offset(1)
-    assert off == offsets[1]["start"]
 
     # 10. Тест работы со структурой проекта (_notes.txt) через единый DocumentOutlineManager
     proj_md = "# Структура проекта\n\n## Папка 1\n- [[Файл А]]\n- [[Файл Б]]\n\n## Папка 2\n- [[Файл В]]"
@@ -443,7 +420,7 @@ def test_qml():
         "components/editor/EditorDialogs.qml",
         "components/hotkeys/HotkeyManager.qml",
         "components/theme/Theme.qml",
-        "components/workspace/WorkspaceSplit.qml",
+        "components/workspace/CanvasWorkspace.qml",
         "components/workspace/WorkspacePane.qml",
         "components/workspace/PaneHeader.qml",
         "components/workspace/HistoryTimelineBar.qml",
@@ -466,8 +443,9 @@ def test_qml():
     web_item = loader.property("item")
 
     # 2.1. Проверка toggle_centered_mode
-    split = web_item.property("splitLayout")
-    primary_bar = split.property("primaryBar")
+    workspace = web_item.property("workspace")
+    app.processEvents()
+    primary_bar = workspace.property("activePane")
     init_mode = primary_bar.property("isCenteredMode")
     assert init_mode is True, "isCenteredMode по умолчанию должен быть True"
     primary_bar.toggleCenteredMode()
@@ -475,21 +453,74 @@ def test_qml():
     primary_bar.toggleCenteredMode()
     assert primary_bar.property("isCenteredMode") is True, "toggleCenteredMode должен переключать обратно в True"
 
-    # 2.2. Проверка toggleCanvasMode
-    assert web_item.property("isCanvasMode") is False, "isCanvasMode по умолчанию должен быть выключен"
-    web_item.toggleCanvasMode()
-    assert web_item.property("isCanvasMode") is True, "toggleCanvasMode должен включать холст"
-    web_item.toggleCanvasMode()
-    assert web_item.property("isCanvasMode") is False, "toggleCanvasMode должен выключать холст"
+    # Canvas is the only workspace; documents are independent dynamic panels.
+    assert workspace.property("panelCount") >= 1
 
     # 2.3. Проверка интерактивного графа связей (Фаза 5)
     assert web_item.property("isGraphVisible") is False, "Граф по умолчанию скрыт"
     web_item.toggleGraph()
     assert web_item.property("isGraphVisible") is True, "toggleGraph должен активировать отображение графа связей"
     assert primary_bar.property("isGraphMode") is True, "primaryBar должен переключиться в isGraphMode"
-    web_item.closeGraph()
-    assert web_item.property("isGraphVisible") is False, "closeGraph должен закрывать граф связей"
-    assert primary_bar.property("isGraphMode") is False, "primaryBar должен вернуться из isGraphMode в режим текста"
+    assert primary_bar.property("fileName") != "", "Имя файла должно сохраняться в режиме графа"
+    assert primary_bar.property("breadcrumbTitle") != "", "Хлебные крошки не должны слетать в режиме графа"
+    web_item.openFileFromFolder(primary_bar.property("fileUrl"), primary_bar.property("fileName"))
+    assert primary_bar.property("isGraphMode") is False, "Открытие заметки должно возвращать панель в source mode"
+    # Проверка навигации из графа в текущей вкладке (in-place navigation)
+    web_item.toggleGraph()
+    assert primary_bar.property("isGraphMode") is True
+    panels_before = workspace.property("panelCount")
+    backend.open_wiki_link("Новая заметка", primary_bar.property("folderUrl"))
+    assert workspace.property("panelCount") == panels_before, "Клик по узлу в графе должен открывать заметку в текущей вкладке без создания дубликата панели"
+    assert primary_bar.property("isGraphMode") is False, "Панель должна вернуться в source mode"
+    assert primary_bar.property("fileName") == "Новая заметка", "Текущая панель должна загрузить выбранную заметку"
+
+    # Multiple independent canvas documents, duplicate opens and failed saves.
+    import tempfile
+    original_folder = web_item.property("currentFolderUrl")
+    with tempfile.TemporaryDirectory() as canvas_dir:
+        canvas_folder = Path(canvas_dir).resolve()
+        web_item.setProperty("currentFolderUrl", QUrl.fromLocalFile(str(canvas_folder)).toString())
+        initial_count = workspace.property("panelCount")
+        panels = []
+        for index in range(3):
+            web_item.createNewTab()
+            app.processEvents()
+            panel = workspace.property("activePanel")
+            pane = panel.property("pane")
+            pane.setProperty("text", f"Independent document {index}")
+            panels.append(panel)
+        assert workspace.property("panelCount") == initial_count + 3
+        assert web_item.saveAll()
+        for index, panel in enumerate(panels):
+            pane = panel.property("pane")
+            path = backend.file_service.to_path(pane.property("fileUrl"))
+            assert path.read_text(encoding="utf-8") == f"Independent document {index}"
+
+        first = panels[0].property("pane")
+        web_item.openFileFromFolder(first.property("fileUrl"), first.property("fileName"))
+        assert workspace.property("panelCount") == initial_count + 3
+        assert workspace.property("activePanel") == panels[0]
+        panels[0].setProperty("x", 1234)
+        assert panels[1].property("x") != 1234
+
+        # Closing a dirty panel must preserve it if storage refuses the write.
+        first.setProperty("text", "Unsaved changes")
+        original_save = backend.file_service.save_file
+        backend.file_service.save_file = lambda *_: False
+        try:
+            web_item.closeActiveTab()
+            assert workspace.property("panelCount") == initial_count + 3
+            assert first.property("text") == "Unsaved changes"
+        finally:
+            backend.file_service.save_file = original_save
+        web_item.closeActiveTab()
+        assert workspace.property("panelCount") == initial_count + 2
+        for panel in panels[1:]:
+            pane = panel.property("pane")
+            web_item.openFileFromFolder(pane.property("fileUrl"), pane.property("fileName"))
+            web_item.closeActiveTab()
+        assert workspace.property("panelCount") == initial_count
+        web_item.setProperty("currentFolderUrl", original_folder)
 
     # 3. Тест клиентской логики auto-pair скобок и кавычек в JS
     from PyQt6.QtQml import QJSEngine
@@ -540,6 +571,13 @@ def test_qml():
         if (!res.isSnappedX || res.snappedX !== 200) return "SnapX_Failed: " + res.snappedX;
         if (!res.isSnappedY || res.snappedY !== 100) return "SnapY_Failed: " + res.snappedY;
         if (res.dockSide !== "right") return "DockSide_Failed: " + res.dockSide;
+
+        // Resize snap: matching width from p2 (width 400)
+        var resizeDragged = { id: "p1", x: 0, y: 0, width: 395, height: 300 };
+        var resizeOthers = [{ id: "p2", x: 500, y: 0, width: 400, height: 300 }];
+        var resizeRes = calculateResizeSnap(resizeDragged, resizeOthers, "right", 18, 380, 300);
+        if (!resizeRes.isSnappedWidth || resizeRes.snappedWidth !== 400) return "ResizeSnapWidth_Failed: " + resizeRes.snappedWidth;
+
         return "OK";
     })()
     """
@@ -551,7 +589,6 @@ def test_qml():
 def test_structure():
     print("[3/3] Проверка структуры папок...")
     required = [
-        "services/content/document_session.py",
         "services/storage/file_service.py",
         "services/storage/config_service.py",
         "services/content/block_parser.py",
@@ -588,7 +625,7 @@ def test_structure():
         "components/editor/EditorScrollbar.qml",
         "components/editor/EditorEmptyState.qml",
         "components/editor/qmldir",
-        "components/workspace/WorkspaceSplit.qml",
+        "components/workspace/CanvasWorkspace.qml",
         "components/workspace/WorkspacePane.qml",
         "components/workspace/PaneHeader.qml",
         "components/workspace/HistoryTimelineBar.qml",

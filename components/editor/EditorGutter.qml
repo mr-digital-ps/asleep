@@ -11,6 +11,9 @@ Item {
     property bool showDots: true
 
     signal activated()
+    signal dragStarted(var mouse, var item)
+    signal dragUpdated(var mouse, var item)
+    signal dragFinished()
 
     width: barSize
     Layout.preferredWidth: barSize
@@ -31,26 +34,21 @@ Item {
     }
 
     MouseArea {
+        id: gutterBgArea
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton
-        cursorShape: Qt.ArrowCursor
+        cursorShape: pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
         onPressed: (mouse) => {
             gutterItem.activated()
-            let win = Window.window
-            if (win && typeof win.startSystemMove === "function") {
-                win.startSystemMove()
+            gutterItem.dragStarted(mouse, gutterBgArea)
+        }
+        onPositionChanged: (mouse) => {
+            if (pressed) {
+                gutterItem.dragUpdated(mouse, gutterBgArea)
             }
         }
-        onDoubleClicked: {
-            let win = Window.window
-            if (win) {
-                if (win.visibility === Window.Maximized) {
-                    win.showNormal()
-                } else {
-                    win.showMaximized()
-                }
-            }
-        }
+        onReleased: gutterItem.dragFinished()
+        onCanceled: gutterItem.dragFinished()
     }
 
     // Индикаторы колонок строк (точки строк, масштабируемые вместе со шрифтом)

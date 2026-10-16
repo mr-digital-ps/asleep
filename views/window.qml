@@ -184,7 +184,11 @@ ApplicationWindow {
         }
     }
 
-    onClosing: {
+    onClosing: (close) => {
+        if (hotLoader.item && !hotLoader.item.saveAll()) {
+            close.accepted = false
+            return
+        }
         if (typeof backend !== "undefined" && backend && typeof backend.unregister_window === "function") {
             backend.unregister_window(root)
         }

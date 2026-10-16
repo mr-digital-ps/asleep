@@ -21,22 +21,6 @@ function zoomAt(graphRoot, canvas, sx, sy, zoomFactor) {
     if (canvas) canvas.requestPaint()
 }
 
-function keepActiveNodeCentered(graphRoot) {
-    if (!graphRoot.activeNodeId || !graphRoot.sim || !graphRoot.sim.nodes) return
-    var curW = (graphRoot.width > 50) ? graphRoot.width : 0
-    var curH = (graphRoot.height > 50) ? graphRoot.height : 0
-    if (!curW || !curH) return
-
-    for (var i = 0; i < graphRoot.sim.nodes.length; i++) {
-        var n = graphRoot.sim.nodes[i]
-        if (n.id === graphRoot.activeNodeId) {
-            graphRoot.panX = -(n.x - curW / 2) * graphRoot.zoomScale
-            graphRoot.panY = -(n.y - curH / 2) * graphRoot.zoomScale
-            break
-        }
-    }
-}
-
 function centerOnNode(graphRoot, canvas, targetFileUrl) {
     if (!graphRoot.sim || !graphRoot.sim.nodes || graphRoot.sim.nodes.length === 0) return false
     var curW = (graphRoot.width > 50) ? graphRoot.width : (canvas && canvas.width > 50 ? canvas.width : 0)
@@ -962,9 +946,3 @@ function handleKey(graphRoot, event) {
 
     return false
 }
-
-function handleSearch(graphRoot, canvas, text) {
-    graphRoot.searchQuery = (text || "").trim().toLowerCase()
-    if (canvas) canvas.requestPaint()
-}
-

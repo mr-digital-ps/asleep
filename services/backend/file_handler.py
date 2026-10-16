@@ -177,6 +177,18 @@ class FileHandlerMixin:
         except Exception:
             pass
 
+        # 3. Разрешение точечной нотации пути проекта (Папка.Подпапка.Файл)
+        if "." in clean:
+            parts = [p.strip() for p in clean.split(".") if p.strip()]
+            if parts:
+                if parts[0].lower() == folder.name.lower() and len(parts) > 1:
+                    sub_p = folder.joinpath(*parts[1:]).with_suffix(".txt")
+                    if sub_p.exists() and sub_p.is_file():
+                        return QUrl.fromLocalFile(str(sub_p.resolve())).toString()
+                last_cand = folder / f"{parts[-1]}.txt"
+                if last_cand.exists() and last_cand.is_file():
+                    return QUrl.fromLocalFile(str(last_cand.resolve())).toString()
+
         # Если файла нет, создаем новую заметку с начальным содержимым
         try:
             title = clean.replace(".txt", "")
@@ -213,7 +225,10 @@ class FileHandlerMixin:
 
         file_url = ""
         if note_name:
-            file_url = self.get_note_file_url(note_name, folder_url)
+            if note_name.startswith("file:") or note_name.startswith("/") or (len(note_name) > 1 and note_name[1] == ":"):
+                file_url = self.file_service.to_url(note_name)
+            else:
+                file_url = self.get_note_file_url(note_name, folder_url)
         elif folder_url:
             # Ссылка на блок внутри текущего открытого файла
             file_url = folder_url

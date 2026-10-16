@@ -69,6 +69,9 @@ Rectangle {
         }
     }
     function closeGraph() { if (activePane) activePane.isGraphMode = false }
+    function navigatePanel(panel, url, title, block) {
+        return Documents.navigatePanel(canvasWorkspaceRoot, backend, panel, url, title, block)
+    }
     function centerActive() { activate(activePanel, true) }
     function applyConfig(config) { panels.forEach(function(p) { p.pane.applyConfig(config) }) }
     function applyBlockUpdate(name, text, source) {

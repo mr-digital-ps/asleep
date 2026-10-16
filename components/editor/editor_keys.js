@@ -6,14 +6,14 @@ function isSaveKey(event) {
     return (event.key === Qt.Key_S || event.nativeScanCode === 31 || event.key === 1067 || event.key === 1099 || event.text === 's' || event.text === 'S' || event.text === 'ы' || event.text === 'Ы')
 }
 
-function isNewSplitKey(event) {
+function isNewPanelKey(event) {
     if (!(event.modifiers & Qt.ControlModifier)) return false
     if (!(event.modifiers & Qt.ShiftModifier)) return false
     // N (scan 49, 'т')
     return (event.key === Qt.Key_N || event.nativeScanCode === 49 || event.key === 1058 || event.key === 1090 || event.text === 'n' || event.text === 'N' || event.text === 'т' || event.text === 'Т')
 }
 
-function isOpenSplitKey(event) {
+function isOpenPanelKey(event) {
     if (!(event.modifiers & Qt.ControlModifier)) return false
     if (!(event.modifiers & Qt.ShiftModifier)) return false
     // O (scan 24, 'щ')
@@ -112,14 +112,14 @@ function handleKeyPressed(event, canvasRoot, editorArea, Shortcuts) {
         canvasRoot.saveRequested()
         return true
     }
-    if (isNewSplitKey(event)) {
+    if (isNewPanelKey(event)) {
         event.accepted = true
-        canvasRoot.newSplitRequested()
+        canvasRoot.newRequested()
         return true
     }
-    if (isOpenSplitKey(event)) {
+    if (isOpenPanelKey(event)) {
         event.accepted = true
-        canvasRoot.openSplitRequested()
+        canvasRoot.openRequested()
         return true
     }
     // Автозакрытие парных скобок и кавычек
