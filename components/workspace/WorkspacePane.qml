@@ -16,7 +16,6 @@ Item {
     property bool isCenteredMode: true
     property real customSheetWidth: Theme.defaultSheetWidth
     property real minSheetWidth: Theme.minSheetWidth
-    property bool isSplitMode: false
     property bool isActivePane: false
     property bool isEmpty: false
     property bool isReceivingExternalSync: false
@@ -31,8 +30,6 @@ Item {
     readonly property var targetWindow: Window.window
 
     // Режимы рабочей области (paneBody): "editor" | "graph"
-    // isGraphMode приходит снаружи из WorkspaceSplit через reactive binding.
-    // Прямое присвоение запрещено, иначе разрушается связь.
     property bool isGraphMode: false
     readonly property string viewMode: isGraphMode ? "graph" : "editor"
 
@@ -167,12 +164,9 @@ Item {
     signal detachRequested()
     signal saveRequested()
     signal newRequested()
-    signal newSplitRequested()
     signal toggleGraphRequested()
     signal toggleLocalGraphRequested()
-    signal toggleSplitRequested()
     signal openRequested()
-    signal openSplitRequested()
     signal closeGraphRequested()
     signal fileDragStarted(string url, string name, real gx, real gy)
     signal fileDragMoved(real gx, real gy)
@@ -180,6 +174,15 @@ Item {
     signal openStructureRequested()
 
     readonly property bool isResizingSheet: (leftHandle && (leftHandle.containsMouse || leftHandle.isDragging)) || (rightHandle && (rightHandle.containsMouse || rightHandle.isDragging))
+
+    function openDocument(url, name, content) {
+        fileUrl = url
+        fileName = name.replace(/\.(txt|md)$/i, "")
+        text = content
+    }
+    function getDocumentState() {
+        return { fileUrl: fileUrl, fileName: fileName, text: paperSheet.getLiveText() }
+    }
 
     function stripExt(name) {
         return Controller.stripExt(name)
@@ -285,7 +288,7 @@ Item {
             if (paneHeader && paneHeader.titleField && paneHeader.titleField.activeFocus) return
             workspacePane.paneActivated()
             let win = workspacePane.targetWindow
-            if (win && typeof win.startSystemMove === "function") {
+            if (win && !workspacePane.isSplitMode && typeof win.startSystemMove === "function" && parent === win.contentItem) {
                 win.startSystemMove()
             }
         }
@@ -310,7 +313,6 @@ Item {
         fileUrl: workspacePane.fileUrl
         folderUrl: workspacePane.folderUrl
         breadcrumbTitle: workspacePane.breadcrumbTitle
-        isSplitMode: workspacePane.isSplitMode
         isActivePane: workspacePane.isActivePane
         isEmpty: workspacePane.isEmpty
         isPinned: workspacePane.isHeaderPinned
@@ -432,7 +434,6 @@ Item {
                 isCenteredMode: workspacePane.isCenteredMode
                 customSheetWidth: workspacePane.customSheetWidth
                 minSheetWidth: workspacePane.minSheetWidth
-                isSplitMode: workspacePane.isSplitMode
                 isActivePane: workspacePane.isActivePane
                 isEmpty: workspacePane.isEmpty
                 typewriterMode: workspacePane.typewriterMode
@@ -452,11 +453,8 @@ Item {
                     onDetachRequested: workspacePane.detachRequested()
                     onSaveRequested: workspacePane.saveRequested()
                     onNewRequested: workspacePane.newRequested()
-                    onNewSplitRequested: workspacePane.newSplitRequested()
                     onToggleGraphRequested: workspacePane.toggleGraphRequested()
-                    onToggleSplitRequested: workspacePane.toggleSplitRequested()
                     onOpenRequested: workspacePane.openRequested()
-                    onOpenSplitRequested: workspacePane.openSplitRequested()
                     onCursorVisibilityRequested: workspacePane.requestEnsureCursorVisible()
                     onToggleHistoryRequested: workspacePane.toggleHistoryMode()
                     onToggleInfoRequested: workspacePane.toggleInfoMode()
@@ -506,7 +504,7 @@ Item {
             }
             onNodeClicked: (fUrl, lbl, type) => {
                 workspacePane.paneActivated()
-                var target = (type === "block" && lbl) ? (lbl) : (lbl || "")
+                var target = fUrl ? (fUrl + ((type === "block" && lbl) ? ("#" + lbl) : "")) : (lbl || "")
                 if (backend && typeof backend.open_wiki_link === "function") {
                     backend.open_wiki_link(target, workspacePane.folderUrl)
                 }
@@ -610,4 +608,4 @@ Item {
         onActivated: workspacePane.paneActivated()
     }
 }
- 
+

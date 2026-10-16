@@ -1,61 +1,81 @@
 import QtQuick
-import "./snap_engine.js" as SnapEngine
 import "../theme"
 
-// components/workspace/CanvasWorkspace.qml — Бесконечный координатный холст с плавающими и магнитящимися листами
 Rectangle {
     id: canvasWorkspaceRoot
-    anchors.fill: parent
     color: Theme.bgApp
     clip: true
-
-    // Состояние камеры холста
     property real panX: 0
     property real panY: 0
-    property real zoomScale: 1.0
-    property int activePaneIndex: 0
-
-    // Проброс базовых свойств
+    property real zoomScale: 1
+    property var panels: []
+    property var activePanel: null
+    property int nextId: 0
+    property int nextZ: 1
+    property string errorMessage: ""
     property string currentFolderUrl: ""
     property string currentFolderName: ""
-    property var openFileUrls: []
-    property alias primaryBar: primaryContainer.pane
-    property alias secondaryBar: secondaryContainer.pane
-    property alias activeEditorArea: primaryContainer.pane.editorArea
+    readonly property int panelCount: panels.length
+    readonly property var activePane: activePanel ? activePanel.pane : null
+    readonly property var activeEditorArea: activePane ? activePane.editorArea : null
+    readonly property bool isGraphVisible: activePane ? activePane.isGraphMode : false
+    readonly property var openFileUrls: panels.map(function(panel) { return panel.pane.fileUrl })
+    signal actionRequested(string action)
+    signal closeRequested(var panel)
+    signal renameRequested(var panel, string title)
+    signal contentChanged()
 
-    signal saveRequested()
-    signal openRequested()
-    signal openSplitRequested()
-    signal newRequested()
-    signal newSplitRequested()
-    signal toggleGraphRequested()
-    signal toggleLocalGraphRequested()
-    signal toggleSplitRequested()
-    signal closeGraphRequested()
-    signal openStructureRequested()
-
-    // Провайдер прямоугольников других панелей для SnapEngine
-    function getOtherPanes(excludeId) {
-        var list = []
-        if (excludeId !== "pane_1" && primaryContainer.visible) {
-            list.push({
-                id: "pane_1",
-                x: primaryContainer.x,
-                y: primaryContainer.y,
-                width: primaryContainer.width,
-                height: primaryContainer.height
-            })
+    function addDocument(url, title, text) {
+        var x = activePanel ? activePanel.x + activePanel.width + Theme.canvasPanelGap : -Theme.canvasPanelWidth / 2
+        var y = activePanel ? activePanel.y : -Theme.canvasPanelHeight / 2
+        var panel = panelComponent.createObject(worldLayer, {
+            paneId: "document_" + (++nextId), x: x, y: y,
+            width: Theme.canvasPanelWidth, height: Theme.canvasPanelHeight,
+            savedText: text
+        })
+        if (!panel) { errorMessage = "Не удалось создать панель"; return null }
+        panel.pane.openDocument(url, title, text)
+        panels = panels.concat([panel])
+        activate(panel, true)
+        return panel
+    }
+    function activate(panel, reveal) {
+        if (!panel) return
+        activePanel = panel
+        panel.z = ++nextZ
+        panel.pane.editorArea.forceActiveFocus()
+    }
+    function removePanel(panel) {
+        var index = panels.indexOf(panel)
+        panels = panels.filter(function(item) { return item !== panel })
+        if (activePanel === panel) {
+            activePanel = null
+            if (panels.length) activate(panels[Math.min(index, panels.length - 1)], true)
         }
-        if (excludeId !== "pane_2" && secondaryContainer.visible) {
-            list.push({
-                id: "pane_2",
-                x: secondaryContainer.x,
-                y: secondaryContainer.y,
-                width: secondaryContainer.width,
-                height: secondaryContainer.height
-            })
+        panel.destroy()
+    }
+    function getOtherPanes(id) {
+        return panels.filter(function(p) { return p.paneId !== id }).map(function(p) {
+            return {id: p.paneId, x: p.x, y: p.y, width: p.width, height: p.height}
+        })
+    }
+    function toggleGraph(local) {
+        if (!activePane) return
+        if (activePane.isGraphMode && activePane.isLocalGraphMode === Boolean(local)) {
+            activePane.isGraphMode = false
+        } else {
+            activePane.isLocalGraphMode = Boolean(local)
+            activePane.isGraphMode = true
         }
-        return list
+    }
+    function closeGraph() { if (activePane) activePane.isGraphMode = false }
+    function centerActive() { activate(activePanel, true) }
+    function applyConfig(config) { panels.forEach(function(p) { p.pane.applyConfig(config) }) }
+    function applyBlockUpdate(name, text, source) {
+        panels.forEach(function(p) {
+            if (p.pane.fileUrl !== source && !p.pane.editorArea.readOnly)
+                p.pane.applyExternalBlockUpdate(name, text)
+        })
     }
 
     // 1. Управление камерой холста (Панорамирование средней кнопкой или Drag по фону)
@@ -91,8 +111,8 @@ Rectangle {
         onWheel: (event) => {
             if (event.modifiers & Qt.ControlModifier) {
                 var oldZoom = canvasWorkspaceRoot.zoomScale
-                var factor = event.angleDelta.y > 0 ? 1.1 : 0.9
-                var newZoom = Math.max(0.3, Math.min(2.5, oldZoom * factor))
+                var factor = event.angleDelta.y > 0 ? Theme.canvasZoomStep : 1 / Theme.canvasZoomStep
+                var newZoom = Math.max(Theme.canvasMinZoom, Math.min(Theme.canvasMaxZoom, oldZoom * factor))
                 canvasWorkspaceRoot.zoomScale = newZoom
                 event.accepted = true
             } else if (event.buttons & Qt.MiddleButton) {
@@ -122,7 +142,7 @@ Rectangle {
             var ctx = getContext("2d")
             ctx.clearRect(0, 0, width, height)
 
-            var step = 32 * canvasWorkspaceRoot.zoomScale
+            var step = Theme.canvasGridStep * canvasWorkspaceRoot.zoomScale
             if (step < 12) return // Слишком мелкий шаг при сильном удалении
 
             // Смещение с учётом panX, panY и центра окна
@@ -144,64 +164,34 @@ Rectangle {
         }
     }
 
-    // 2. Виртуальный слой мира (подвержен panX, panY, zoomScale)
     Item {
         id: worldLayer
         x: canvasWorkspaceRoot.width / 2 + canvasWorkspaceRoot.panX
         y: canvasWorkspaceRoot.height / 2 + canvasWorkspaceRoot.panY
         scale: canvasWorkspaceRoot.zoomScale
-        transformOrigin: Item.Center
+        transformOrigin: Item.TopLeft
         z: 1
-
-        // =====================================================================
-        // ПАНЕЛЬ 1 (Основной лист)
-        // =====================================================================
+        SnapGuideOverlay { id: snapGuideOverlay; z: canvasWorkspaceRoot.nextZ + 1 }
+    }
+    Component {
+        id: panelComponent
         CanvasPaneContainer {
-            id: primaryContainer
-            paneId: "pane_1"
-            x: -420
-            y: -360
-            width: 800
-            height: 720
+            id: documentPanel
             otherPanesProvider: (id) => canvasWorkspaceRoot.getOtherPanes(id)
-
-            onSnapMoved: (guidelines, dockSide, dockTargetId) => {
-                snapGuideOverlay.activeGuides = guidelines || []
+            pane.folderUrl: canvasWorkspaceRoot.currentFolderUrl
+            pane.currentFolderName: canvasWorkspaceRoot.currentFolderName
+            pane.openFileUrls: canvasWorkspaceRoot.openFileUrls
+            pane.isActivePane: canvasWorkspaceRoot.activePanel === documentPanel
+            onPaneActivated: canvasWorkspaceRoot.activate(documentPanel, false)
+            onCloseRequested: canvasWorkspaceRoot.closeRequested(documentPanel)
+            onActionRequested: (action) => {
+                canvasWorkspaceRoot.activate(documentPanel, false)
+                canvasWorkspaceRoot.actionRequested(action)
             }
-            onSnapEnded: {
-                snapGuideOverlay.activeGuides = []
-            }
-            onPaneActivated: {
-                canvasWorkspaceRoot.activePaneIndex = 0
-            }
-        }
-
-        // =====================================================================
-        // ПАНЕЛЬ 2 (Вторичный лист)
-        // =====================================================================
-        CanvasPaneContainer {
-            id: secondaryContainer
-            paneId: "pane_2"
-            x: 420
-            y: -360
-            width: 800
-            height: 720
-            otherPanesProvider: (id) => canvasWorkspaceRoot.getOtherPanes(id)
-
-            onSnapMoved: (guidelines, dockSide, dockTargetId) => {
-                snapGuideOverlay.activeGuides = guidelines || []
-            }
-            onSnapEnded: {
-                snapGuideOverlay.activeGuides = []
-            }
-            onPaneActivated: {
-                canvasWorkspaceRoot.activePaneIndex = 1
-            }
-        }
-
-        // Оверлей линий магнита
-        SnapGuideOverlay {
-            id: snapGuideOverlay
+            onRenameRequested: (title) => canvasWorkspaceRoot.renameRequested(documentPanel, title)
+            onContentChanged: canvasWorkspaceRoot.contentChanged()
+            onSnapMoved: (guidelines) => snapGuideOverlay.activeGuides = guidelines || []
+            onSnapEnded: snapGuideOverlay.activeGuides = []
         }
     }
 }

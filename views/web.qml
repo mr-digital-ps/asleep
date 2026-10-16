@@ -5,259 +5,112 @@ import "../components/editor"
 import "../components/workspace"
 import "../components/hotkeys"
 import "../components/theme"
-import "./web_lifecycle.js" as WebLifecycle
+import "../components/workspace/document_controller.js" as Documents
+import "web_lifecycle.js" as Lifecycle
 
 Rectangle {
     id: root
     anchors.fill: parent
     color: Theme.bgApp
     focus: true
-
-    // Ссылка на родительское ApplicationWindow
     property var appWindow: null
-    readonly property url windowComponentUrl: Qt.resolvedUrl("window.qml")
-
-    // Видимость интерактивного графа связей
-    readonly property bool isGraphVisible: splitLayout ? splitLayout.isGraphVisible : false
-    function toggleGraph() { if (splitLayout) splitLayout.toggleGraph() }
-    function toggleLocalGraph() { if (splitLayout) splitLayout.toggleLocalGraph() }
-    function closeGraph() { if (splitLayout) splitLayout.closeGraph() }
-    function closeAllGraphs() { if (splitLayout) splitLayout.closeAllGraphs() }
-    function toggleSearch() { if (splitLayout) splitLayout.toggleSearch() }
-
-    // Переменные текущего активного файла
-    property string currentFileUrl: ""
-    property string currentFileName: "Новый документ"
-    property int barSize: (Theme && typeof Theme.barSize === "number") ? Theme.barSize : 36
-
-    // Текущая рабочая папка
-    property string currentFolderUrl: (typeof backend !== "undefined" && backend) ? backend.get_default_folder() : ""
-    property string currentFolderName: (typeof backend !== "undefined" && backend && currentFolderUrl) ? backend.get_folder_name(currentFolderUrl) : "my-text-editor"
-    property bool openFileInSplit: false
-
-    // =========================================================================
-    // РЕЖИМ СПЛИТА (SPLIT VIEW)
-    // =========================================================================
-    property bool isSplit: false
-    property int primaryTabIndex: 0
-    property int secondaryTabIndex: -1
-    property int activePane: 0 // 0: primary, 1: secondary
-    property string dropZone: "" // "left" | "right" | "center" | "sidebar" | ""
-    property string primaryFileName: "Новый документ"
-    property string secondaryFileName: "Новый документ"
-
-    function stripExt(name) { return WebLifecycle.stripExt(name) }
-
-    property alias editorArea: splitLayout.activeEditorArea
-    property alias splitLayout: splitLayout
-
-    // Список открытых в данный момент файлов для подсветки в графе связей
-    readonly property var openFileUrls: WebLifecycle.getOpenFileUrls(tabsModel, primaryTabIndex, secondaryTabIndex, isSplit)
-
-    // =========================================================================
-    // МОДЕЛЬ ВКЛАДОК, ФАЙЛОВ ПАПКИ И ОТКРЕПЛЕННЫХ ОКОН
-    // =========================================================================
-    property int currentTabIndex: 0
-    property var externalWindowFiles: []
-    property bool isFileDragging: false
-    property string draggingFileUrl: ""
-    property string draggingFileName: ""
-    property int draggingPaneIndex: -1
-
-    // Целевая частота кадров (FPS) и интервал таймеров интерфейса
-    property int targetFps: (typeof backend !== "undefined" && backend && typeof backend.get_target_fps === "function") ? backend.get_target_fps() : 60
+    property string dropZone: ""
+    property string currentFolderUrl: backend.get_default_folder()
+    property string currentFolderName: backend.get_folder_name(currentFolderUrl)
+    property alias workspace: canvasLayout
+    readonly property var editorArea: canvasLayout.activeEditorArea
+    readonly property bool isGraphVisible: canvasLayout.isGraphVisible
+    readonly property string currentFileUrl: canvasLayout.activePane ? canvasLayout.activePane.fileUrl : ""
+    readonly property string currentFileName: canvasLayout.activePane ? canvasLayout.activePane.fileName : ""
+    property bool initialStateApplied: false
+    property int targetFps: backend.get_target_fps()
     readonly property int animIntervalMs: targetFps <= 0 ? 1 : Math.max(1, Math.round(1000 / targetFps))
 
-    // Авто-сохранение изменений в файле после остановки ввода
+    function createNewTab() { return Documents.createDocument(canvasLayout, backend, currentFolderUrl) }
+    function openFileFromFolder(url, name) { return Documents.openDocument(canvasLayout, backend, url, name) }
+    function closeActiveTab() {
+        if (canvasLayout.isGraphVisible) canvasLayout.closeGraph()
+        else Documents.closePanel(canvasLayout, backend, canvasLayout.activePanel)
+    }
+    function saveAll() { return Documents.saveAll(canvasLayout, backend) }
+    function toggleGraph() { canvasLayout.toggleGraph(false) }
+    function toggleLocalGraph() { canvasLayout.toggleGraph(true) }
+    function closeGraph() { canvasLayout.closeGraph() }
+    function executeAction(action) { Lifecycle.dispatchAction(root, backend, action) }
+    function applyInitialState() {
+        if (initialStateApplied || !appWindow || !appWindow.initialFileUrl) return false
+        initialStateApplied = true
+        openFileFromFolder(appWindow.initialFileUrl, appWindow.initialTitle)
+        if (appWindow.initialContent) canvasLayout.activePane.text = appWindow.initialContent
+        return true
+    }
+    function handleGlobalKeyEvent(event) {
+        if (hotkeys.handleKeyEvent(event)) return true
+        if (event.key === Qt.Key_Escape && isGraphVisible) {
+            closeGraph()
+            event.accepted = true
+            return true
+        }
+        return false
+    }
+    Keys.onPressed: (event) => handleGlobalKeyEvent(event)
+    Component.onCompleted: Qt.callLater(function() { Lifecycle.initialize(root, backend) })
+
     Timer {
         id: autoSaveTimer
-        interval: (typeof backend !== "undefined" && backend && backend.get_app_config().auto_save_delay_ms) ? backend.get_app_config().auto_save_delay_ms : 1000
-        repeat: false
-        onTriggered: WebLifecycle.handleAutoSave(root, splitLayout, (typeof backend !== "undefined" ? backend : null))
+        interval: backend.get_app_config().auto_save_delay_ms || 1000
+        onTriggered: root.saveAll()
     }
-
-    property alias tabsModel: tabsModel
-    property alias folderFilesModel: folderFilesModel
-
-    ListModel {
-        id: tabsModel
-        ListElement {
-            title: "Новый документ"
-            fileUrl: ""
-            content: ""
-            isDetached: false
-        }
-    }
-
-    // Модель файлов в текущей рабочей папке
-    ListModel {
-        id: folderFilesModel
-    }
-
-    function reloadFolderFiles() { WebLifecycle.reloadFolderFiles(root, backend) }
-    function applyFolderConfig(configJson) { WebLifecycle.applyFolderConfig(root, splitLayout, configJson) }
-    function reloadAppConfig() { WebLifecycle.reloadAppConfig(root, autoSaveTimer, backend) }
-
     Connections {
-        target: (typeof backend !== "undefined") ? backend : null
-        ignoreUnknownSignals: true
-        function onFolderFilesChanged() { root.reloadFolderFiles() }
-        function onBlockUpdated(headingNorm, content, sourceFileUrl) {
-            WebLifecycle.handleBlockUpdated(root, splitLayout, headingNorm, content, sourceFileUrl, backend)
-        }
-        function onConfigUpdated(configJson) { root.applyFolderConfig(configJson) }
-        function onAppConfigChanged() { root.reloadAppConfig() }
-        function onNoteOpened(fileUrl, blockName) {
-            var fileName = backend.get_filename(fileUrl)
-            root.openFileFromFolder(fileUrl, fileName, false)
-            if (blockName && splitLayout && splitLayout.activeEditorArea) {
-                var area = splitLayout.activeEditorArea
-                var t = area.text || ""
-                var idx = t.indexOf(blockName)
-                if (idx !== -1) {
-                    area.cursorPosition = idx
-                }
+        target: backend
+        function onNoteOpened(url, block) {
+            var panel = root.openFileFromFolder(url, backend.get_filename(url))
+            if (panel && block) {
+                var index = panel.pane.text.indexOf(block)
+                if (index >= 0) panel.pane.editorArea.cursorPosition = index
             }
         }
+        function onBlockUpdated(name, text, source) { canvasLayout.applyBlockUpdate(name, text, source) }
+        function onConfigUpdated(json) { canvasLayout.applyConfig(JSON.parse(json)) }
+        function onAppConfigChanged() {
+            autoSaveTimer.interval = backend.get_app_config().auto_save_delay_ms || 1000
+            root.targetFps = backend.get_target_fps()
+        }
+        function onActionRequested(action) {
+            if (!root.appWindow || root.appWindow.active) root.executeAction(action)
+        }
     }
-
-    function openFileFromFolder(fileUrl, fileName, isShift) {
-        WebLifecycle.openFileFromFolder(root, fileUrl, fileName, isShift, backend)
-    }
-
-    property string previousFileUrlBeforeStructure: ""
-    property string previousFileNameBeforeStructure: ""
-    property string highlightStructureItem: ""
-
-    function toggleProjectStructure() {
-        WebLifecycle.toggleProjectStructure(root, splitLayout, backend)
-    }
-
-    // Делегированные методы управления вкладками и сплитом
-    function createNewTab(isShift) { WebLifecycle.createNewTab(root, isShift, backend) }
-    function switchToTab(index) { WebLifecycle.switchToTab(root, index) }
-
-    function closeTab(index) { WebLifecycle.closeTab(root, index) }
-    function renameTab(index, newTitle) { WebLifecycle.renameTab(root, index, newTitle, backend) }
-    function toggleSplit() { WebLifecycle.toggleSplit(root) }
-    function closeSplit() { WebLifecycle.closeSplit(root) }
-    function setActivePane(paneIndex) { WebLifecycle.setActivePane(root, paneIndex) }
-    function applyInitialState() { return WebLifecycle.applyInitialState(root) }
-
-    // =========================================================================
-    // ДИАЛОГИ ВЫБОРА И СОХРАНЕНИЯ ФАЙЛОВ И ПАПОК
-    // =========================================================================
-    EditorDialogs {
-        id: editorDialogs
-        currentFolderUrl: root.currentFolderUrl
-
-        onFolderAccepted: (folderUrl) => WebLifecycle.handleFolderAccepted(root, (typeof backend !== "undefined" ? backend : null), folderUrl)
-        onFileOpenAccepted: (selectedFile) => WebLifecycle.handleFileOpenAccepted(root, (typeof backend !== "undefined" ? backend : null), selectedFile)
-        onFileSaveAccepted: (selectedFile) => WebLifecycle.handleFileSaveAccepted(root, (typeof backend !== "undefined" ? backend : null), selectedFile)
-    }
-
-    property alias folderDialog: editorDialogs.folderDialog
-    property alias openDialog: editorDialogs.openDialog
-    property alias saveDialog: editorDialogs.saveDialog
-
-    Component.onCompleted: WebLifecycle.initWebRoot(root, (typeof backend !== "undefined" ? backend : null))
-
-    // =========================================================================
-    // МЕНЕДЖЕР ГОРЯЧИХ КЛАВИШ
-    // =========================================================================
     HotkeyManager {
-        id: hotkeyManager
+        id: hotkeys
         onActionTriggered: (action) => root.executeAction(action)
         onCloseActiveTabRequested: root.closeActiveTab()
     }
-
-    Connections {
-        target: (typeof backend !== "undefined") ? backend : null
-        ignoreUnknownSignals: true
-        function onActionRequested(action) { WebLifecycle.handleActionRequested(root, backend, action) }
+    EditorDialogs {
+        id: dialogs
+        currentFolderUrl: root.currentFolderUrl
+        onFileOpenAccepted: (url) => root.openFileFromFolder(url, backend.get_filename(url))
+        onFolderAccepted: (url) => {
+            if (!root.saveAll()) return
+            canvasLayout.panels.slice().forEach(function(panel) { canvasLayout.removePanel(panel) })
+            root.currentFolderUrl = url
+            root.currentFolderName = backend.get_folder_name(url)
+            backend.save_last_folder(url)
+            backend.watch_folder(url)
+            root.initialStateApplied = false
+            Lifecycle.initialize(root, backend)
+        }
     }
-
-    property alias hotkeyMapping: hotkeyManager.hotkeyMapping
-    property alias flatHotkeysList: hotkeyManager.flatHotkeysList
-    function reloadHotkeys() { hotkeyManager.reloadHotkeys() }
-
-    function executeAction(action) {
-        WebLifecycle.dispatchAction(root, splitLayout, openDialog, saveDialog, backend, action)
-    }
-
-    function closeActiveTab() { WebLifecycle.closeActiveTab(root) }
-
-    function handleGlobalKeyEvent(event) {
-        return WebLifecycle.handleGlobalKeyEvent(root, splitLayout, hotkeyManager, backend, event)
-    }
-
-    Keys.forwardTo: (splitLayout ? [splitLayout] : [])
-
-    Keys.onPressed: (event) => handleGlobalKeyEvent(event)
-
-    // =========================================================================
-    // ГЛАВНАЯ ОБЛАСТЬ РЕДАКТОРА (МОНОЛИТ СПЛИТА ИЛИ БЕСКОНЕЧНЫЙ ХОЛСТ)
-    // =========================================================================
-    property bool isCanvasMode: false
-
-    function toggleCanvasMode() {
-        isCanvasMode = !isCanvasMode
-    }
+    property alias openDialog: dialogs.openDialog
+    property alias folderDialog: dialogs.folderDialog
 
     CanvasWorkspace {
         id: canvasLayout
         anchors.fill: parent
-        visible: root.isCanvasMode
         currentFolderUrl: root.currentFolderUrl
         currentFolderName: root.currentFolderName
-        openFileUrls: root.openFileUrls
-
-        onSaveRequested: root.executeAction("save_file")
-        onOpenRequested: root.executeAction("open_file")
-        onOpenSplitRequested: root.executeAction("open_file_split")
-        onNewRequested: root.createNewTab(false)
-        onNewSplitRequested: root.executeAction("new_tab_split")
-        onToggleGraphRequested: root.executeAction("toggle_graph")
-        onToggleLocalGraphRequested: root.executeAction("toggle_local_graph")
-        onToggleSplitRequested: root.toggleSplit()
-        onOpenStructureRequested: root.executeAction("open_structure")
-    }
-
-    WorkspaceSplit {
-        id: splitLayout
-        anchors.fill: parent
-        visible: !root.isCanvasMode
-        barSize: root.barSize
-        isSplit: root.isSplit
-        activePane: root.activePane
-        dropZone: root.dropZone
-        primaryFileName: root.primaryFileName
-        primaryFileUrl: (root.tabsModel.count > root.primaryTabIndex && root.primaryTabIndex >= 0) ? root.tabsModel.get(root.primaryTabIndex).fileUrl : ""
-        secondaryFileName: root.secondaryFileName
-        secondaryFileUrl: (root.tabsModel.count > root.secondaryTabIndex && root.secondaryTabIndex >= 0) ? root.tabsModel.get(root.secondaryTabIndex).fileUrl : ""
-
-        isPrimaryEmpty: root.tabsModel.count === 0 || root.primaryTabIndex < 0
-
-        // Передача состояния и событий графа
-        openFileUrls: root.openFileUrls
-        currentFolderUrl: root.currentFolderUrl
-        currentFolderName: root.currentFolderName
-
-        onPrimaryTitleChanged: (newTitle) => root.renameTab(root.primaryTabIndex, newTitle)
-        onSecondaryTitleChanged: (newTitle) => root.renameTab(root.secondaryTabIndex, newTitle)
-        onPrimaryTextChanged: autoSaveTimer.restart()
-        onSecondaryTextChanged: autoSaveTimer.restart()
-        onPrimaryCloseRequested: root.closeTab(root.primaryTabIndex)
-        onSecondaryCloseRequested: root.closeTab(root.secondaryTabIndex)
-        onPaneActivated: (paneIndex) => root.setActivePane(paneIndex)
-        onSaveRequested: root.executeAction("save_file")
-        onOpenRequested: root.executeAction("open_file")
-        onOpenSplitRequested: root.executeAction("open_file_split")
-        onNewRequested: root.createNewTab(false)
-        onNewSplitRequested: root.executeAction("new_tab_split")
-        onToggleGraphRequested: root.executeAction("toggle_graph")
-        onToggleLocalGraphRequested: root.executeAction("toggle_local_graph")
-        onToggleSplitRequested: root.toggleSplit()
-        onOpenStructureRequested: root.executeAction("open_structure")
+        onContentChanged: autoSaveTimer.restart()
+        onActionRequested: (action) => root.executeAction(action)
+        onCloseRequested: (panel) => Documents.closePanel(canvasLayout, backend, panel)
+        onRenameRequested: (panel, title) => Documents.renamePanel(canvasLayout, backend, panel, title)
     }
 }

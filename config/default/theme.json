@@ -53,5 +53,16 @@
 
 	// 7. Тайминги и анимации (Animation Timings)
 	"anim_duration_fast": 100, // Быстрые микро-анимации (hover, размер ползунка)
-	"anim_duration_normal": 150 // Стандартные переходы (opacity, границы, сплит)
+	"anim_duration_normal": 150, // Стандартные переходы (opacity, границы, сплит)
+  "canvas_panel_width": 800,
+  "canvas_panel_height": 720,
+  "canvas_panel_gap": 40,
+  "canvas_drag_height": 24,
+  "canvas_resize_margin": 6,
+  "canvas_min_height": 300,
+  "canvas_snap_distance": 18,
+  "canvas_grid_step": 32,
+  "canvas_min_zoom": 0.3,
+  "canvas_max_zoom": 2.5,
+  "canvas_zoom_step": 1.1
 }
