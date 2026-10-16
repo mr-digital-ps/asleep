@@ -715,6 +715,16 @@ function dispatchAction(root, splitLayout, openDialog, saveDialog, backend, acti
                 root.toggleCanvasMode()
             }
             break
+        case "toggle_fullscreen":
+            var win = (root && root.appWindow) ? root.appWindow : null
+            if (win) {
+                if (win.visibility === 5) { // 5: Window.Maximized
+                    win.showNormal()
+                } else {
+                    win.showMaximized()
+                }
+            }
+            break
         case "toggle_centered_mode":
             if (splitLayout && splitLayout.primaryBar) {
                 if (typeof splitLayout.primaryBar.toggleCenteredMode === "function") {

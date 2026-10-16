@@ -74,7 +74,11 @@ class HotkeyMatcher:
                     qt_keys.update([67, 83, 1057, 1089, 1067, 1099])
                     chars.update(['C', 'С', 'S', 'Ы'])
 
-                # Для close_tab гарантируем только W (scan 17, 'Ц')
+                # Для toggle_fullscreen: F11 (scan 87, VK 0x7A) или Alt+Return (scan 28, VK 0x0D)
+                if action == "toggle_fullscreen":
+                    vks.update([0x7A, 0x0D])
+                    scan_codes.update([87, 28])
+                    qt_keys.update([Qt.Key.Key_F11.value, Qt.Key.Key_Return.value, Qt.Key.Key_Enter.value])
                 if action == "close_tab" and ctrl and not shift and not alt:
                     vks.add(0x57)
                     scan_codes.add(17)
