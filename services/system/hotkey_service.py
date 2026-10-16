@@ -65,12 +65,13 @@ class HotkeyMatcher:
 
 
 
-                # Для toggle_split гарантируем скан-коды и виртуальные клавиши для слэша
-                if action == "toggle_split" and ctrl and not shift and not alt:
-                    vks.update([0xDC, 0xE2])
-                    scan_codes.update([43, 86])
-                    qt_keys.update([92, 47])
-                    chars.update(['\\', '/'])
+                # Для toggle_split (Alt+S) гарантируем скан-коды и виртуальные клавиши:
+                # S (scan 31, VK 0x53, ru 'Ы', qt 83, 1067, 1099)
+                if action == "toggle_split" and alt and not ctrl and not shift:
+                    vks.add(0x53)
+                    scan_codes.add(31)
+                    qt_keys.update([83, 1067, 1099])
+                    chars.update(['S', 'Ы'])
 
                 # Для close_tab гарантируем только W (scan 17, 'Ц')
                 if action == "close_tab" and ctrl and not shift and not alt:

@@ -42,7 +42,7 @@
 
   // Включение/выключение режима разделенного экрана (Split View)
   "toggle_split": {
-    "keys": ["Ctrl+\\"],
+    "keys": ["Alt+S"],
     "description": "Разделить экран (Split View)"
   },
 

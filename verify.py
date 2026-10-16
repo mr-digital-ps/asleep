@@ -148,11 +148,11 @@ tags:
     ev_q = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 16, 0x51, 0)
     assert matcher.match_event(ev_q) != "close_tab", "Ctrl+Q не должен быть привязан к close_tab"
 
-    # 3. Проверка toggle_split: Ctrl+\ (scan 43, 86, VK 0xDC, 0xE2)
-    ev_split_scan43 = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Backslash, Qt.KeyboardModifier.ControlModifier, 43, 0xDC, 0)
-    ev_split_scan86 = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 86, 0xE2, 0)
-    assert matcher.match_event(ev_split_scan43) == "toggle_split", "Ctrl+\\ (scan 43) должен распознаваться"
-    assert matcher.match_event(ev_split_scan86) == "toggle_split", "Ctrl+\\ (scan 86) должен распознаваться"
+    # 3. Проверка toggle_split: Alt+S (EN scan 31, VK 0x53), Alt+Ы (RU scan 31)
+    ev_split_en = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_S, Qt.KeyboardModifier.AltModifier, 31, 0x53, 0)
+    ev_split_ru = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.AltModifier, 31, 0x53, 0)
+    assert matcher.match_event(ev_split_en) == "toggle_split", "Alt+S (EN) должен распознаваться"
+    assert matcher.match_event(ev_split_ru) == "toggle_split", "Alt+Ы (RU) должен распознаваться"
 
     # 4. Проверка toggle_header: F9 (scan 67) и Alt+U
     ev_f9 = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_F9, Qt.KeyboardModifier.NoModifier, 67, 0x78, 0)
