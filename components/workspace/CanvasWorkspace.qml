@@ -43,7 +43,11 @@ Rectangle {
         if (!panel) return
         activePanel = panel
         panel.z = ++nextZ
-        panel.pane.editorArea.forceActiveFocus()
+        if (panel.pane.isGraphMode) {
+            if (panel.pane.paneGraphView) panel.pane.paneGraphView.forceActiveFocus()
+        } else {
+            if (panel.pane.editorArea) panel.pane.editorArea.forceActiveFocus()
+        }
     }
     function removePanel(panel) {
         var index = panels.indexOf(panel)
@@ -54,26 +58,118 @@ Rectangle {
         }
         panel.destroy()
     }
+    function getViewportRect() {
+        var scale = canvasWorkspaceRoot.zoomScale || 1.0
+        var originX = canvasWorkspaceRoot.width / 2 + canvasWorkspaceRoot.panX
+        var originY = canvasWorkspaceRoot.height / 2 + canvasWorkspaceRoot.panY
+        var vx = (0 - originX) / scale
+        var vy = (0 - originY) / scale
+        var vw = canvasWorkspaceRoot.width / scale
+        var vh = canvasWorkspaceRoot.height / scale
+        return { x: vx, y: vy, width: vw, height: vh }
+    }
     function getOtherPanes(id) {
-        return panels.filter(function(p) { return p.paneId !== id }).map(function(p) {
+        var vp = getViewportRect()
+        var list = panels.filter(function(p) { return p.paneId !== id }).map(function(p) {
             return {id: p.paneId, x: p.x, y: p.y, width: p.width, height: p.height}
         })
+        list.push({id: "__viewport__", x: vp.x, y: vp.y, width: vp.width, height: vp.height})
+        return list
+    }
+    function tileActivePanel() {
+        if (!activePanel) return
+        var vp = getViewportRect()
+        var curState = activePanel.tileState || "none"
+
+        if (curState === "none") {
+            activePanel.floatingBounds = {
+                x: activePanel.x,
+                y: activePanel.y,
+                width: activePanel.width,
+                height: activePanel.height
+            }
+            activePanel.tileState = "full"
+            activePanel.setBoundsAnimated(vp.x, vp.y, vp.width, vp.height)
+        } else if (curState === "full") {
+            activePanel.tileState = "left"
+            activePanel.setBoundsAnimated(vp.x, vp.y, vp.width / 2, vp.height)
+        } else if (curState === "left") {
+            activePanel.tileState = "right"
+            activePanel.setBoundsAnimated(vp.x + vp.width / 2, vp.y, vp.width / 2, vp.height)
+        } else {
+            activePanel.tileState = "none"
+            if (activePanel.floatingBounds) {
+                var fb = activePanel.floatingBounds
+                activePanel.setBoundsAnimated(fb.x, fb.y, fb.width, fb.height)
+                activePanel.floatingBounds = null
+            } else {
+                activePanel.setBoundsAnimated(vp.x + (vp.width - Theme.canvasPanelWidth) / 2,
+                                             vp.y + (vp.height - Theme.canvasPanelHeight) / 2,
+                                             Theme.canvasPanelWidth, Theme.canvasPanelHeight)
+            }
+        }
+    }
+    function tileWorkspace() {
+        if (!panels || panels.length === 0) return
+        var vp = getViewportRect()
+        var count = panels.length
+        var allTiled = panels.every(function(p) { return p.tileState === "workspace" })
+
+        if (allTiled) {
+            panels.forEach(function(p) {
+                p.tileState = "none"
+                if (p.floatingBounds) {
+                    var fb = p.floatingBounds
+                    p.setBoundsAnimated(fb.x, fb.y, fb.width, fb.height)
+                    p.floatingBounds = null
+                }
+            })
+            return
+        }
+
+        var colW = vp.width / count
+        for (var i = 0; i < count; i++) {
+            var p = panels[i]
+            if (p.tileState === "none") {
+                p.floatingBounds = { x: p.x, y: p.y, width: p.width, height: p.height }
+            }
+            p.tileState = "workspace"
+            p.setBoundsAnimated(vp.x + i * colW, vp.y, colW, vp.height)
+        }
     }
     function toggleGraph(local) {
         if (!activePane) return
         if (activePane.isGraphMode && activePane.isLocalGraphMode === Boolean(local)) {
             activePane.isGraphMode = false
+            if (activePane.editorArea) activePane.editorArea.forceActiveFocus()
         } else {
             activePane.isLocalGraphMode = Boolean(local)
             activePane.isGraphMode = true
+            if (activePane.paneGraphView) activePane.paneGraphView.forceActiveFocus()
         }
     }
-    function closeGraph() { if (activePane) activePane.isGraphMode = false }
+    function closeGraph() {
+        if (activePane) {
+            activePane.isGraphMode = false
+            if (activePane.editorArea) activePane.editorArea.forceActiveFocus()
+        }
+    }
     function navigatePanel(panel, url, title, block) {
         return Documents.navigatePanel(canvasWorkspaceRoot, backend, panel, url, title, block)
     }
-    function centerActive() { activate(activePanel, true) }
+    function centerActive() {
+        if (!activePanel) return
+        var cx = activePanel.x + activePanel.width / 2
+        var cy = activePanel.y + activePanel.height / 2
+        canvasWorkspaceRoot.panX = -cx
+        canvasWorkspaceRoot.panY = -cy
+    }
     function applyConfig(config) { panels.forEach(function(p) { p.pane.applyConfig(config) }) }
+    function applySessionConfig(sess) {
+        panels.forEach(function(p) {
+            if (p.pane && typeof p.pane.applySessionConfig === "function") p.pane.applySessionConfig(sess)
+        })
+    }
     function applyBlockUpdate(name, text, source) {
         panels.forEach(function(p) {
             if (p.pane.fileUrl !== source && !p.pane.editorArea.readOnly)

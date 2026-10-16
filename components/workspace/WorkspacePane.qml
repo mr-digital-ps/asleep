@@ -21,7 +21,7 @@ Item {
     property bool isReceivingExternalSync: false
     property bool typewriterMode: false
     property bool focusMode: false
-    property bool isHeaderPinned: false
+    property bool isHeaderPinned: true
     property bool showHeader: true
     property bool showScrollbar: true
     property real editorLineHeightPercent: Theme.defaultLineHeightPercent
@@ -209,6 +209,28 @@ Item {
         Controller.applyEditorConfig(workspacePane, editorArea, cfg, (typeof backend !== "undefined" ? backend : null))
     }
 
+    function applySessionConfig(sess) {
+        if (!sess) return
+        if (typeof sess.header_pinned === "boolean") {
+            workspacePane.isHeaderPinned = sess.header_pinned
+        }
+        if (typeof sess.header_visible === "boolean") {
+            workspacePane.showHeader = sess.header_visible
+        }
+        if (typeof sess.show_scrollbar === "boolean") {
+            workspacePane.showScrollbar = sess.show_scrollbar
+        }
+        if (typeof sess.show_line_dots === "boolean") {
+            workspacePane.showLineDots = sess.show_line_dots
+        }
+        if (typeof sess.sheet_width === "number" && sess.sheet_width > 0) {
+            workspacePane.customSheetWidth = sess.sheet_width
+        }
+        if (typeof sess.font_size === "number" && sess.font_size > 0 && editorArea && editorArea.font) {
+            editorArea.font.pixelSize = sess.font_size
+        }
+    }
+
     Component.onCompleted: Controller.initMainBar(workspacePane, editorArea, (typeof backend !== "undefined" ? backend : null))
 
     onEditorLineHeightPercentChanged: Controller.handleLineHeightChanged(editorArea, workspacePane, (typeof backend !== "undefined" ? backend : null))
@@ -323,7 +345,7 @@ Item {
         contentLeftPadding: editorArea ? editorArea.leftPadding : 0
         contentRightPadding: editorArea ? editorArea.rightPadding : 0
         statsText: workspacePane.isGraphMode ? workspacePane.graphStatsText : workspacePane.statsString
-        visible: workspacePane.showHeader && !workspacePane.isEmpty
+        visible: workspacePane.showHeader && (workspacePane.isGraphMode ? workspacePane.isHeaderPinned : !workspacePane.isEmpty)
         z: 10
 
         // Когда закреплен — y: 0.

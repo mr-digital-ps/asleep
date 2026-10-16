@@ -220,14 +220,12 @@ function handleGraphModeChanged(mainBar, editorScroll, sheetGraphView, editorAre
                     })
                 }
             }
-            if (mainBar.isActivePane) {
-                sheetGraphView.forceActiveFocus()
-            }
+            sheetGraphView.forceActiveFocus()
         }
     } else {
-        if (mainBar.isActivePane && editorArea) {
+        if (editorArea) {
             Qt.callLater(function() {
-                if (mainBar.isActivePane && editorArea) {
+                if (editorArea) {
                     editorArea.forceActiveFocus()
                 }
             })
@@ -278,6 +276,14 @@ function handleBlockSyncTriggered(mainBar, editorArea, backend, BlockSync) {
 
 
 function initMainBar(mainBar, editorArea, backend) {
+    if (backend && typeof backend.get_session_config === "function") {
+        try {
+            var sess = backend.get_session_config()
+            if (sess && typeof mainBar.applySessionConfig === "function") {
+                mainBar.applySessionConfig(sess)
+            }
+        } catch(e) {}
+    }
     if (backend && typeof backend.get_current_config === "function") {
         try {
             var cfgStr = backend.get_current_config()

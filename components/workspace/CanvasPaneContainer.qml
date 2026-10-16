@@ -18,6 +18,26 @@ Item {
     property bool isFloating: false
     property var otherPanesProvider: null
 
+    property string tileState: "none"
+    property var floatingBounds: null
+
+    ParallelAnimation {
+        id: boundsAnim
+        NumberAnimation { id: animX; target: containerRoot; property: "x"; duration: Theme.animDurationNormal; easing.type: Easing.OutCubic }
+        NumberAnimation { id: animY; target: containerRoot; property: "y"; duration: Theme.animDurationNormal; easing.type: Easing.OutCubic }
+        NumberAnimation { id: animW; target: containerRoot; property: "width"; duration: Theme.animDurationNormal; easing.type: Easing.OutCubic }
+        NumberAnimation { id: animH; target: containerRoot; property: "height"; duration: Theme.animDurationNormal; easing.type: Easing.OutCubic }
+    }
+
+    function setBoundsAnimated(tx, ty, tw, th) {
+        boundsAnim.stop()
+        animX.to = tx
+        animY.to = ty
+        animW.to = Math.max(Theme.minSheetWidth, tw)
+        animH.to = Math.max(Theme.canvasMinHeight, th)
+        boundsAnim.start()
+    }
+
     signal snapMoved(var guidelines, var dockSide, string dockTargetId)
     signal snapEnded()
     signal paneActivated()
@@ -69,6 +89,9 @@ Item {
 
     function startDrag(mouse, item) {
         if (!mouse || !item) return
+        if (boundsAnim.running) boundsAnim.stop()
+        containerRoot.tileState = "none"
+        containerRoot.floatingBounds = null
         containerRoot.paneActivated()
         var pt = item.mapToItem(containerRoot.parent, mouse.x, mouse.y)
         startMouseX = pt.x
@@ -134,6 +157,9 @@ Item {
     property real resizeStartMouseY: 0
 
     function initResize(mouse, item) {
+        if (boundsAnim.running) boundsAnim.stop()
+        containerRoot.tileState = "none"
+        containerRoot.floatingBounds = null
         var pt = item.mapToItem(containerRoot.parent, mouse.x, mouse.y)
         resizeStartMouseX = pt.x
         resizeStartMouseY = pt.y

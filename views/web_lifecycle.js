@@ -43,6 +43,12 @@ function dispatchAction(root, backend, action) {
             else root.appWindow.showMaximized()
         }
         break
+    case "tile_active_panel":
+        if (workspace && typeof workspace.tileActivePanel === "function") workspace.tileActivePanel()
+        break
+    case "tile_workspace":
+        if (workspace && typeof workspace.tileWorkspace === "function") workspace.tileWorkspace()
+        break
     case "open_structure":
         var document = backend.sync_project_structure_file(root.currentFolderUrl)
         if (document && document.fileUrl) root.openFileFromFolder(document.fileUrl, document.fileName)

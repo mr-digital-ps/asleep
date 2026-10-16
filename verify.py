@@ -164,6 +164,14 @@ tags:
     ev_save = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 31, 0x53, 0)
     assert matcher.match_event(ev_save) == "save_file", "Ctrl+S/Ctrl+Ы должен распознаваться"
 
+    # 6. Проверка отсутствия ложного перехвата клавиши Enter как toggle_fullscreen
+    ev_plain_enter = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Return, Qt.KeyboardModifier.NoModifier, 28, 13, 0, '\r')
+    assert matcher.match_event(ev_plain_enter) is None, "Обычный Enter без Alt не должен перехватываться как toggle_fullscreen"
+    ev_alt_enter = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Return, Qt.KeyboardModifier.AltModifier, 28, 13, 0, '')
+    assert matcher.match_event(ev_alt_enter) == "toggle_fullscreen", "Alt+Return должен переключать полноэкранный режим"
+    ev_f11 = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_F11, Qt.KeyboardModifier.NoModifier, 87, 0x7A, 0, '')
+    assert matcher.match_event(ev_f11) == "toggle_fullscreen", "F11 должен переключать полноэкранный режим"
+
     # 6. Проверка new_tab: Ctrl+N (RU 'Т', scan 49, VK 0x4E)
     ev_new = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 49, 0x4E, 0)
     assert matcher.match_event(ev_new) == "new_tab", "Ctrl+N/Ctrl+Т должен распознаваться"
@@ -210,6 +218,13 @@ tags:
     assert "toggle_line_dots" in hks, "toggle_line_dots должен присутствовать в hotkeys"
     ev_line_dots = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.AltModifier, 38, 0x4C, 0)
     assert matcher.match_event(ev_line_dots) == "toggle_line_dots", "Alt+L/Alt+Д должен распознаваться как toggle_line_dots"
+
+    # 14. Проверка tile_active_panel (Alt+M) и tile_workspace (Alt+Shift+M)
+    assert "tile_active_panel" in hks, "tile_active_panel должен присутствовать в hotkeys"
+    ev_tile_active = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_M, Qt.KeyboardModifier.AltModifier, 50, 0x4D, 0, 'm')
+    assert matcher.match_event(ev_tile_active) == "tile_active_panel", "Alt+M/Alt+Ь должен распознаваться как tile_active_panel"
+    ev_tile_ws = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_M, Qt.KeyboardModifier.AltModifier | Qt.KeyboardModifier.ShiftModifier, 50, 0x4D, 0, 'M')
+    assert matcher.match_event(ev_tile_ws) == "tile_workspace", "Alt+Shift+M должен распознаваться как tile_workspace"
 
     # 7. Тест GraphService
     from services.graph_service import GraphService
@@ -407,7 +422,8 @@ def test_qml():
     os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
     from PyQt6.QtWidgets import QApplication
     from PyQt6.QtQml import QQmlApplicationEngine, QQmlComponent
-    from PyQt6.QtCore import QUrl, QObject
+    from PyQt6.QtCore import QUrl, QObject, QEvent, Qt
+    from PyQt6.QtGui import QKeyEvent
     from web import Backend
 
     app = QApplication.instance() or QApplication(sys.argv)
@@ -458,9 +474,29 @@ def test_qml():
 
     # 2.3. Проверка интерактивного графа связей (Фаза 5)
     assert web_item.property("isGraphVisible") is False, "Граф по умолчанию скрыт"
+    expected_pinned = backend.get_session_config().get("header_pinned", True)
+    assert primary_bar.property("isHeaderPinned") == expected_pinned, f"isHeaderPinned должен соответствовать session config ({expected_pinned})"
     web_item.toggleGraph()
     assert web_item.property("isGraphVisible") is True, "toggleGraph должен активировать отображение графа связей"
     assert primary_bar.property("isGraphMode") is True, "primaryBar должен переключиться в isGraphMode"
+    pane_graph = primary_bar.property("paneGraphView")
+    assert pane_graph is not None, "paneGraphView должен существовать"
+    assert pane_graph.property("activeFocus") is True, "paneGraphView должен получать activeFocus при открытии графа"
+    init_blocks = pane_graph.property("showBlocks")
+    ev_b = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_B, Qt.KeyboardModifier.NoModifier, 48, 0x42, 0, 'b')
+    app.sendEvent(objects[0], ev_b)
+    assert pane_graph.property("showBlocks") != init_blocks, "Клавиша B в режиме графа должна переключать видимость блоков"
+    ev_b_back = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_B, Qt.KeyboardModifier.NoModifier, 48, 0x42, 0, 'b')
+    app.sendEvent(objects[0], ev_b_back)
+    assert pane_graph.property("showBlocks") == init_blocks, "Повторное нажатие B должно восстанавливать видимость блоков"
+    pane_header = primary_bar.property("paneHeader")
+    assert pane_header is not None, "paneHeader должен быть доступен через свойство"
+    primary_bar.setProperty("isHeaderPinned", True)
+    assert pane_header.property("visible") is True, "Закрепленный header должен оставаться видимым в режиме графа"
+    primary_bar.setProperty("isHeaderPinned", False)
+    assert pane_header.property("visible") is False, "Не закрепленный header должен скрываться в режиме графа"
+    primary_bar.setProperty("isHeaderPinned", True)
+    assert pane_header.property("visible") is True, "Закрепленный header снова должен быть видимым в режиме графа"
     assert primary_bar.property("fileName") != "", "Имя файла должно сохраняться в режиме графа"
     assert primary_bar.property("breadcrumbTitle") != "", "Хлебные крошки не должны слетать в режиме графа"
     web_item.openFileFromFolder(primary_bar.property("fileUrl"), primary_bar.property("fileName"))
@@ -473,6 +509,20 @@ def test_qml():
     assert workspace.property("panelCount") == panels_before, "Клик по узлу в графе должен открывать заметку в текущей вкладке без создания дубликата панели"
     assert primary_bar.property("isGraphMode") is False, "Панель должна вернуться в source mode"
     assert primary_bar.property("fileName") == "Новая заметка", "Текущая панель должна загрузить выбранную заметку"
+
+    # Проверка тайлинга и магнетизма к границам экрана камеры
+    act_p = workspace.property("activePanel")
+    assert act_p is not None, "Должна быть активная панель на холсте"
+    other_panes_list = workspace.getOtherPanes(act_p.property("paneId")).toVariant()
+    assert any(p.get("id") == "__viewport__" for p in other_panes_list), "getOtherPanes должен включать границы экрана камеры __viewport__ для магнетизма"
+    workspace.tileActivePanel()
+    assert act_p.property("tileState") == "full", "Первый вызов tileActivePanel должен распахнуть панель на весь viewport"
+    workspace.tileActivePanel()
+    assert act_p.property("tileState") == "left", "Второй вызов tileActivePanel должен привязать панель к левой половине (50%)"
+    workspace.tileActivePanel()
+    assert act_p.property("tileState") == "right", "Третий вызов tileActivePanel должен привязать панель к правой половине (50%)"
+    workspace.tileActivePanel()
+    assert act_p.property("tileState") == "none", "Четвертый вызов tileActivePanel должен вернуть панель в плавающий режим"
 
     # Multiple independent canvas documents, duplicate opens and failed saves.
     import tempfile
@@ -502,6 +552,12 @@ def test_qml():
         assert workspace.property("activePanel") == panels[0]
         panels[0].setProperty("x", 1234)
         assert panels[1].property("x") != 1234
+
+        # Тестирование тайлинга всего холста (tileWorkspace)
+        workspace.tileWorkspace()
+        assert all(p.property("tileState") == "workspace" for p in panels), "tileWorkspace должен перевести панели в состояние 'workspace'"
+        workspace.tileWorkspace()
+        assert all(p.property("tileState") == "none" for p in panels), "Повторный вызов tileWorkspace должен восстановить исходные позиции панелей"
 
         # Closing a dirty panel must preserve it if storage refuses the write.
         first.setProperty("text", "Unsaved changes")
@@ -648,7 +704,7 @@ def main():
         test_structure()
         import unittest
         suite = unittest.defaultTestLoader.discover(str(PROJECT_DIR / "tests"), pattern="test_project_architecture.py")
-        assert unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful(), "Architecture regression tests failed"
+        assert unittest.TextTestRunner(stream=sys.stdout, verbosity=2).run(suite).wasSuccessful(), "Architecture regression tests failed"
         test_services()
         test_qml()
         print("\n[УСПЕХ] Все тесты пройдены! Приложение 100% готово к работе.")

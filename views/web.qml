@@ -15,8 +15,8 @@ Rectangle {
     focus: true
     property var appWindow: null
     property string dropZone: ""
-    property string currentFolderUrl: backend.get_default_folder()
-    property string currentFolderName: backend.get_folder_name(currentFolderUrl)
+    property string currentFolderUrl: (typeof backend !== "undefined" && backend) ? backend.get_default_folder() : ""
+    property string currentFolderName: (typeof backend !== "undefined" && backend && currentFolderUrl) ? backend.get_folder_name(currentFolderUrl) : ""
     property alias workspace: canvasLayout
     readonly property var editorArea: canvasLayout.activeEditorArea
     readonly property bool isGraphVisible: canvasLayout.isGraphVisible
@@ -86,7 +86,8 @@ Rectangle {
             root.targetFps = backend.get_target_fps()
         }
         function onActionRequested(action) {
-            if (!root.appWindow || root.appWindow.active) root.executeAction(action)
+            var isSingle = (typeof backend !== "undefined" && backend && typeof backend.get_window_count === "function") ? (backend.get_window_count() <= 1) : true
+            if (!root.appWindow || root.appWindow.active || isSingle) root.executeAction(action)
         }
     }
     HotkeyManager {

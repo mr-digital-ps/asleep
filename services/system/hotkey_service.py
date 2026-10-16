@@ -76,9 +76,14 @@ class HotkeyMatcher:
 
                 # Для toggle_fullscreen: F11 (scan 87, VK 0x7A) или Alt+Return (scan 28, VK 0x0D)
                 if action == "toggle_fullscreen":
-                    vks.update([0x7A, 0x0D])
-                    scan_codes.update([87, 28])
-                    qt_keys.update([Qt.Key.Key_F11.value, Qt.Key.Key_Return.value, Qt.Key.Key_Enter.value])
+                    if alt and not ctrl and not shift:
+                        vks.add(0x0D)
+                        scan_codes.add(28)
+                        qt_keys.update([Qt.Key.Key_Return.value, Qt.Key.Key_Enter.value])
+                    elif not alt and not ctrl and not shift:
+                        vks.add(0x7A)
+                        scan_codes.add(87)
+                        qt_keys.add(Qt.Key.Key_F11.value)
                 if action == "close_tab" and ctrl and not shift and not alt:
                     vks.add(0x57)
                     scan_codes.add(17)
@@ -96,6 +101,13 @@ class HotkeyMatcher:
                     scan_codes.add(32)
                     qt_keys.update([68, 1042, 1074])
                     chars.update(['D', 'В'])
+
+                # Для tile_active_panel и tile_workspace: Alt+M / Alt+Shift+M (физическая M, русская 'Ь', scan 50, VK 0x4D)
+                if action in ("tile_active_panel", "tile_workspace") and alt:
+                    vks.add(0x4D)
+                    scan_codes.add(50)
+                    qt_keys.update([77, 1068, 1100])
+                    chars.update(['M', 'Ь', 'm', 'ь'])
 
                 self.rules.append({
                     "action": action,

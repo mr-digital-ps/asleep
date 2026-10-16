@@ -164,6 +164,7 @@ Rectangle {
 
     onVisibleChanged: {
         if (visible) {
+            graphRoot.forceActiveFocus()
             if (!sim || !sim.nodes || sim.nodes.length === 0) {
                 reloadGraph()
             }
