@@ -86,6 +86,16 @@ class FileService:
             return Path(QUrl(file_url).toLocalFile())
         return Path(file_url)
 
+    @staticmethod
+    def to_url(path_or_str: str | Path) -> str:
+        """Переводит локальный путь или строку в формат QUrl (file:///C:/doc.txt)"""
+        if not path_or_str:
+            return ""
+        s = str(path_or_str)
+        if s.startswith("file:"):
+            return s
+        return QUrl.fromLocalFile(str(Path(s).resolve())).toString()
+
     def get_ignored_directories(self, folder: Path | None = None) -> set[str]:
         if self.config_service:
             try:
