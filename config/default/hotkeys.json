@@ -122,6 +122,18 @@
     "description": "Показать / скрыть полосу точек и номеров строк (Line Dots / Gutter)"
   },
 
+  // Переключение режима отображения блоков (Live Mode ⟷ Source Mode)
+  "toggle_live_mode": {
+    "keys": ["Alt+E"],
+    "description": "Переключить отображение блоков (Live Mode)"
+  },
+
+  // Переключение в сухой текстовый режим (Source Mode ⟷ Live Mode)
+  "toggle_source_mode": {
+    "keys": ["Alt+S"],
+    "description": "Переключить сухой текстовый режим (Source Mode)"
+  },
+
   // Тайлинг активной вкладки по видимой области камеры (Full -> Left -> Right -> Restore)
   "tile_active_panel": {
     "keys": ["Alt+M"],

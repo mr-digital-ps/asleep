@@ -218,6 +218,10 @@ class Backend(
     def get_block(self, heading: str) -> dict:
         return self.block_engine.get_block(heading)
 
+    @pyqtSlot(str, str, result="QVariantMap")
+    def get_external_block(self, file_stem: str, block_name: str) -> dict:
+        return self.block_engine.get_external_block(file_stem, block_name)
+
     @pyqtSlot(result="QVariantList")
     @pyqtSlot(str, result="QVariantList")
     def get_available_blocks(self, query: str = "") -> list:

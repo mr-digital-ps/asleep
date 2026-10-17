@@ -26,6 +26,7 @@ Item {
     property bool showScrollbar: true
     property real editorLineHeightPercent: Theme.defaultLineHeightPercent
     property bool showLineDots: true
+    property bool isLiveMode: true
     property int tabSize: Theme.defaultTabSize
     readonly property var targetWindow: Window.window
 
@@ -116,6 +117,14 @@ Item {
         }
     }
 
+    function toggleLiveMode() {
+        workspacePane.isLiveMode = !workspacePane.isLiveMode
+    }
+
+    function toggleSourceMode() {
+        workspacePane.isLiveMode = !workspacePane.isLiveMode
+    }
+
     // Режим локального графа заметки
     property bool isLocalGraphMode: false
 
@@ -183,6 +192,11 @@ Item {
         fileName = (name || "").replace(/\.(txt|md)$/i, "")
         text = content
         isGraphMode = false
+        if (typeof backend !== "undefined" && backend && typeof backend.set_editor_line_height === "function") {
+            Qt.callLater(function() {
+                backend.set_editor_line_height(editorArea, workspacePane.editorLineHeightPercent)
+            })
+        }
     }
     function getDocumentState() {
         return { fileUrl: fileUrl, fileName: fileName, text: paperSheet.getLiveText() }
@@ -465,6 +479,7 @@ Item {
                 isHeaderPinned: workspacePane.isHeaderPinned
                 showHeader: workspacePane.showHeader
                 showLineDots: workspacePane.showLineDots
+                isLiveMode: workspacePane.isLiveMode
                 tabSize: workspacePane.tabSize
                 scrollY: workspacePane.scrollY
                 availableHeight: paneBody.height
@@ -491,6 +506,7 @@ Item {
                     onToggleTabsRequested: workspacePane.toggleTabsMode()
                     onToggleHeaderRequested: workspacePane.toggleHeaderOnly()
                     onToggleCenteredModeRequested: workspacePane.isCenteredMode = !workspacePane.isCenteredMode
+                    onToggleLiveModeRequested: workspacePane.isLiveMode = !workspacePane.isLiveMode
                     onTextChangedByUser: {
                         Controller.handleTextChangedByUser(workspacePane, blockSyncTimer, activeFocus)
                         statsUpdateTimer.restart()

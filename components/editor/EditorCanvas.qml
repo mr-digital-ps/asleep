@@ -3,6 +3,8 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "./editor_shortcuts.js" as Shortcuts
 import "./editor_keys.js" as EditorKeys
+import "./block_scanner.js" as BlockScanner
+import "./transclusion_engine.js" as TransclusionEngine
 import "../theme"
 
 
@@ -16,6 +18,11 @@ RowLayout {
     property real availableHeight: 600
     property bool hasHeader: true
     property bool hasFooter: true
+
+    property bool isLiveMode: true
+    property var blocks: []
+    property var collapsedBlocks: ({})
+    property var activeTransclusions: ({})
 
     property alias editorArea: editorArea
     property alias text: editorArea.text
@@ -37,6 +44,7 @@ RowLayout {
     signal toggleTabsRequested()
     signal toggleHeaderRequested()
     signal toggleCenteredModeRequested()
+    signal toggleLiveModeRequested()
     signal saveRequested()
     signal openRequested()
     signal newRequested()
@@ -44,6 +52,136 @@ RowLayout {
     signal panelDragStarted(var mouse, var item)
     signal panelDragUpdated(var mouse, var item)
     signal panelDragFinished()
+
+    onToggleLiveModeRequested: {
+        isLiveMode = !isLiveMode
+    }
+
+    onIsLiveModeChanged: {
+        if (isLiveMode) {
+            expandTransclusions()
+        } else {
+            collapseTransclusions()
+        }
+        updateBlocks()
+        if (editorGutter) editorGutter.isLiveMode = isLiveMode
+    }
+
+    function expandTransclusions() {
+        if (!isLiveMode || !editorArea || !editorArea.text || typeof backend === "undefined" || !backend) return
+        var res = TransclusionEngine.expandTransclusions(editorArea.text, backend, activeTransclusions)
+        if (res.changed) {
+            var curPos = editorArea.cursorPosition
+            activeTransclusions = res.map
+            editorArea.text = res.text
+            editorArea.cursorPosition = Math.min(curPos, res.text.length)
+            updateBlocks()
+            if (typeof backend !== "undefined" && backend && typeof backend.set_editor_line_height === "function") {
+                Qt.callLater(function() {
+                    var lh = (typeof workspacePane !== "undefined" && workspacePane && workspacePane.editorLineHeightPercent) ? workspacePane.editorLineHeightPercent : 135.0
+                    backend.set_editor_line_height(editorArea, lh)
+                })
+            }
+        }
+    }
+
+    function collapseTransclusions() {
+        if (!editorArea || !editorArea.text) return
+        var res = TransclusionEngine.collapseTransclusions(editorArea.text, activeTransclusions)
+        if (res.changed) {
+            var curPos = editorArea.cursorPosition
+            activeTransclusions = ({})
+            editorArea.text = res.text
+            editorArea.cursorPosition = Math.min(curPos, res.text.length)
+            updateBlocks()
+            if (typeof backend !== "undefined" && backend && typeof backend.set_editor_line_height === "function") {
+                Qt.callLater(function() {
+                    var lh = (typeof workspacePane !== "undefined" && workspacePane && workspacePane.editorLineHeightPercent) ? workspacePane.editorLineHeightPercent : 135.0
+                    backend.set_editor_line_height(editorArea, lh)
+                })
+            }
+        }
+    }
+
+    function updateBlocks() {
+        if (!editorArea || !editorArea.text || !isLiveMode) {
+            blocks = []
+        } else {
+            blocks = BlockScanner.scanBlocks(editorArea.text)
+        }
+        if (editorGutter) {
+            editorGutter.blocks = blocks
+        }
+    }
+
+    function toggleBlockFold(block, lineIndex) {
+        if (!editorArea || !editorArea.text) return
+        var lines = editorArea.text.split("\n")
+
+        if (collapsedBlocks && collapsedBlocks[block.id]) {
+            // Развертывание блока
+            var saved = collapsedBlocks[block.id]
+            var newLines = lines.slice(0, lineIndex).concat(saved.lines).concat(lines.slice(lineIndex + 1))
+            var newMap = Object.assign({}, collapsedBlocks)
+            delete newMap[block.id]
+            collapsedBlocks = newMap
+            editorArea.text = newLines.join("\n")
+        } else {
+            // Сворачивание блока
+            var startL = block.startLine
+            var endL = block.endLine
+            if (startL < 0 || endL >= lines.length || startL >= endL) return
+
+            var blockLines = lines.slice(startL, endL + 1)
+            var collapsedHeader = block.name + " ...."
+
+            var newMap = Object.assign({}, collapsedBlocks)
+            newMap[block.id] = {
+                id: block.id,
+                name: block.name,
+                headerLine: startL,
+                lines: blockLines
+            }
+            collapsedBlocks = newMap
+
+            var newLines = lines.slice(0, startL).concat([collapsedHeader]).concat(lines.slice(endL + 1))
+            editorArea.text = newLines.join("\n")
+        }
+        updateBlocks()
+        if (typeof backend !== "undefined" && backend && typeof backend.set_editor_line_height === "function") {
+            Qt.callLater(function() {
+                var lh = (typeof workspacePane !== "undefined" && workspacePane && workspacePane.editorLineHeightPercent) ? workspacePane.editorLineHeightPercent : 135.0
+                backend.set_editor_line_height(editorArea, lh)
+            })
+        }
+    }
+
+    function getFullTextWithoutFolding() {
+        if (!editorArea || !editorArea.text) return ""
+        var currentText = editorArea.text
+        var lines = currentText.split("\n")
+
+        // 1. Восстановление свернутых блоков Имя ....
+        if (collapsedBlocks && Object.keys(collapsedBlocks).length > 0) {
+            for (var i = lines.length - 1; i >= 0; i--) {
+                for (var cId in collapsedBlocks) {
+                    var cBlk = collapsedBlocks[cId]
+                    if (cBlk && cBlk.name + " ...." === lines[i].trim()) {
+                        lines = lines.slice(0, i).concat(cBlk.lines).concat(lines.slice(i + 1))
+                        break
+                    }
+                }
+            }
+        }
+
+        // 2. Сворачивание развернутых трансклюзий к каноническому виду вызовов Файл.Блок() / Блок()
+        var textUnfolded = lines.join("\n")
+        if (activeTransclusions && Object.keys(activeTransclusions).length > 0) {
+            var res = TransclusionEngine.collapseTransclusions(textUnfolded, activeTransclusions)
+            return res.text
+        }
+        return textUnfolded
+    }
 
     function updateBracketHighlights() {
         if (bracketHighlightOverlay) {
@@ -59,12 +197,16 @@ RowLayout {
         barSize: canvasRoot.barSize
         showDots: canvasRoot.showLineDots
         editorArea: editorArea
+        isLiveMode: canvasRoot.isLiveMode
+        blocks: canvasRoot.blocks
+        collapsedBlocks: canvasRoot.collapsedBlocks
         Layout.preferredWidth: barSize
         Layout.fillHeight: true
         onActivated: canvasRoot.paneActivated()
         onDragStarted: (mouse, item) => canvasRoot.panelDragStarted(mouse, item)
         onDragUpdated: (mouse, item) => canvasRoot.panelDragUpdated(mouse, item)
         onDragFinished: () => canvasRoot.panelDragFinished()
+        onToggleBlockFoldRequested: (block, lineIndex) => canvasRoot.toggleBlockFold(block, lineIndex)
     }
 
     // Текстовое поле документа
@@ -97,6 +239,14 @@ RowLayout {
                 anchors.centerIn: parent
                 color: Theme.cursorColor
             }
+        }
+
+        // Оверлей скрытия фигурных скобок в Live Mode
+        BlockSyntaxConcealOverlay {
+            id: blockSyntaxConcealOverlay
+            editorArea: editorArea
+            isLiveMode: canvasRoot.isLiveMode
+            blocks: canvasRoot.blocks
         }
 
         background: Item {
@@ -219,6 +369,7 @@ RowLayout {
 
         onTextChanged: {
             canvasRoot.textChangedByUser()
+            canvasRoot.updateBlocks()
             bracketHighlightOverlay.updateBracketHighlights()
         }
 

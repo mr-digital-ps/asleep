@@ -84,8 +84,12 @@ function navigatePanel(workspace, backend, panel, url, title, block) {
             other.pane.isGraphMode = false
             workspace.activate(other, true)
             if (block && other.pane.editorArea) {
-                var idx = other.pane.text.indexOf(block)
-                if (idx >= 0) other.pane.editorArea.cursorPosition = idx
+                Qt.callLater(function() {
+                    if (other && other.pane && other.pane.editorArea) {
+                        var idx = other.pane.text.indexOf(block)
+                        if (idx >= 0) other.pane.editorArea.cursorPosition = Math.min(idx, other.pane.editorArea.length)
+                    }
+                })
             }
             return other
         }
@@ -98,8 +102,12 @@ function navigatePanel(workspace, backend, panel, url, title, block) {
     panel.pane.isGraphMode = false
     workspace.activate(panel, true)
     if (block && panel.pane.editorArea) {
-        var index = panel.pane.text.indexOf(block)
-        if (index >= 0) panel.pane.editorArea.cursorPosition = index
+        Qt.callLater(function() {
+            if (panel && panel.pane && panel.pane.editorArea) {
+                var index = panel.pane.text.indexOf(block)
+                if (index >= 0) panel.pane.editorArea.cursorPosition = Math.min(index, panel.pane.editorArea.length)
+            }
+        })
     }
     return panel
 }

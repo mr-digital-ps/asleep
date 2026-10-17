@@ -68,6 +68,7 @@ class BlockEngine:
     def __init__(self, config_service=None):
         self.config_service = config_service
         self._block_cache = {}  # norm_title -> {"title": raw, "content": text, "source": url, "time": float}
+        self.workspace_folder: Path | None = None
 
     def get_heading_regex(self) -> re.Pattern | None:
         return None
@@ -76,6 +77,7 @@ class BlockEngine:
         """Сканирует папку и индексирует именованные блоки из всех файлов"""
         if not folder or not folder.exists() or not folder.is_dir():
             return
+        self.workspace_folder = folder
         try:
             files = list_project_notes(folder, config_service=self.config_service)
             if extensions is not None:
@@ -118,20 +120,70 @@ class BlockEngine:
                 }
 
     def get_block(self, heading: str) -> dict:
-        """Возвращает блок по имени (для подтягивания контента в трансклюзии)"""
+        """Возвращает блок по имени (для подтягивания контента в локальной трансклюзии Имя())"""
         if not heading:
-            return {"found": False, "title": "", "content": "", "raw_content": ""}
+            return {"found": False, "title": "", "content": "", "raw_content": "", "source_file": "", "source_url": ""}
         norm = heading.strip().lower()
         if norm in self._block_cache:
             item = self._block_cache[norm]
             if item["content"].strip():
+                src = item.get("source", "")
+                stem = Path(QUrl(src).toLocalFile()).stem if src else ""
                 return {
                     "found": True,
                     "title": item["title"],
                     "content": item["content"],
                     "raw_content": item.get("raw_content", item["content"]),
+                    "source_file": stem,
+                    "source_url": src
                 }
-        return {"found": False, "title": heading, "content": "", "raw_content": ""}
+        return {"found": False, "title": heading, "content": "", "raw_content": "", "source_file": "", "source_url": ""}
+
+    def get_external_block(self, file_stem: str, block_name: str) -> dict:
+        """Возвращает блок из конкретного внешнего файла Файл.Блок()"""
+        if not file_stem or not block_name:
+            return {"found": False, "title": "", "content": "", "raw_content": "", "source_file": "", "source_url": ""}
+        f_norm = file_stem.strip().lower()
+        b_norm = block_name.strip().lower()
+
+        # 1. Поиск в кэше
+        for norm_title, item in self._block_cache.items():
+            if norm_title == b_norm:
+                src = item.get("source", "")
+                if src:
+                    stem = Path(QUrl(src).toLocalFile()).stem.lower()
+                    if stem == f_norm:
+                        return {
+                            "found": True,
+                            "title": item["title"],
+                            "content": item["content"],
+                            "raw_content": item.get("raw_content", item["content"]),
+                            "source_file": Path(QUrl(src).toLocalFile()).stem,
+                            "source_url": src
+                        }
+
+        # 2. Если в кэше не найден, ищем файл в workspace_folder
+        if self.workspace_folder and self.workspace_folder.exists():
+            for p in self.workspace_folder.glob(f"**/{file_stem}.*"):
+                if p.suffix.lower() in (".txt", ".md"):
+                    try:
+                        text = p.read_text(encoding="utf-8")
+                        blocks = parse_syntax_blocks(text)
+                        file_url = QUrl.fromLocalFile(str(p.resolve())).toString()
+                        for b in blocks:
+                            if b["title_norm"] == b_norm and b["content"]:
+                                return {
+                                    "found": True,
+                                    "title": b["title"],
+                                    "content": b["content"],
+                                    "raw_content": b.get("raw_content", b["content"]),
+                                    "source_file": p.stem,
+                                    "source_url": file_url
+                                }
+                    except Exception:
+                        pass
+
+        return {"found": False, "title": block_name, "content": "", "raw_content": "", "source_file": file_stem, "source_url": ""}
 
     def get_available_blocks(self, query: str = "") -> list:
         """Возвращает список известных блоков для подсказок"""

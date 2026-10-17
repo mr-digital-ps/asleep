@@ -22,7 +22,8 @@ function dispatchAction(root, backend, action) {
         toggle_info: "toggleInfoMode", toggle_search: "toggleSearchMode",
         toggle_path: "togglePathMode", toggle_tabs: "toggleTabsMode",
         toggle_centered_mode: "toggleCenteredMode", toggle_scrollbar: "toggleScrollbar",
-        toggle_line_dots: "toggleLineDots"
+        toggle_line_dots: "toggleLineDots", toggle_live_mode: "toggleLiveMode",
+        toggle_source_mode: "toggleSourceMode"
     }
     if (methods[action]) {
         if (pane) pane[methods[action]]()

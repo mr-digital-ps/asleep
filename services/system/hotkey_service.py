@@ -100,6 +100,20 @@ class HotkeyMatcher:
                     qt_keys.update([77, 1068, 1100])
                     chars.update(['M', 'Ь', 'm', 'ь'])
 
+                # Для toggle_live_mode: Alt+E (физическая E, русская 'У', scan 18, VK 0x45)
+                if action == "toggle_live_mode" and alt:
+                    vks.add(0x45)
+                    scan_codes.add(18)
+                    qt_keys.update([69, 1059, 1091])
+                    chars.update(['E', 'У', 'e', 'у'])
+
+                # Для toggle_source_mode: Alt+S (физическая S, русская 'Ы', scan 31, VK 0x53)
+                if action == "toggle_source_mode" and alt:
+                    vks.add(0x53)
+                    scan_codes.add(31)
+                    qt_keys.update([83, 1067, 1099])
+                    chars.update(['S', 'Ы', 's', 'ы'])
+
                 self.rules.append({
                     "action": action,
                     "ctrl": ctrl,

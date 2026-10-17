@@ -19,6 +19,7 @@ Rectangle {
     property bool isHeaderPinned: false
     property bool showHeader: true
     property bool showLineDots: true
+    property bool isLiveMode: true
     property int tabSize: Theme.defaultTabSize
     property real scrollY: 0
     property string statsString: "0 слов · 0 знаков"
@@ -37,6 +38,8 @@ Rectangle {
     property alias editorCanvas: editorCanvas
     property alias editorArea: editorCanvas.editorArea
     property alias text: editorCanvas.text
+
+    signal toggleLiveModeRequested()
 
     // Естественная высота текста документа
     readonly property real contentTopMargin: sheetRoot.showHeader ? Theme.headerHeight : Theme.sheetPadding
@@ -103,6 +106,7 @@ Rectangle {
         availableHeight: sheetRoot.availableHeight
         barSize: sheetRoot.barSize
         showLineDots: sheetRoot.showLineDots
+        isLiveMode: sheetRoot.isLiveMode
         tabSize: sheetRoot.tabSize
         hasHeader: sheetRoot.showHeader
         hasFooter: false
@@ -120,6 +124,7 @@ Rectangle {
         onToggleTabsRequested: sheetRoot.toggleTabsRequested()
         onToggleHeaderRequested: sheetRoot.toggleHeaderRequested()
         onToggleCenteredModeRequested: sheetRoot.toggleCenteredModeRequested()
+        onToggleLiveModeRequested: sheetRoot.toggleLiveModeRequested()
         onSaveRequested: sheetRoot.saveRequested()
         onOpenRequested: sheetRoot.openRequested()
         onNewRequested: sheetRoot.newRequested()
@@ -134,7 +139,11 @@ Rectangle {
     }
 
     function getLiveText() {
-        return typeof _liveDraftText === "string" ? _liveDraftText : editorArea.text
+        if (typeof _liveDraftText === "string") return _liveDraftText
+        if (editorCanvas && typeof editorCanvas.getFullTextWithoutFolding === "function") {
+            return editorCanvas.getFullTextWithoutFolding()
+        }
+        return editorArea.text
     }
 
     function loadHistoricalSnapshot(snapshotId) {

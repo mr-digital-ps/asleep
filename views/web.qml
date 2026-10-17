@@ -73,8 +73,12 @@ Rectangle {
                 if (panel) {
                     panel.pane.isGraphMode = false
                     if (block) {
-                        var index = panel.pane.text.indexOf(block)
-                        if (index >= 0) panel.pane.editorArea.cursorPosition = index
+                        Qt.callLater(function() {
+                            if (panel && panel.pane && panel.pane.editorArea) {
+                                var index = panel.pane.text.indexOf(block)
+                                if (index >= 0) panel.pane.editorArea.cursorPosition = Math.min(index, panel.pane.editorArea.length)
+                            }
+                        })
                     }
                 }
             }

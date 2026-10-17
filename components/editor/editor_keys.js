@@ -32,6 +32,18 @@ function isItalicKey(event) {
     return (event.key === Qt.Key_I || event.nativeScanCode === 23 || event.key === 1064 || event.key === 1096 || event.text === 'i' || event.text === 'I' || event.text === 'ш' || event.text === 'Ш')
 }
 
+function isToggleLiveModeKey(event) {
+    if (!(event.modifiers & Qt.AltModifier)) return false
+    // Alt + E (scan 18, 'у')
+    return (event.key === Qt.Key_E || event.nativeScanCode === 18 || event.key === 1059 || event.key === 1091 || event.text === 'e' || event.text === 'E' || event.text === 'у' || event.text === 'У')
+}
+
+function isToggleSourceModeKey(event) {
+    if (!(event.modifiers & Qt.AltModifier)) return false
+    // Alt + S (scan 31, 'ы')
+    return (event.key === Qt.Key_S || event.nativeScanCode === 31 || event.key === 1067 || event.key === 1099 || event.text === 's' || event.text === 'S' || event.text === 'ы' || event.text === 'Ы')
+}
+
 // Перехват шорткатов на уровне ShortcutOverride сообщает Qt, что активный редактор забирает комбинацию себе (только текст и форматирование)
 function handleShortcutOverride(event, canvasRoot, editorArea, Shortcuts) {
     if (isBoldKey(event) || isItalicKey(event)) {
@@ -165,6 +177,15 @@ function handleKeyPressed(event, canvasRoot, editorArea, Shortcuts) {
     if (isItalicKey(event)) {
         event.accepted = true
         Shortcuts.toggleItalic(editorArea)
+        return true
+    }
+
+    // Переключение режимов Live Mode ⟷ Source Mode (Alt + E / Alt + S)
+    if (isToggleLiveModeKey(event) || isToggleSourceModeKey(event)) {
+        event.accepted = true
+        if (canvasRoot && typeof canvasRoot.toggleLiveModeRequested === "function") {
+            canvasRoot.toggleLiveModeRequested()
+        }
         return true
     }
 

@@ -159,7 +159,7 @@ tags:
     assert matcher.match_event(ev_tile_down) == "tile_restore", "Alt+Down должен распознаваться как tile_restore"
     ev_canvas_s = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_S, Qt.KeyboardModifier.AltModifier, 31, 0x53, 0)
     ev_canvas_c = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_C, Qt.KeyboardModifier.AltModifier, 46, 0x43, 0)
-    assert matcher.match_event(ev_canvas_s) is None, "Alt+S должен быть свободен (не привязан к toggle_canvas)"
+    assert matcher.match_event(ev_canvas_s) == "toggle_source_mode", "Alt+S должен распознаваться как toggle_source_mode"
     assert matcher.match_event(ev_canvas_c) is None, "Alt+C должен быть свободен (не привязан к toggle_canvas)"
 
     # 4. Проверка toggle_header: F9 (scan 67) и Alt+U
@@ -226,6 +226,11 @@ tags:
     assert "toggle_line_dots" in hks, "toggle_line_dots должен присутствовать в hotkeys"
     ev_line_dots = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.AltModifier, 38, 0x4C, 0)
     assert matcher.match_event(ev_line_dots) == "toggle_line_dots", "Alt+L/Alt+Д должен распознаваться как toggle_line_dots"
+
+    # 13b. Проверка toggle_live_mode: Alt+E (RU 'У', scan 18, VK 0x45)
+    assert "toggle_live_mode" in hks, "toggle_live_mode должен присутствовать в hotkeys"
+    ev_live_mode = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.AltModifier, 18, 0x45, 0)
+    assert matcher.match_event(ev_live_mode) == "toggle_live_mode", "Alt+E/Alt+У должен распознаваться как toggle_live_mode"
 
     # 14. Проверка tile_active_panel (Alt+M) и tile_workspace (Alt+Shift+M)
     assert "tile_active_panel" in hks, "tile_active_panel должен присутствовать в hotkeys"
@@ -308,6 +313,28 @@ tags:
     backend.save_node_positions("", {"test_node": {"x": 100, "y": 200}})
     node_pos = backend.get_node_positions("")
     assert "test_node" in node_pos and node_pos["test_node"]["x"] == 100, "backend.save_node_positions/get_node_positions должны корректно работать"
+
+    # Проверка трансклюзий: get_block (локальный) и get_external_block (внешний)
+    with tempfile.TemporaryDirectory() as tmp_trans_dir:
+        trans_p = Path(tmp_trans_dir)
+        (trans_p / "Серия 1.txt").write_text("Сцена 1 {\n    Текст сцены 1.\n}\nСцена 2 {\n    Текст сцены 2.\n}\n", encoding="utf-8")
+        backend.block_engine.reindex_folder(trans_p)
+
+        # 1. Локальная трансклюзия через get_block
+        b_loc = backend.get_block("Сцена 1")
+        assert b_loc["found"] is True, "Локальный блок 'Сцена 1' должен быть найден"
+        assert "Текст сцены 1" in b_loc["content"], "Контент локального блока должен совпадать"
+        assert b_loc["source_file"] == "Серия 1", "Имя исходного файла должно определяться"
+
+        # 2. Внешняя трансклюзия через get_external_block
+        b_ext = backend.get_external_block("Серия 1", "Сцена 2")
+        assert b_ext["found"] is True, "Внешний блок Серия 1.Сцена 2() должен быть найден"
+        assert "Текст сцены 2" in b_ext["content"], "Контент внешнего блока должен совпадать"
+        assert b_ext["source_file"] == "Серия 1", "Имя исходного файла для внешнего блока должно определяться"
+
+        # 3. Несуществующий блок
+        b_none = backend.get_external_block("Серия 1", "Несуществующая Сцена")
+        assert b_none["found"] is False, "Несуществующий блок должен возвращать found=False"
 
     # 8. Тест HistoryService
     from services.history_service import HistoryService
@@ -684,6 +711,29 @@ def test_qml():
     snap_res = js_engine.evaluate(snap_test)
     assert snap_res.toString() == "OK", f"Ошибка SnapEngine: {snap_res.toString()}"
 
+    # 6. Тест парсера блоков диалекта (block_scanner.js)
+    scanner_js = (PROJECT_DIR / "components" / "editor" / "block_scanner.js").read_text(encoding="utf-8")
+    clean_scanner_js = scanner_js.replace(".pragma library", "")
+    js_engine.evaluate(clean_scanner_js)
+    scanner_test = """
+    (function() {
+        var sample = "Intro line\\nHeader 1 {\\n    Line A\\n    Line B\\n}\\nBetween\\nHeader 2 {\\n}\\nEnd";
+        var blocks = scanBlocks(sample);
+        if (!blocks || blocks.length !== 2) return "BlocksCount_Failed: " + (blocks ? blocks.length : 0);
+        if (blocks[0].name !== "Header 1" || blocks[0].startLine !== 1 || blocks[0].endLine !== 4) {
+            return "Block0_Failed: " + JSON.stringify(blocks[0]);
+        }
+        if (blocks[1].name !== "Header 2" || blocks[1].startLine !== 6 || blocks[1].endLine !== 7) {
+            return "Block1_Failed: " + JSON.stringify(blocks[1]);
+        }
+        if (!isCollapsedHeader("Заголовок ....")) return "isCollapsedHeader_Failed";
+        if (isCollapsedHeader("Заголовок { ")) return "isCollapsedHeader_FalsePositive";
+        return "OK";
+    })()
+    """
+    scanner_res = js_engine.evaluate(scanner_test)
+    assert scanner_res.toString() == "OK", f"Ошибка block_scanner: {scanner_res.toString()}"
+
     print(f"  -> QML и компоненты: OK (создано окон: {len(objects)}, интерфейс активен, JS тесты пройдены)")
 
 def test_structure():
@@ -724,6 +774,8 @@ def test_structure():
         "components/editor/EditorCanvas.qml",
         "components/editor/EditorScrollbar.qml",
         "components/editor/EditorEmptyState.qml",
+        "components/editor/BlockSyntaxConcealOverlay.qml",
+        "components/editor/block_scanner.js",
         "components/editor/qmldir",
         "components/workspace/CanvasWorkspace.qml",
         "components/workspace/WorkspacePane.qml",
