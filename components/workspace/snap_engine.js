@@ -53,6 +53,9 @@ function calculateSnap(draggedRect, otherPanes, threshold) {
         }
     }
 
+    var bestTargetX = null
+    var bestTargetY = null
+
     for (var i = 0; i < otherPanes.length; i++) {
         var other = otherPanes[i]
         if (!other || other.id === draggedRect.id) continue
@@ -63,6 +66,39 @@ function calculateSnap(draggedRect, otherPanes, threshold) {
         var oH = other.height
         var oRight = oX + oW
         var oBottom = oY + oH
+
+        // 0. Если это viewport (границы видимой камеры): магнитим строго к 4 внутренним краям экрана
+        if (other.id === "__viewport__") {
+            var diffVpTop = Math.abs(curY - oY)
+            if (diffVpTop < snapDist && diffVpTop < bestDiffY) {
+                bestDiffY = diffVpTop
+                finalY = oY
+                isSnappedY = true
+                bestTargetY = other
+            }
+            var diffVpBottom = Math.abs(curBottom - oBottom)
+            if (diffVpBottom < snapDist && diffVpBottom < bestDiffY) {
+                bestDiffY = diffVpBottom
+                finalY = oBottom - curH
+                isSnappedY = true
+                bestTargetY = other
+            }
+            var diffVpLeft = Math.abs(curX - oX)
+            if (diffVpLeft < snapDist && diffVpLeft < bestDiffX) {
+                bestDiffX = diffVpLeft
+                finalX = oX
+                isSnappedX = true
+                bestTargetX = other
+            }
+            var diffVpRight = Math.abs(curRight - oRight)
+            if (diffVpRight < snapDist && diffVpRight < bestDiffX) {
+                bestDiffX = diffVpRight
+                finalX = oRight - curW
+                isSnappedX = true
+                bestTargetX = other
+            }
+            continue // Пропускаем проверку tab_merge и dock к внешним границам для viewport
+        }
 
         // Проверяем слияние во вкладку (Tab Merge): если центр шапки тащимого листа попал в верхнюю область соседа
         var headerZoneH = 44
@@ -101,6 +137,7 @@ function calculateSnap(draggedRect, otherPanes, threshold) {
             bestDiffX = diffLeftToRight
             finalX = oRight
             isSnappedX = true
+            bestTargetX = other
             dockTargetId = other.id
             dockSide = "right"
         }
@@ -111,6 +148,7 @@ function calculateSnap(draggedRect, otherPanes, threshold) {
             bestDiffX = diffRightToLeft
             finalX = oX - curW
             isSnappedX = true
+            bestTargetX = other
             dockTargetId = other.id
             dockSide = "left"
         }
@@ -121,6 +159,7 @@ function calculateSnap(draggedRect, otherPanes, threshold) {
             bestDiffX = diffLeftToLeft
             finalX = oX
             isSnappedX = true
+            bestTargetX = other
         }
 
         // Г. Выравнивание по правой границе (Flush Right)
@@ -129,6 +168,7 @@ function calculateSnap(draggedRect, otherPanes, threshold) {
             bestDiffX = diffRightToRight
             finalX = oRight - curW
             isSnappedX = true
+            bestTargetX = other
         }
 
         // =====================================================================
@@ -141,6 +181,7 @@ function calculateSnap(draggedRect, otherPanes, threshold) {
             bestDiffY = diffTopToBottom
             finalY = oBottom
             isSnappedY = true
+            bestTargetY = other
             if (!dockSide) {
                 dockTargetId = other.id
                 dockSide = "bottom"
@@ -153,6 +194,7 @@ function calculateSnap(draggedRect, otherPanes, threshold) {
             bestDiffY = diffBottomToTop
             finalY = oY - curH
             isSnappedY = true
+            bestTargetY = other
             if (!dockSide) {
                 dockTargetId = other.id
                 dockSide = "top"
@@ -165,6 +207,7 @@ function calculateSnap(draggedRect, otherPanes, threshold) {
             bestDiffY = diffTopToTop
             finalY = oY
             isSnappedY = true
+            bestTargetY = other
         }
 
         // Г. Выравнивание по нижнему уровню (Same Bottom Level)
@@ -173,25 +216,38 @@ function calculateSnap(draggedRect, otherPanes, threshold) {
             bestDiffY = diffBottomToBottom
             finalY = oBottom - curH
             isSnappedY = true
+            bestTargetY = other
         }
     }
 
     // Формируем направляющие линии для подсвечивания стыка
     if (isSnappedX) {
+        var minY = finalY
+        var maxY = finalY + curH
+        if (bestTargetX && bestTargetX.id !== "__viewport__") {
+            minY = Math.min(minY, bestTargetX.y)
+            maxY = Math.max(maxY, bestTargetX.y + bestTargetX.height)
+        }
         guidelines.push({
             x1: finalX,
-            y1: Math.min(finalY, oY || finalY) - 20,
+            y1: minY - 8,
             x2: finalX,
-            y2: Math.max(finalY + curH, (oBottom || (finalY + curH))) + 20,
+            y2: maxY + 8,
             orientation: "v"
         })
     }
 
     if (isSnappedY) {
+        var minX = finalX
+        var maxX = finalX + curW
+        if (bestTargetY && bestTargetY.id !== "__viewport__") {
+            minX = Math.min(minX, bestTargetY.x)
+            maxX = Math.max(maxX, bestTargetY.x + bestTargetY.width)
+        }
         guidelines.push({
-            x1: Math.min(finalX, oX || finalX) - 20,
+            x1: minX - 8,
             y1: finalY,
-            x2: Math.max(finalX + curW, (oRight || (finalX + curW))) + 20,
+            x2: maxX + 8,
             y2: finalY,
             orientation: "h"
         })
@@ -281,12 +337,14 @@ function calculateResizeSnap(draggedRect, otherPanes, handleType, threshold, min
         // =====================================================================
         if (modifiesRight) {
             // 1. Совпадение по ширине с соседом (Same Width)
-            var diffWidth = Math.abs(curW - oW)
-            if (diffWidth < snapDist && diffWidth < bestDiffX) {
-                bestDiffX = diffWidth
-                finalW = oW
-                bestGuideX = curX + oW
-                bestSnapOtherX = other
+            if (other.id !== "__viewport__") {
+                var diffWidth = Math.abs(curW - oW)
+                if (diffWidth < snapDist && diffWidth < bestDiffX) {
+                    bestDiffX = diffWidth
+                    finalW = oW
+                    bestGuideX = curX + oW
+                    bestSnapOtherX = other
+                }
             }
 
             // 2. Правый край к правому краю соседа (Flush Right)
@@ -316,13 +374,15 @@ function calculateResizeSnap(draggedRect, otherPanes, handleType, threshold, min
             var fixedRight = curX + curW
 
             // 1. Совпадение по ширине с соседом (Same Width)
-            var diffWidth = Math.abs(curW - oW)
-            if (diffWidth < snapDist && diffWidth < bestDiffX) {
-                bestDiffX = diffWidth
-                finalW = oW
-                finalX = fixedRight - oW
-                bestGuideX = finalX
-                bestSnapOtherX = other
+            if (other.id !== "__viewport__") {
+                var diffWidth = Math.abs(curW - oW)
+                if (diffWidth < snapDist && diffWidth < bestDiffX) {
+                    bestDiffX = diffWidth
+                    finalW = oW
+                    finalX = fixedRight - oW
+                    bestGuideX = finalX
+                    bestSnapOtherX = other
+                }
             }
 
             // 2. Левый край к левому краю соседа (Flush Left)
@@ -357,12 +417,14 @@ function calculateResizeSnap(draggedRect, otherPanes, handleType, threshold, min
         // =====================================================================
         if (modifiesBottom) {
             // 1. Совпадение по высоте с соседом (Same Height)
-            var diffHeight = Math.abs(curH - oH)
-            if (diffHeight < snapDist && diffHeight < bestDiffY) {
-                bestDiffY = diffHeight
-                finalH = oH
-                bestGuideY = curY + oH
-                bestSnapOtherY = other
+            if (other.id !== "__viewport__") {
+                var diffHeight = Math.abs(curH - oH)
+                if (diffHeight < snapDist && diffHeight < bestDiffY) {
+                    bestDiffY = diffHeight
+                    finalH = oH
+                    bestGuideY = curY + oH
+                    bestSnapOtherY = other
+                }
             }
 
             // 2. Нижний край к нижнему краю соседа (Flush Bottom)
@@ -392,13 +454,15 @@ function calculateResizeSnap(draggedRect, otherPanes, handleType, threshold, min
             var fixedBottom = curY + curH
 
             // 1. Совпадение по высоте с соседом (Same Height)
-            var diffHeight = Math.abs(curH - oH)
-            if (diffHeight < snapDist && diffHeight < bestDiffY) {
-                bestDiffY = diffHeight
-                finalH = oH
-                finalY = fixedBottom - oH
-                bestGuideY = finalY
-                bestSnapOtherY = other
+            if (other.id !== "__viewport__") {
+                var diffHeight = Math.abs(curH - oH)
+                if (diffHeight < snapDist && diffHeight < bestDiffY) {
+                    bestDiffY = diffHeight
+                    finalH = oH
+                    finalY = fixedBottom - oH
+                    bestGuideY = finalY
+                    bestSnapOtherY = other
+                }
             }
 
             // 2. Верхний край к верхнему краю соседа (Flush Top)
@@ -430,24 +494,32 @@ function calculateResizeSnap(draggedRect, otherPanes, handleType, threshold, min
     }
 
     if (bestGuideX !== null) {
-        var minY = Math.min(finalY, bestSnapOtherX ? bestSnapOtherX.y : finalY) - 20
-        var maxY = Math.max(finalY + finalH, bestSnapOtherX ? (bestSnapOtherX.y + bestSnapOtherX.height) : (finalY + finalH)) + 20
+        var minY = finalY
+        var maxY = finalY + finalH
+        if (bestSnapOtherX && bestSnapOtherX.id !== "__viewport__") {
+            minY = Math.min(minY, bestSnapOtherX.y)
+            maxY = Math.max(maxY, bestSnapOtherX.y + bestSnapOtherX.height)
+        }
         guidelines.push({
             x1: bestGuideX,
-            y1: minY,
+            y1: minY - 8,
             x2: bestGuideX,
-            y2: maxY,
+            y2: maxY + 8,
             orientation: "v"
         })
     }
 
     if (bestGuideY !== null) {
-        var minX = Math.min(finalX, bestSnapOtherY ? bestSnapOtherY.x : finalX) - 20
-        var maxX = Math.max(finalX + finalW, bestSnapOtherY ? (bestSnapOtherY.x + bestSnapOtherY.width) : (finalX + finalW)) + 20
+        var minX = finalX
+        var maxX = finalX + finalW
+        if (bestSnapOtherY && bestSnapOtherY.id !== "__viewport__") {
+            minX = Math.min(minX, bestSnapOtherY.x)
+            maxX = Math.max(maxX, bestSnapOtherY.x + bestSnapOtherY.width)
+        }
         guidelines.push({
-            x1: minX,
+            x1: minX - 8,
             y1: bestGuideY,
-            x2: maxX,
+            x2: maxX + 8,
             y2: bestGuideY,
             orientation: "h"
         })

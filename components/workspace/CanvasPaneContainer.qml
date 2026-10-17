@@ -20,6 +20,7 @@ Item {
 
     property string tileState: "none"
     property var floatingBounds: null
+    signal tileCancelled()
 
     ParallelAnimation {
         id: boundsAnim
@@ -90,8 +91,11 @@ Item {
     function startDrag(mouse, item) {
         if (!mouse || !item) return
         if (boundsAnim.running) boundsAnim.stop()
-        containerRoot.tileState = "none"
-        containerRoot.floatingBounds = null
+        if (containerRoot.tileState !== "none") {
+            containerRoot.tileState = "none"
+            containerRoot.floatingBounds = null
+            containerRoot.tileCancelled()
+        }
         containerRoot.paneActivated()
         var pt = item.mapToItem(containerRoot.parent, mouse.x, mouse.y)
         startMouseX = pt.x
@@ -158,8 +162,11 @@ Item {
 
     function initResize(mouse, item) {
         if (boundsAnim.running) boundsAnim.stop()
-        containerRoot.tileState = "none"
-        containerRoot.floatingBounds = null
+        if (containerRoot.tileState !== "none") {
+            containerRoot.tileState = "none"
+            containerRoot.floatingBounds = null
+            containerRoot.tileCancelled()
+        }
         var pt = item.mapToItem(containerRoot.parent, mouse.x, mouse.y)
         resizeStartMouseX = pt.x
         resizeStartMouseY = pt.y

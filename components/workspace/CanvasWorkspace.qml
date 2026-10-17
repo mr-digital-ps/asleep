@@ -8,6 +8,17 @@ Rectangle {
     property real panX: 0
     property real panY: 0
     property real zoomScale: 1
+    property real savedZoomScale: 1
+    property real savedPanX: 0
+    property real savedPanY: 0
+    property bool isTileFocusActive: false
+
+    ParallelAnimation {
+        id: cameraAnim
+        NumberAnimation { id: camZoomAnim; target: canvasWorkspaceRoot; property: "zoomScale"; duration: Theme.animDurationNormal; easing.type: Easing.OutCubic }
+        NumberAnimation { id: camPanXAnim; target: canvasWorkspaceRoot; property: "panX"; duration: Theme.animDurationNormal; easing.type: Easing.OutCubic }
+        NumberAnimation { id: camPanYAnim; target: canvasWorkspaceRoot; property: "panY"; duration: Theme.animDurationNormal; easing.type: Easing.OutCubic }
+    }
     property var panels: []
     property var activePanel: null
     property int nextId: 0
@@ -52,16 +63,44 @@ Rectangle {
     function removePanel(panel) {
         var index = panels.indexOf(panel)
         panels = panels.filter(function(item) { return item !== panel })
+        var hasOtherTiled = panels.some(function(p) { return p.tileState !== "none" })
+        if (!hasOtherTiled) exitTileFocus()
         if (activePanel === panel) {
             activePanel = null
             if (panels.length) activate(panels[Math.min(index, panels.length - 1)], true)
         }
         panel.destroy()
     }
+    function enterTileFocus() {
+        if (!isTileFocusActive) {
+            savedZoomScale = canvasWorkspaceRoot.zoomScale
+            savedPanX = canvasWorkspaceRoot.panX
+            savedPanY = canvasWorkspaceRoot.panY
+            isTileFocusActive = true
+        }
+        if (Math.abs(canvasWorkspaceRoot.zoomScale - 1.0) > 0.001) {
+            camZoomAnim.to = 1.0
+            camPanXAnim.to = canvasWorkspaceRoot.panX
+            camPanYAnim.to = canvasWorkspaceRoot.panY
+            cameraAnim.start()
+        }
+    }
+    function exitTileFocus() {
+        if (!isTileFocusActive) return
+        if (Math.abs(savedZoomScale - 1.0) > 0.001) {
+            camZoomAnim.to = savedZoomScale
+            camPanXAnim.to = savedPanX
+            camPanYAnim.to = savedPanY
+            cameraAnim.start()
+        }
+        isTileFocusActive = false
+    }
     function getViewportRect() {
-        var scale = canvasWorkspaceRoot.zoomScale || 1.0
-        var originX = canvasWorkspaceRoot.width / 2 + canvasWorkspaceRoot.panX
-        var originY = canvasWorkspaceRoot.height / 2 + canvasWorkspaceRoot.panY
+        var scale = isTileFocusActive ? 1.0 : (canvasWorkspaceRoot.zoomScale || 1.0)
+        var px = (isTileFocusActive && camPanXAnim.running) ? camPanXAnim.to : canvasWorkspaceRoot.panX
+        var py = (isTileFocusActive && camPanYAnim.running) ? camPanYAnim.to : canvasWorkspaceRoot.panY
+        var originX = canvasWorkspaceRoot.width / 2 + px
+        var originY = canvasWorkspaceRoot.height / 2 + py
         var vx = (0 - originX) / scale
         var vy = (0 - originY) / scale
         var vw = canvasWorkspaceRoot.width / scale
@@ -76,46 +115,90 @@ Rectangle {
         list.push({id: "__viewport__", x: vp.x, y: vp.y, width: vp.width, height: vp.height})
         return list
     }
-    function tileActivePanel() {
+    function tileMaximize() {
         if (!activePanel) return
+        enterTileFocus()
         var vp = getViewportRect()
-        var curState = activePanel.tileState || "none"
-
-        if (curState === "none") {
+        if (activePanel.tileState === "none") {
             activePanel.floatingBounds = {
                 x: activePanel.x,
                 y: activePanel.y,
                 width: activePanel.width,
                 height: activePanel.height
             }
-            activePanel.tileState = "full"
-            activePanel.setBoundsAnimated(vp.x, vp.y, vp.width, vp.height)
-        } else if (curState === "full") {
-            activePanel.tileState = "left"
-            activePanel.setBoundsAnimated(vp.x, vp.y, vp.width / 2, vp.height)
-        } else if (curState === "left") {
-            activePanel.tileState = "right"
-            activePanel.setBoundsAnimated(vp.x + vp.width / 2, vp.y, vp.width / 2, vp.height)
-        } else {
-            activePanel.tileState = "none"
-            if (activePanel.floatingBounds) {
-                var fb = activePanel.floatingBounds
-                activePanel.setBoundsAnimated(fb.x, fb.y, fb.width, fb.height)
-                activePanel.floatingBounds = null
-            } else {
-                activePanel.setBoundsAnimated(vp.x + (vp.width - Theme.canvasPanelWidth) / 2,
-                                             vp.y + (vp.height - Theme.canvasPanelHeight) / 2,
-                                             Theme.canvasPanelWidth, Theme.canvasPanelHeight)
+        }
+        activePanel.tileState = "full"
+        activePanel.setBoundsAnimated(vp.x, vp.y, vp.width, vp.height)
+    }
+    function tileLeft() {
+        if (!activePanel) return
+        enterTileFocus()
+        var vp = getViewportRect()
+        if (activePanel.tileState === "none") {
+            activePanel.floatingBounds = {
+                x: activePanel.x,
+                y: activePanel.y,
+                width: activePanel.width,
+                height: activePanel.height
             }
+        }
+        activePanel.tileState = "left"
+        activePanel.setBoundsAnimated(vp.x, vp.y, vp.width / 2, vp.height)
+    }
+    function tileRight() {
+        if (!activePanel) return
+        enterTileFocus()
+        var vp = getViewportRect()
+        if (activePanel.tileState === "none") {
+            activePanel.floatingBounds = {
+                x: activePanel.x,
+                y: activePanel.y,
+                width: activePanel.width,
+                height: activePanel.height
+            }
+        }
+        activePanel.tileState = "right"
+        activePanel.setBoundsAnimated(vp.x + vp.width / 2, vp.y, vp.width / 2, vp.height)
+    }
+    function tileRestore() {
+        if (!activePanel) return
+        var fb = activePanel.floatingBounds
+        activePanel.tileState = "none"
+        activePanel.floatingBounds = null
+
+        var hasOtherTiled = panels.some(function(p) { return p !== activePanel && p.tileState !== "none" })
+        if (!hasOtherTiled) {
+            exitTileFocus()
+        }
+
+        if (fb) {
+            activePanel.setBoundsAnimated(fb.x, fb.y, fb.width, fb.height)
+        } else {
+            var vp = getViewportRect()
+            activePanel.setBoundsAnimated(vp.x + (vp.width - Theme.canvasPanelWidth) / 2,
+                                         vp.y + (vp.height - Theme.canvasPanelHeight) / 2,
+                                         Theme.canvasPanelWidth, Theme.canvasPanelHeight)
+        }
+    }
+    function tileActivePanel() {
+        if (!activePanel) return
+        var curState = activePanel.tileState || "none"
+        if (curState === "none") {
+            tileMaximize()
+        } else if (curState === "full") {
+            tileLeft()
+        } else if (curState === "left") {
+            tileRight()
+        } else {
+            tileRestore()
         }
     }
     function tileWorkspace() {
         if (!panels || panels.length === 0) return
-        var vp = getViewportRect()
-        var count = panels.length
         var allTiled = panels.every(function(p) { return p.tileState === "workspace" })
 
         if (allTiled) {
+            exitTileFocus()
             panels.forEach(function(p) {
                 p.tileState = "none"
                 if (p.floatingBounds) {
@@ -127,6 +210,9 @@ Rectangle {
             return
         }
 
+        enterTileFocus()
+        var vp = getViewportRect()
+        var count = panels.length
         var colW = vp.width / count
         for (var i = 0; i < count; i++) {
             var p = panels[i]
@@ -209,6 +295,7 @@ Rectangle {
         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
         onWheel: (event) => {
             if (event.modifiers & Qt.ControlModifier) {
+                if (canvasWorkspaceRoot.isTileFocusActive) canvasWorkspaceRoot.isTileFocusActive = false
                 var oldZoom = canvasWorkspaceRoot.zoomScale
                 var factor = event.angleDelta.y > 0 ? Theme.canvasZoomStep : 1 / Theme.canvasZoomStep
                 var newZoom = Math.max(Theme.canvasMinZoom, Math.min(Theme.canvasMaxZoom, oldZoom * factor))
@@ -291,6 +378,10 @@ Rectangle {
             onContentChanged: canvasWorkspaceRoot.contentChanged()
             onSnapMoved: (guidelines) => snapGuideOverlay.activeGuides = guidelines || []
             onSnapEnded: snapGuideOverlay.activeGuides = []
+            onTileCancelled: {
+                var hasOtherTiled = canvasWorkspaceRoot.panels.some(function(p) { return p.tileState !== "none" })
+                if (!hasOtherTiled) canvasWorkspaceRoot.exitTileFocus()
+            }
         }
     }
 }

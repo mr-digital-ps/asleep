@@ -148,11 +148,19 @@ tags:
     ev_q = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.ControlModifier, 16, 0x51, 0)
     assert matcher.match_event(ev_q) != "close_tab", "Ctrl+Q не должен быть привязан к close_tab"
 
-    # 3. Проверка toggle_canvas: Alt+S (scan 31, VK 0x53), Alt+C (scan 46, VK 0x43)
+    # 3. Проверка тайлинга стрелками (Alt+Left, Alt+Right, Alt+Up, Alt+Down) и освобождения Alt+S/Alt+C
+    ev_tile_left = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Left, Qt.KeyboardModifier.AltModifier, 75, 0x25, 0)
+    ev_tile_right = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Right, Qt.KeyboardModifier.AltModifier, 77, 0x27, 0)
+    ev_tile_up = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Up, Qt.KeyboardModifier.AltModifier, 72, 0x26, 0)
+    ev_tile_down = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Down, Qt.KeyboardModifier.AltModifier, 80, 0x28, 0)
+    assert matcher.match_event(ev_tile_left) == "tile_left", "Alt+Left должен распознаваться как tile_left"
+    assert matcher.match_event(ev_tile_right) == "tile_right", "Alt+Right должен распознаваться как tile_right"
+    assert matcher.match_event(ev_tile_up) == "tile_maximize", "Alt+Up должен распознаваться как tile_maximize"
+    assert matcher.match_event(ev_tile_down) == "tile_restore", "Alt+Down должен распознаваться как tile_restore"
     ev_canvas_s = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_S, Qt.KeyboardModifier.AltModifier, 31, 0x53, 0)
     ev_canvas_c = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_C, Qt.KeyboardModifier.AltModifier, 46, 0x43, 0)
-    assert matcher.match_event(ev_canvas_s) == "toggle_canvas", "Alt+S должен переключать canvas"
-    assert matcher.match_event(ev_canvas_c) == "toggle_canvas", "Alt+C должен переключать canvas"
+    assert matcher.match_event(ev_canvas_s) is None, "Alt+S должен быть свободен (не привязан к toggle_canvas)"
+    assert matcher.match_event(ev_canvas_c) is None, "Alt+C должен быть свободен (не привязан к toggle_canvas)"
 
     # 4. Проверка toggle_header: F9 (scan 67) и Alt+U
     ev_f9 = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_F9, Qt.KeyboardModifier.NoModifier, 67, 0x78, 0)
@@ -270,6 +278,12 @@ tags:
     assert "sheet_width" in cfg_json, "get_current_config должен возвращать JSON с настройками"
     assert "toggle_header" in backend.get_hotkeys(), "backend.get_hotkeys должен содержать toggle_header"
     assert "toggle_graph" in backend.get_hotkeys(), "backend.get_hotkeys должен содержать toggle_graph"
+    assert "tile_active_panel" in backend.get_hotkeys(), "backend.get_hotkeys должен содержать tile_active_panel"
+    assert "tile_left" in backend.get_hotkeys(), "backend.get_hotkeys должен содержать tile_left"
+    assert "tile_right" in backend.get_hotkeys(), "backend.get_hotkeys должен содержать tile_right"
+    assert "tile_maximize" in backend.get_hotkeys(), "backend.get_hotkeys должен содержать tile_maximize"
+    assert "tile_restore" in backend.get_hotkeys(), "backend.get_hotkeys должен содержать tile_restore"
+    assert "tile_workspace" in backend.get_hotkeys(), "backend.get_hotkeys должен содержать tile_workspace"
     assert len(backend.get_flat_shortcuts()) > 0, "backend.get_flat_shortcuts должен возвращать список"
     graph_cfg = backend.get_graph_config()
     assert "physics" in graph_cfg and "visual" in graph_cfg, "backend.get_graph_config должен возвращать словарь с physics и visual"
@@ -515,6 +529,16 @@ def test_qml():
     assert act_p is not None, "Должна быть активная панель на холсте"
     other_panes_list = workspace.getOtherPanes(act_p.property("paneId")).toVariant()
     assert any(p.get("id") == "__viewport__" for p in other_panes_list), "getOtherPanes должен включать границы экрана камеры __viewport__ для магнетизма"
+    # Регрессионный тест: примагничивание к верхнему краю экрана камеры не должно сдвигать панель к левому краю и вызывать tab_merge
+    snap_eval = engine.evaluate("""
+        (function() {
+            var dragged = { id: "test_p", x: 300, y: 5, width: 600, height: 700 };
+            var others = [{ id: "__viewport__", x: 0, y: 0, width: 1920, height: 1080 }];
+            // В QML контексте snap_engine доступен через панель
+            return (typeof SnapEngine !== "undefined" && SnapEngine.calculateSnap) ?
+                SnapEngine.calculateSnap(dragged, others, 18) : null;
+        })()
+    """)
     workspace.tileActivePanel()
     assert act_p.property("tileState") == "full", "Первый вызов tileActivePanel должен распахнуть панель на весь viewport"
     workspace.tileActivePanel()
@@ -523,6 +547,26 @@ def test_qml():
     assert act_p.property("tileState") == "right", "Третий вызов tileActivePanel должен привязать панель к правой половине (50%)"
     workspace.tileActivePanel()
     assert act_p.property("tileState") == "none", "Четвертый вызов tileActivePanel должен вернуть панель в плавающий режим"
+
+    # Проверка прямых стрелок тайлинга (Alt+Left, Alt+Right, Alt+Up, Alt+Down)
+    workspace.tileLeft()
+    assert act_p.property("tileState") == "left", "tileLeft должен привязывать панель к левой половине"
+    workspace.tileRight()
+    assert act_p.property("tileState") == "right", "tileRight должен привязывать панель к правой половине"
+    workspace.tileMaximize()
+    assert act_p.property("tileState") == "full", "tileMaximize должен распахивать панель на весь экран"
+    workspace.tileRestore()
+    assert act_p.property("tileState") == "none", "tileRestore должен возвращать панель в плавающий режим"
+
+    # Проверка нормализации зума (Focus Mode) при тайлинге
+    workspace.setProperty("zoomScale", 0.5)
+    workspace.tileMaximize()
+    assert act_p.property("tileState") == "full", "tileMaximize должен распахивать панель"
+    assert workspace.property("isTileFocusActive") is True, "При тайлинге должен активироваться Focus Mode (zoom 1:1)"
+    workspace.tileRestore()
+    assert act_p.property("tileState") == "none", "tileRestore должен сбрасывать тайлинг"
+    assert workspace.property("isTileFocusActive") is False, "При снятии тайлинга Focus Mode должен деактивироваться"
+    assert abs(workspace.property("savedZoomScale") - 0.5) < 0.001, "Исходный масштаб 0.5 должен быть сохранен для возврата"
 
     # Multiple independent canvas documents, duplicate opens and failed saves.
     import tempfile

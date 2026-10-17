@@ -36,7 +36,6 @@ function dispatchAction(root, backend, action) {
     case "toggle_graph": root.toggleGraph(); break
     case "toggle_local_graph": root.toggleLocalGraph(); break
     case "show_text_mode": root.closeGraph(); break
-    case "toggle_canvas": workspace.centerActive(); break
     case "toggle_fullscreen":
         if (root.appWindow) {
             if (root.appWindow.visibility === 5) root.appWindow.showNormal()
@@ -45,6 +44,18 @@ function dispatchAction(root, backend, action) {
         break
     case "tile_active_panel":
         if (workspace && typeof workspace.tileActivePanel === "function") workspace.tileActivePanel()
+        break
+    case "tile_left":
+        if (workspace && typeof workspace.tileLeft === "function") workspace.tileLeft()
+        break
+    case "tile_right":
+        if (workspace && typeof workspace.tileRight === "function") workspace.tileRight()
+        break
+    case "tile_maximize":
+        if (workspace && typeof workspace.tileMaximize === "function") workspace.tileMaximize()
+        break
+    case "tile_restore":
+        if (workspace && typeof workspace.tileRestore === "function") workspace.tileRestore()
         break
     case "tile_workspace":
         if (workspace && typeof workspace.tileWorkspace === "function") workspace.tileWorkspace()

@@ -50,6 +50,10 @@ VK_SPECIAL = {
     'BACKSLASH': 0xDC, '\\': 0xDC,
     'SLASH': 0xBF, '/': 0xBF,
     'SPACE': 0x20, ' ': 0x20,
+    'LEFT': 0x25, 'ARROWLEFT': 0x25,
+    'UP': 0x26, 'ARROWUP': 0x26,
+    'RIGHT': 0x27, 'ARROWRIGHT': 0x27,
+    'DOWN': 0x28, 'ARROWDOWN': 0x28,
 }
 for _i in range(1, 13):
     VK_SPECIAL[f'F{_i}'] = 0x70 + (_i - 1)
@@ -61,6 +65,10 @@ SCAN_SPECIAL = {
     'BACKSLASH': {43, 86}, '\\': {43, 86},
     'SLASH': {53}, '/': {53},
     'SPACE': {57}, ' ': {57},
+    'LEFT': {75, 57419, 0x4B}, 'ARROWLEFT': {75, 57419, 0x4B},
+    'UP': {72, 57416, 0x48}, 'ARROWUP': {72, 57416, 0x48},
+    'RIGHT': {77, 57421, 0x4D}, 'ARROWRIGHT': {77, 57421, 0x4D},
+    'DOWN': {80, 57424, 0x50}, 'ARROWDOWN': {80, 57424, 0x50},
 }
 for _i in range(1, 13):
     if _i <= 10:
@@ -77,6 +85,10 @@ QT_KEY_SPECIAL = {
     'BACKSLASH': Qt.Key.Key_Backslash, '\\': Qt.Key.Key_Backslash,
     'SLASH': Qt.Key.Key_Slash, '/': Qt.Key.Key_Slash,
     'SPACE': Qt.Key.Key_Space, ' ': Qt.Key.Key_Space,
+    'LEFT': Qt.Key.Key_Left, 'ARROWLEFT': Qt.Key.Key_Left,
+    'UP': Qt.Key.Key_Up, 'ARROWUP': Qt.Key.Key_Up,
+    'RIGHT': Qt.Key.Key_Right, 'ARROWRIGHT': Qt.Key.Key_Right,
+    'DOWN': Qt.Key.Key_Down, 'ARROWDOWN': Qt.Key.Key_Down,
 }
 for _i in range(1, 13):
     QT_KEY_SPECIAL[f'F{_i}'] = getattr(Qt.Key, f'Key_F{_i}')
