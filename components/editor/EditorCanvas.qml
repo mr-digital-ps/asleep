@@ -22,6 +22,11 @@ RowLayout {
     property bool isLiveMode: true
     property var blocks: []
     property var collapsedBlocks: ({})
+    onCollapsedBlocksChanged: {
+        if (editorGutter) {
+            editorGutter.collapsedBlocks = collapsedBlocks
+        }
+    }
     property var activeTransclusions: ({})
 
     property alias editorArea: editorArea
@@ -61,10 +66,52 @@ RowLayout {
         if (isLiveMode) {
             expandTransclusions()
         } else {
+            unfoldAllBlocks()
             collapseTransclusions()
         }
         updateBlocks()
         if (editorGutter) editorGutter.isLiveMode = isLiveMode
+    }
+
+    function unfoldAllBlocks() {
+        if (!editorArea || !editorArea.text) {
+            collapsedBlocks = ({})
+            if (editorGutter) editorGutter.collapsedBlocks = ({})
+            return
+        }
+        var currentText = editorArea.text
+        var lines = currentText.split("\n")
+        var changed = false
+
+        if (collapsedBlocks && Object.keys(collapsedBlocks).length > 0) {
+            var remaining = Object.assign({}, collapsedBlocks)
+            for (var i = lines.length - 1; i >= 0; i--) {
+                var lineTrimmed = lines[i].trim()
+                for (var cId in remaining) {
+                    var cBlk = remaining[cId]
+                    if (cBlk && cBlk.name + " ...." === lineTrimmed) {
+                        lines = lines.slice(0, i).concat(cBlk.lines).concat(lines.slice(i + 1))
+                        delete remaining[cId]
+                        changed = true
+                        break
+                    }
+                }
+            }
+        }
+
+        collapsedBlocks = ({})
+        if (editorGutter) editorGutter.collapsedBlocks = ({})
+
+        if (changed) {
+            var curPos = editorArea.cursorPosition
+            editorArea.text = lines.join("\n")
+            editorArea.cursorPosition = Math.min(curPos, editorArea.text.length)
+        }
+    }
+
+    function resetFolding() {
+        unfoldAllBlocks()
+        activeTransclusions = ({})
     }
 
     function expandTransclusions() {
@@ -115,17 +162,32 @@ RowLayout {
     }
 
     function toggleBlockFold(block, lineIndex) {
+        if (!isLiveMode) return // Сворачивание и разворачивание работает ТОЛЬКО в Live Mode!
         if (!editorArea || !editorArea.text) return
         var lines = editorArea.text.split("\n")
 
         if (collapsedBlocks && collapsedBlocks[block.id]) {
             // Развертывание блока
             var saved = collapsedBlocks[block.id]
-            var newLines = lines.slice(0, lineIndex).concat(saved.lines).concat(lines.slice(lineIndex + 1))
-            var newMap = Object.assign({}, collapsedBlocks)
-            delete newMap[block.id]
-            collapsedBlocks = newMap
-            editorArea.text = newLines.join("\n")
+            var targetL = lineIndex
+            var targetHeader = saved.name + " ...."
+            if (targetL < 0 || targetL >= lines.length || lines[targetL].trim() !== targetHeader) {
+                targetL = -1
+                for (var i = 0; i < lines.length; i++) {
+                    if (lines[i].trim() === targetHeader) {
+                        targetL = i
+                        break
+                    }
+                }
+            }
+            if (targetL >= 0 && targetL < lines.length) {
+                var newLines = lines.slice(0, targetL).concat(saved.lines).concat(lines.slice(targetL + 1))
+                var newMap = Object.assign({}, collapsedBlocks)
+                delete newMap[block.id]
+                collapsedBlocks = newMap
+                if (editorGutter) editorGutter.collapsedBlocks = newMap
+                editorArea.text = newLines.join("\n")
+            }
         } else {
             // Сворачивание блока
             var startL = block.startLine
@@ -133,7 +195,9 @@ RowLayout {
             if (startL < 0 || endL >= lines.length || startL >= endL) return
 
             var blockLines = lines.slice(startL, endL + 1)
-            var collapsedHeader = block.name + " ...."
+            var matchIndent = lines[startL].match(/^(\s*)/)
+            var indent = matchIndent ? matchIndent[1] : ""
+            var collapsedHeader = indent + block.name + " ...."
 
             var newMap = Object.assign({}, collapsedBlocks)
             newMap[block.id] = {
@@ -143,6 +207,7 @@ RowLayout {
                 lines: blockLines
             }
             collapsedBlocks = newMap
+            if (editorGutter) editorGutter.collapsedBlocks = newMap
 
             var newLines = lines.slice(0, startL).concat([collapsedHeader]).concat(lines.slice(endL + 1))
             editorArea.text = newLines.join("\n")
@@ -163,11 +228,14 @@ RowLayout {
 
         // 1. Восстановление свернутых блоков Имя ....
         if (collapsedBlocks && Object.keys(collapsedBlocks).length > 0) {
+            var remaining = Object.assign({}, collapsedBlocks)
             for (var i = lines.length - 1; i >= 0; i--) {
-                for (var cId in collapsedBlocks) {
-                    var cBlk = collapsedBlocks[cId]
-                    if (cBlk && cBlk.name + " ...." === lines[i].trim()) {
+                var lineTrimmed = lines[i].trim()
+                for (var cId in remaining) {
+                    var cBlk = remaining[cId]
+                    if (cBlk && cBlk.name + " ...." === lineTrimmed) {
                         lines = lines.slice(0, i).concat(cBlk.lines).concat(lines.slice(i + 1))
+                        delete remaining[cId]
                         break
                     }
                 }

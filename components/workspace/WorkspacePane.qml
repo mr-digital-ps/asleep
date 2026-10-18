@@ -131,6 +131,7 @@ Item {
     property alias paneGraphView: paneGraphView
     property alias paneHeader: paneHeader
     property alias paperSheet: paperSheet
+    property alias editorCanvas: paperSheet.editorCanvas
 
     property string statsString: "0 слов · 0 знаков"
 

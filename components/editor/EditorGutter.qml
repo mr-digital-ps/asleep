@@ -84,9 +84,16 @@ Item {
                     }
                     // Проверяем клик по свёрнутому блоку
                     if (gutterItem.collapsedBlocks) {
+                        var lineText = ""
+                        if (gutterItem.editorArea && gutterItem.editorArea.text) {
+                            var allL = gutterItem.editorArea.text.split("\n")
+                            if (clickedLine >= 0 && clickedLine < allL.length) {
+                                lineText = allL[clickedLine].trim()
+                            }
+                        }
                         for (var cId in gutterItem.collapsedBlocks) {
                             var cBlk = gutterItem.collapsedBlocks[cId]
-                            if (cBlk && cBlk.headerLine === clickedLine) {
+                            if (cBlk && (cBlk.headerLine === clickedLine || (lineText && cBlk.name + " ...." === lineText))) {
                                 gutterItem.toggleBlockFoldRequested(cBlk, clickedLine)
                                 return
                             }

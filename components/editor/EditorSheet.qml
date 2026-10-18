@@ -32,6 +32,7 @@ Rectangle {
     onFileUrlChanged: {
         _liveDraftText = undefined
         if (editorArea) editorArea.readOnly = false
+        if (editorCanvas && typeof editorCanvas.resetFolding === "function") editorCanvas.resetFolding()
     }
 
     // Экспорт внутренних компонентов наружу

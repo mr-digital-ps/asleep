@@ -551,6 +551,56 @@ def test_qml():
     assert primary_bar.property("isGraphMode") is False, "Панель должна вернуться в source mode"
     assert primary_bar.property("fileName") == "Новая заметка", "Текущая панель должна загрузить выбранную заметку"
 
+    # 2.3.1. Тест сворачивания блоков только в Live Mode и автоматического разворачивания в Source Mode
+    active_canvas = primary_bar.property("editorCanvas")
+    assert active_canvas is not None, "editorCanvas должен быть доступен"
+    sample_fold_doc = "Начало\nБлокА {\n    контент 1\n    контент 2\n}\nКонец"
+    primary_bar.setProperty("isLiveMode", True)
+    primary_bar.setProperty("text", sample_fold_doc)
+    active_canvas.updateBlocks()
+    blks = active_canvas.property("blocks")
+    blks_list = blks.toVariant() if hasattr(blks, "toVariant") else list(blks)
+    assert len(blks_list) == 1, "Должен быть обнаружен 1 блок в тексте"
+    blk0 = blks.property(0) if hasattr(blks, "property") else blks[0]
+
+    # Сворачиваем блок в Live Mode
+    active_canvas.toggleBlockFold(blk0, 1)
+    text_collapsed = active_canvas.property("text")
+    assert "БлокА ...." in text_collapsed, "В Live Mode блок должен свернуться в 'БлокА ....'"
+    assert "контент 1" not in text_collapsed, "Содержимое блока должно быть скрыто"
+
+    # Проверяем синхронизацию collapsedBlocks с editorGutter
+    gutter = [c for c in active_canvas.children() if hasattr(c, "property") and c.property("collapsedBlocks") is not None][0]
+    gutter_cb = gutter.property("collapsedBlocks").toVariant()
+    assert len(gutter_cb) == 1, "editorGutter должен синхронизировать collapsedBlocks"
+    assert "block_1_БлокА" in gutter_cb, "ID свернутого блока должен быть в editorGutter.collapsedBlocks"
+
+    # Разворачиваем блок обратно в Live Mode (проверка фикса бага повторного открытия)
+    active_canvas.toggleBlockFold(blk0, 1)
+    text_unfolded = active_canvas.property("text")
+    assert "БлокА ...." not in text_unfolded, "После повторного клика блок должен развернуться"
+    assert "БлокА {\n    контент 1\n    контент 2\n}" in text_unfolded, "Содержимое блока должно полностью восстановиться в Live Mode"
+    assert len(gutter.property("collapsedBlocks").toVariant()) == 0, "editorGutter.collapsedBlocks должен очиститься после разворачивания"
+
+    # Снова сворачиваем для проверки переключения в Source Mode
+    active_canvas.toggleBlockFold(blk0, 1)
+    assert "БлокА ...." in active_canvas.property("text")
+
+    # Переход в Source Mode (Alt+S)
+    primary_bar.toggleSourceMode()
+    assert primary_bar.property("isLiveMode") is False, "Панель должна перейти в Source Mode"
+    text_source = active_canvas.property("text")
+    assert "БлокА ...." not in text_source, "В Source Mode скрытый заголовок с .... не должен оставаться"
+    assert "БлокА {\n    контент 1\n    контент 2\n}" in text_source, "В Source Mode блок должен автоматически развернуться в полный текст"
+
+    # В Source Mode сворачивание запрещено
+    active_canvas.toggleBlockFold(blk0, 1)
+    assert active_canvas.property("text") == text_source, "В Source Mode сворачивание блоков должно игнорироваться"
+
+    # Возврат в Live Mode
+    primary_bar.toggleLiveMode()
+    assert primary_bar.property("isLiveMode") is True, "Панель должна вернуться в Live Mode"
+
     # Проверка тайлинга и магнетизма к границам экрана камеры
     act_p = workspace.property("activePanel")
     assert act_p is not None, "Должна быть активная панель на холсте"
