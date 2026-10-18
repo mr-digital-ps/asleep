@@ -110,6 +110,7 @@ class Backend(
             self.hotkey_service._reload_timer.start()
         elif "theme" in name:
             configure_app_font()
+            self.update_highlighters_theme()
             self.themeConfigChanged.emit()
         elif "editor" in name:
             self.config_service.load_folder_config(self._current_folder)

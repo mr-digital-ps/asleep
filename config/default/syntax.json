@@ -6,7 +6,7 @@
 
   // Настройки вики-ссылок и локальных связей [[Имя Файла]]
   "wikilinks": {
-    "pattern": "\\[\\[([^\\]|#]+)(?:#[^\\]|]+)?(?:\\|([^\\]]+))?\\]\\]",
+    "pattern": "\\[\\[([^\\]#]+)(?:#[^\\]]+)?\\]\\]",
     "link_pattern": "\\[([^\\]]+)\\]\\(([^)]+\\.txt)\\)",
     "target_extensions": [".txt"],
     "case_sensitive": false
@@ -45,7 +45,7 @@
 
   // Настройки списков
   "lists": {
-    "bullet_markers": ["-", "*", "+"],
+    "bullet_markers": ["-", "+"],
     "ordered_auto_increment": true
   }
 }

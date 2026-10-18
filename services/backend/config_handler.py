@@ -4,8 +4,12 @@ from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import QObject, pyqtSlot
 from PyQt6.QtGui import QTextCursor, QTextOption
 from PyQt6.QtQuick import QQuickTextDocument
+from PyQt6.sip import isdeleted, unwrapinstance
+from services.content.dialect_highlighter import DialectHighlighter
 from services.storage.file_service import save_session_config, load_session_config
 from services.backend.app_initializer import safe_print
+
+_active_highlighters: dict[int, DialectHighlighter] = {}
 
 
 class ConfigHandlerMixin:
@@ -45,7 +49,45 @@ class ConfigHandlerMixin:
         except Exception as e:
             safe_print(f"[Backend] Ошибка установки line_height: {e}")
 
+    @pyqtSlot(QObject, bool)
+    @pyqtSlot(QObject)
+    def set_editor_live_mode(self, editor_area_item: QObject, is_live_mode: bool = True):
+        """Включает или отключает подсветку диалекта для Live Mode / Source Mode."""
+        try:
+            if not editor_area_item:
+                return
+            doc_wrapper = editor_area_item.property("textDocument")
+            if isinstance(doc_wrapper, QQuickTextDocument):
+                qtdoc = doc_wrapper.textDocument()
+                if not qtdoc:
+                    return
+                doc_key = unwrapinstance(qtdoc)
+                hl = _active_highlighters.get(doc_key)
+                need_create = (hl is None)
+                if not need_create:
+                    try:
+                        if isdeleted(hl):
+                            need_create = True
+                        else:
+                            hl.set_live_mode(is_live_mode)
+                    except (RuntimeError, Exception):
+                        need_create = True
 
+                if need_create:
+                    theme = self.config_service.get_theme_config()
+                    hl = DialectHighlighter(qtdoc, theme, is_live_mode=is_live_mode)
+                    _active_highlighters[doc_key] = hl
+        except Exception as e:
+            safe_print(f"[Backend] Ошибка set_editor_live_mode: {e}")
+
+    def update_highlighters_theme(self):
+        """Обновляет цветовую палитру всех активных подсветчиков при смене темы"""
+        theme = self.config_service.get_theme_config()
+        for hl in list(_active_highlighters.values()):
+            try:
+                hl.update_theme(theme)
+            except Exception:
+                pass
 
     @pyqtSlot(float)
     def update_sheet_width(self, width: float):

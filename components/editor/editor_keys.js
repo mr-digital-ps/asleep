@@ -181,10 +181,17 @@ function handleKeyPressed(event, canvasRoot, editorArea, Shortcuts) {
     }
 
     // Переключение режимов Live Mode ⟷ Source Mode (Alt + E / Alt + S)
-    if (isToggleLiveModeKey(event) || isToggleSourceModeKey(event)) {
+    if (isToggleLiveModeKey(event)) {
         event.accepted = true
         if (canvasRoot && typeof canvasRoot.toggleLiveModeRequested === "function") {
             canvasRoot.toggleLiveModeRequested()
+        }
+        return true
+    }
+    if (isToggleSourceModeKey(event)) {
+        event.accepted = true
+        if (canvasRoot && typeof canvasRoot.toggleSourceModeRequested === "function") {
+            canvasRoot.toggleSourceModeRequested()
         }
         return true
     }

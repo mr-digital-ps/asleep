@@ -28,6 +28,8 @@ RowLayout {
         }
     }
     property var activeTransclusions: ({})
+    property var blockFoldState: ({})
+    property bool hasInitializedLiveMode: false
 
     property alias editorArea: editorArea
     property alias text: editorArea.text
@@ -50,6 +52,7 @@ RowLayout {
     signal toggleHeaderRequested()
     signal toggleCenteredModeRequested()
     signal toggleLiveModeRequested()
+    signal toggleSourceModeRequested()
     signal saveRequested()
     signal openRequested()
     signal newRequested()
@@ -58,19 +61,99 @@ RowLayout {
     signal panelDragUpdated(var mouse, var item)
     signal panelDragFinished()
 
-    onToggleLiveModeRequested: {
-        isLiveMode = !isLiveMode
-    }
 
     onIsLiveModeChanged: {
         if (isLiveMode) {
             expandTransclusions()
+            if (!hasInitializedLiveMode) {
+                if (activeTransclusions) {
+                    var newFoldState = Object.assign({}, blockFoldState)
+                    for (var tKey in activeTransclusions) {
+                        if (newFoldState[tKey] === undefined) {
+                            newFoldState[tKey] = true
+                        }
+                    }
+                    blockFoldState = newFoldState
+                }
+                hasInitializedLiveMode = true
+            }
+            applyBlockFoldState()
         } else {
             unfoldAllBlocks()
             collapseTransclusions()
         }
         updateBlocks()
         if (editorGutter) editorGutter.isLiveMode = isLiveMode
+        if (typeof backend !== "undefined" && backend && typeof backend.set_editor_live_mode === "function") {
+            backend.set_editor_live_mode(editorArea, isLiveMode)
+        }
+    }
+
+    function initializeLiveModeIfReady() {
+        if (!isLiveMode || hasInitializedLiveMode) return
+        expandTransclusions()
+        if (activeTransclusions) {
+            var newFoldState = Object.assign({}, blockFoldState)
+            for (var tKey in activeTransclusions) {
+                if (newFoldState[tKey] === undefined) {
+                    newFoldState[tKey] = true
+                }
+            }
+            blockFoldState = newFoldState
+        }
+        hasInitializedLiveMode = true
+        applyBlockFoldState()
+    }
+
+    function applyBlockFoldState() {
+        if (!isLiveMode || !editorArea || !editorArea.text) return
+        var currentBlocks = BlockScanner.scanBlocks(editorArea.text)
+        if (!currentBlocks || currentBlocks.length === 0) return
+
+        var toCollapse = []
+        for (var b = 0; b < currentBlocks.length; b++) {
+            var blk = currentBlocks[b]
+            if (blockFoldState && blockFoldState[blk.name] === true) {
+                if (!collapsedBlocks || !collapsedBlocks[blk.id]) {
+                    toCollapse.push(blk)
+                }
+            }
+        }
+        if (toCollapse.length === 0) return
+
+        // Сворачиваем блоки снизу вверх, чтобы не нарушать индексы строк
+        toCollapse.sort(function(a, b) { return b.startLine - a.startLine })
+
+        var lines = editorArea.text.split("\n")
+        var newCollapsed = Object.assign({}, collapsedBlocks || {})
+
+        for (var i = 0; i < toCollapse.length; i++) {
+            var cBlk = toCollapse[i]
+            var sL = cBlk.startLine
+            var eL = cBlk.endLine
+            if (sL >= 0 && eL < lines.length && sL < eL) {
+                var blockLines = lines.slice(sL, eL + 1)
+                var matchIndent = lines[sL].match(/^(\s*)/)
+                var indent = matchIndent ? matchIndent[1] : ""
+                var headerLine = indent + cBlk.name + " ...."
+
+                newCollapsed[cBlk.id] = {
+                    id: cBlk.id,
+                    name: cBlk.name,
+                    headerLine: sL,
+                    lines: blockLines
+                }
+                lines = lines.slice(0, sL).concat([headerLine]).concat(lines.slice(eL + 1))
+            }
+        }
+
+        collapsedBlocks = newCollapsed
+        if (editorGutter) editorGutter.collapsedBlocks = newCollapsed
+
+        var curPos = editorArea.cursorPosition
+        editorArea.text = lines.join("\n")
+        editorArea.cursorPosition = Math.min(curPos, editorArea.text.length)
+        updateBlocks()
     }
 
     function unfoldAllBlocks() {
@@ -112,6 +195,8 @@ RowLayout {
     function resetFolding() {
         unfoldAllBlocks()
         activeTransclusions = ({})
+        blockFoldState = ({})
+        hasInitializedLiveMode = false
     }
 
     function expandTransclusions() {
@@ -186,6 +271,11 @@ RowLayout {
                 delete newMap[block.id]
                 collapsedBlocks = newMap
                 if (editorGutter) editorGutter.collapsedBlocks = newMap
+
+                var newFoldState = Object.assign({}, blockFoldState)
+                newFoldState[saved.name] = false
+                blockFoldState = newFoldState
+
                 editorArea.text = newLines.join("\n")
             }
         } else {
@@ -208,6 +298,10 @@ RowLayout {
             }
             collapsedBlocks = newMap
             if (editorGutter) editorGutter.collapsedBlocks = newMap
+
+            var newFoldState = Object.assign({}, blockFoldState)
+            newFoldState[block.name] = true
+            blockFoldState = newFoldState
 
             var newLines = lines.slice(0, startL).concat([collapsedHeader]).concat(lines.slice(endL + 1))
             editorArea.text = newLines.join("\n")
@@ -330,6 +424,14 @@ RowLayout {
                 id: bracketHighlightOverlay
                 editorArea: editorArea
             }
+
+            // Оверлей разделительных горизонтальных линий (---)
+            HorizontalRuleOverlay {
+                id: horizontalRuleOverlay
+                objectName: "horizontalRuleOverlay"
+                editorArea: editorArea
+                isLiveMode: canvasRoot.isLiveMode
+            }
         }
 
         WheelHandler {
@@ -442,6 +544,15 @@ RowLayout {
         }
 
         onPressed: canvasRoot.paneActivated()
+
+        Component.onCompleted: {
+            if (typeof backend !== "undefined" && backend && typeof backend.set_editor_live_mode === "function") {
+                Qt.callLater(function() {
+                    backend.set_editor_live_mode(editorArea, canvasRoot.isLiveMode)
+                    canvasRoot.initializeLiveModeIfReady()
+                })
+            }
+        }
     }
 
     // Правая полоса 36px для скроллбара (предотвращает наложение на текст)

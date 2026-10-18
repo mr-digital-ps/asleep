@@ -45,18 +45,15 @@ Item {
 
             Component.onCompleted: blockConcealItem.updateAllPositions()
 
-            // Маска для открывающей скобки {
+            // Скобки {} стилизуются полупрозрачно/приглушенно через DialectHighlighter
             Rectangle {
                 id: openBraceMask
-                visible: concealOverlay.isLiveMode && concealOverlay.editorArea !== null
-                color: Theme.bgPaper
+                visible: false
             }
 
-            // Маска для закрывающей скобки }
             Rectangle {
                 id: closeBraceMask
-                visible: concealOverlay.isLiveMode && concealOverlay.editorArea !== null
-                color: Theme.bgPaper
+                visible: false
             }
         }
     }

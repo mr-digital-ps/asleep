@@ -116,6 +116,18 @@ tags:
     valid_re = compile_safe_regex(r"@([a-zA-Z0-9_]+)", default_re)
     assert valid_re.pattern == r"@([a-zA-Z0-9_]+)", "Корректный regex должен компилироваться"
 
+    # 4.7. Тест DialectHighlighter для Live Mode и Source Mode
+    from PyQt6.QtGui import QTextDocument
+    from services.content.dialect_highlighter import DialectHighlighter
+    doc = QTextDocument()
+    sample_text = "**жирный** *курсив* ~~зачёркнутый~~ #тег [[Заметка]] {блок}\n---\n> цитата\n- [ ] задача\n- пункт"
+    doc.setPlainText(sample_text)
+    hl = DialectHighlighter(doc, is_live_mode=True)
+    assert hl._is_live_mode, "Highlighter должен инициализироваться в Live Mode"
+    hl.set_live_mode(False)
+    assert not hl._is_live_mode, "set_live_mode(False) должен отключать подсветку для Source Mode"
+    hl.set_live_mode(True)
+    assert hl._is_live_mode, "set_live_mode(True) должен активировать подсветку для Live Mode"
 
     # 5. Тест HotkeyService & GlobalHotkeyFilter
     from services.system.hotkey_service import HotkeyService, GlobalHotkeyFilter, HotkeyMatcher
@@ -232,10 +244,8 @@ tags:
     ev_live_mode = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.AltModifier, 18, 0x45, 0)
     assert matcher.match_event(ev_live_mode) == "toggle_live_mode", "Alt+E/Alt+У должен распознаваться как toggle_live_mode"
 
-    # 14. Проверка tile_active_panel (Alt+M) и tile_workspace (Alt+Shift+M)
-    assert "tile_active_panel" in hks, "tile_active_panel должен присутствовать в hotkeys"
-    ev_tile_active = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_M, Qt.KeyboardModifier.AltModifier, 50, 0x4D, 0, 'm')
-    assert matcher.match_event(ev_tile_active) == "tile_active_panel", "Alt+M/Alt+Ь должен распознаваться как tile_active_panel"
+    # 14. Проверка tile_workspace (Alt+Shift+M)
+    assert "tile_workspace" in hks, "tile_workspace должен присутствовать в hotkeys"
     ev_tile_ws = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_M, Qt.KeyboardModifier.AltModifier | Qt.KeyboardModifier.ShiftModifier, 50, 0x4D, 0, 'M')
     assert matcher.match_event(ev_tile_ws) == "tile_workspace", "Alt+Shift+M должен распознаваться как tile_workspace"
 
@@ -283,7 +293,6 @@ tags:
     assert "sheet_width" in cfg_json, "get_current_config должен возвращать JSON с настройками"
     assert "toggle_header" in backend.get_hotkeys(), "backend.get_hotkeys должен содержать toggle_header"
     assert "toggle_graph" in backend.get_hotkeys(), "backend.get_hotkeys должен содержать toggle_graph"
-    assert "tile_active_panel" in backend.get_hotkeys(), "backend.get_hotkeys должен содержать tile_active_panel"
     assert "tile_left" in backend.get_hotkeys(), "backend.get_hotkeys должен содержать tile_left"
     assert "tile_right" in backend.get_hotkeys(), "backend.get_hotkeys должен содержать tile_right"
     assert "tile_maximize" in backend.get_hotkeys(), "backend.get_hotkeys должен содержать tile_maximize"
@@ -600,6 +609,23 @@ def test_qml():
     # Возврат в Live Mode
     primary_bar.toggleLiveMode()
     assert primary_bar.property("isLiveMode") is True, "Панель должна вернуться в Live Mode"
+    text_restored = active_canvas.property("text")
+    assert "БлокА ...." in text_restored, "После возврата в Live Mode блок должен восстановить свернутое состояние"
+
+    # Проверка начального состояния блоков и трансклюзий в новом файле:
+    # Созданные блоки - открыты, импортированные блочные тексты - скрыты (....)
+    backend.block_engine._block_cache["импорт"] = {
+        "title": "Импорт",
+        "content": "Строка импортированного блока 1\nСтрока 2",
+        "source": "file:///test/Внешний.txt"
+    }
+    active_canvas.resetFolding()
+    primary_bar.setProperty("isLiveMode", False)
+    active_canvas.property("editorArea").setProperty("text", "СозданныйБлок {\n    Мой текст\n}\n\nВнешний.Импорт()\n")
+    primary_bar.toggleLiveMode()
+    text_init_live = active_canvas.property("text")
+    assert "СозданныйБлок {\n    Мой текст\n}" in text_init_live, "Созданный блок при первом входе в Live Mode должен быть открытым"
+    assert "Внешний.Импорт ...." in text_init_live, "Импортированный блок при первом входе в Live Mode должен быть скрытым (....)"
 
     # Проверка тайлинга и магнетизма к границам экрана камеры
     act_p = workspace.property("activePanel")
@@ -794,6 +820,7 @@ def test_structure():
         "services/content/block_parser.py",
         "services/content/document_outline.py",
         "services/content/outline_service.py",
+        "services/content/dialect_highlighter.py",
         "services/history_service.py",
         "services/graph_service.py",
         "services/system/window_manager.py",
@@ -825,6 +852,7 @@ def test_structure():
         "components/editor/EditorScrollbar.qml",
         "components/editor/EditorEmptyState.qml",
         "components/editor/BlockSyntaxConcealOverlay.qml",
+        "components/editor/HorizontalRuleOverlay.qml",
         "components/editor/block_scanner.js",
         "components/editor/qmldir",
         "components/workspace/CanvasWorkspace.qml",

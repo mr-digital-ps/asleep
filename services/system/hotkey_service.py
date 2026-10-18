@@ -93,8 +93,8 @@ class HotkeyMatcher:
                     qt_keys.update([68, 1042, 1074])
                     chars.update(['D', 'В'])
 
-                # Для tile_active_panel и tile_workspace: Alt+M / Alt+Shift+M (физическая M, русская 'Ь', scan 50, VK 0x4D)
-                if action in ("tile_active_panel", "tile_workspace") and alt:
+                # Для tile_workspace: Alt+Shift+M (физическая M, русская 'Ь', scan 50, VK 0x4D)
+                if action == "tile_workspace" and alt:
                     vks.add(0x4D)
                     scan_codes.add(50)
                     qt_keys.update([77, 1068, 1100])

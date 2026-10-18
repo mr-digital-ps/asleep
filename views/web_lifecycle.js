@@ -43,9 +43,6 @@ function dispatchAction(root, backend, action) {
             else root.appWindow.showMaximized()
         }
         break
-    case "tile_active_panel":
-        if (workspace && typeof workspace.tileActivePanel === "function") workspace.tileActivePanel()
-        break
     case "tile_left":
         if (workspace && typeof workspace.tileLeft === "function") workspace.tileLeft()
         break

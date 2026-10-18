@@ -6,6 +6,7 @@ from services.content.block_parser import (
 )
 from services.content.document_outline import DocumentOutlineManager
 from services.content.outline_service import OutlineService
+from services.content.dialect_highlighter import DialectHighlighter
 
 __all__ = [
     "BlockEngine",
@@ -13,4 +14,5 @@ __all__ = [
     "replace_syntax_block",
     "DocumentOutlineManager",
     "OutlineService",
+    "DialectHighlighter",
 ]

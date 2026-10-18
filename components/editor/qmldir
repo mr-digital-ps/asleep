@@ -9,3 +9,4 @@ EditorScrollbar 1.0 EditorScrollbar.qml
 SyncNotice 1.0 SyncNotice.qml
 EditorDialogs 1.0 EditorDialogs.qml
 BlockSyntaxConcealOverlay 1.0 BlockSyntaxConcealOverlay.qml
+HorizontalRuleOverlay 1.0 HorizontalRuleOverlay.qml

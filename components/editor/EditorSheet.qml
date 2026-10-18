@@ -40,7 +40,14 @@ Rectangle {
     property alias editorArea: editorCanvas.editorArea
     property alias text: editorCanvas.text
 
+    function resetFolding() {
+        if (editorCanvas && typeof editorCanvas.resetFolding === "function") {
+            editorCanvas.resetFolding()
+        }
+    }
+
     signal toggleLiveModeRequested()
+    signal toggleSourceModeRequested()
 
     // Естественная высота текста документа
     readonly property real contentTopMargin: sheetRoot.showHeader ? Theme.headerHeight : Theme.sheetPadding
@@ -126,6 +133,7 @@ Rectangle {
         onToggleHeaderRequested: sheetRoot.toggleHeaderRequested()
         onToggleCenteredModeRequested: sheetRoot.toggleCenteredModeRequested()
         onToggleLiveModeRequested: sheetRoot.toggleLiveModeRequested()
+        onToggleSourceModeRequested: sheetRoot.toggleSourceModeRequested()
         onSaveRequested: sheetRoot.saveRequested()
         onOpenRequested: sheetRoot.openRequested()
         onNewRequested: sheetRoot.newRequested()

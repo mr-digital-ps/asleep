@@ -122,7 +122,7 @@ Item {
     }
 
     function toggleSourceMode() {
-        workspacePane.isLiveMode = !workspacePane.isLiveMode
+        workspacePane.isLiveMode = false
     }
 
     // Режим локального графа заметки
@@ -191,11 +191,22 @@ Item {
     function openDocument(url, name, content) {
         fileUrl = url
         fileName = (name || "").replace(/\.(txt|md)$/i, "")
+        if (paperSheet && typeof paperSheet.resetFolding === "function") {
+            paperSheet.resetFolding()
+        }
         text = content
         isGraphMode = false
-        if (typeof backend !== "undefined" && backend && typeof backend.set_editor_line_height === "function") {
+        if (typeof backend !== "undefined" && backend) {
             Qt.callLater(function() {
-                backend.set_editor_line_height(editorArea, workspacePane.editorLineHeightPercent)
+                if (typeof backend.set_editor_line_height === "function") {
+                    backend.set_editor_line_height(editorArea, workspacePane.editorLineHeightPercent)
+                }
+                if (typeof backend.set_editor_live_mode === "function") {
+                    backend.set_editor_live_mode(editorArea, workspacePane.isLiveMode)
+                }
+                if (editorCanvas && typeof editorCanvas.initializeLiveModeIfReady === "function") {
+                    editorCanvas.initializeLiveModeIfReady()
+                }
             })
         }
     }
@@ -508,6 +519,7 @@ Item {
                     onToggleHeaderRequested: workspacePane.toggleHeaderOnly()
                     onToggleCenteredModeRequested: workspacePane.isCenteredMode = !workspacePane.isCenteredMode
                     onToggleLiveModeRequested: workspacePane.isLiveMode = !workspacePane.isLiveMode
+                    onToggleSourceModeRequested: workspacePane.toggleSourceMode()
                     onTextChangedByUser: {
                         Controller.handleTextChangedByUser(workspacePane, blockSyncTimer, activeFocus)
                         statsUpdateTimer.restart()
