@@ -115,6 +115,20 @@ function renderGraph(ctx, width, height, sim, state) {
     var maxBrightness = (vis && typeof vis.activityMaxBrightness === "number") ? vis.activityMaxBrightness : 1.0
     var curTimeSec = Date.now() / 1000
 
+    // Расчет временного диапазона хранилища для гарантированного контраста (Adaptive Recency Span)
+    var minMtime = Infinity
+    var maxMtime = -Infinity
+    if (isActivityMode && nodes) {
+        for (var k = 0; k < nodes.length; k++) {
+            var mt = nodes[k].mtime || nodes[k].timestamp || 0
+            if (mt > 0) {
+                if (mt < minMtime) minMtime = mt
+                if (mt > maxMtime) maxMtime = mt
+            }
+        }
+    }
+    var mtimeSpan = (maxMtime > minMtime) ? (maxMtime - minMtime) : 0
+
     // 1. Отрисовка связей (ребер)
     for (var i = 0; i < links.length; i++) {
         var l = links[i]
@@ -141,7 +155,9 @@ function renderGraph(ctx, width, height, sim, state) {
             var maxT = Math.max(sTime, tTime)
             if (maxT > 0) {
                 var lAge = Math.max(0, (curTimeSec - maxT) / 86400)
-                var lDecay = Math.pow(0.5, lAge / decayHalfLife)
+                var lAbs = Math.pow(0.5, lAge / decayHalfLife)
+                var lRel = (mtimeSpan > 60) ? Math.pow(Math.max(0, Math.min(1.0, (maxT - minMtime) / mtimeSpan)), 1.8) : lAbs
+                var lDecay = (mtimeSpan > 60) ? lRel : lAbs
                 linkAlpha = minBrightness + (maxBrightness - minBrightness) * lDecay
             } else {
                 linkAlpha = minBrightness
@@ -150,7 +166,7 @@ function renderGraph(ctx, width, height, sim, state) {
 
         ctx.save()
         if (isActivityMode && !isConnectedToHover) {
-            ctx.globalAlpha = Math.max(0.12, linkAlpha * 0.75)
+            ctx.globalAlpha = Math.max(0.08, linkAlpha * 0.75)
         }
 
         ctx.beginPath()
@@ -245,7 +261,9 @@ function renderGraph(ctx, width, height, sim, state) {
             var nTime = n.mtime || n.timestamp || 0
             if (nTime > 0) {
                 var nAge = Math.max(0, (curTimeSec - nTime) / 86400)
-                nodeDecay = Math.pow(0.5, nAge / decayHalfLife)
+                var nAbs = Math.pow(0.5, nAge / decayHalfLife)
+                var nRel = (mtimeSpan > 60) ? Math.pow(Math.max(0, Math.min(1.0, (nTime - minMtime) / mtimeSpan)), 1.8) : nAbs
+                nodeDecay = (mtimeSpan > 60) ? nRel : nAbs
             } else {
                 nodeDecay = 0.0
             }
@@ -283,9 +301,9 @@ function renderGraph(ctx, width, height, sim, state) {
         }
 
         // В режиме созвездия (Anki) свежие заметки сияют ярче и получают звёздный ореол
-        if (isActivityMode && nodeDecay >= 0.75 && !isHover && !isDragged && !isActivePlayer && !isOpenAdjacent) {
+        if (isActivityMode && nodeDecay >= 0.70 && !isHover && !isDragged && !isActivePlayer && !isOpenAdjacent) {
             ctx.beginPath()
-            ctx.arc(n.x, n.y, baseRadius + 1.8, 0, 2 * Math.PI)
+            ctx.arc(n.x, n.y, baseRadius + 2.0, 0, 2 * Math.PI)
             ctx.strokeStyle = textPrimary
             ctx.lineWidth = 0.8
             ctx.stroke()
@@ -310,10 +328,10 @@ function renderGraph(ctx, width, height, sim, state) {
                 ctx.lineWidth = 1.2
                 ctx.stroke()
             } else {
-                var tagFill = (isActivityMode && nodeDecay >= 0.75) ? textPrimary : (isActivityMode && nodeDecay < 0.35 ? bgHover : nodeColorTag)
+                var tagFill = (isActivityMode && nodeDecay >= 0.70) ? textHover : (isActivityMode && nodeDecay < 0.35 ? bgHover : (isActivityMode ? textSecondary : nodeColorTag))
                 ctx.fillStyle = tagFill
                 ctx.fill()
-                ctx.strokeStyle = (isActivityMode && nodeDecay >= 0.75) ? textHover : borderColor
+                ctx.strokeStyle = (isActivityMode && nodeDecay >= 0.70) ? textHover : borderColor
                 ctx.lineWidth = 1.0
                 ctx.stroke()
             }
@@ -332,10 +350,10 @@ function renderGraph(ctx, width, height, sim, state) {
                 ctx.lineWidth = 1.2
                 ctx.stroke()
             } else {
-                var blockFill = (isActivityMode && nodeDecay >= 0.75) ? textPrimary : (isActivityMode && nodeDecay < 0.35 ? bgHover : nodeColorBlock)
+                var blockFill = (isActivityMode && nodeDecay >= 0.70) ? textHover : (isActivityMode && nodeDecay < 0.35 ? bgHover : (isActivityMode ? textSecondary : nodeColorBlock))
                 ctx.fillStyle = blockFill
                 ctx.fill()
-                ctx.strokeStyle = (isActivityMode && nodeDecay >= 0.75) ? textHover : borderColor
+                ctx.strokeStyle = (isActivityMode && nodeDecay >= 0.70) ? textHover : borderColor
                 ctx.lineWidth = 1.0
                 ctx.stroke()
             }
@@ -369,10 +387,10 @@ function renderGraph(ctx, width, height, sim, state) {
                 ctx.lineWidth = 1.2
                 ctx.stroke()
             } else {
-                var fileFill = (isActivityMode && nodeDecay >= 0.75) ? textPrimary : (isActivityMode && nodeDecay < 0.35 ? bgHover : nodeColorFile)
+                var fileFill = (isActivityMode && nodeDecay >= 0.70) ? textHover : (isActivityMode && nodeDecay < 0.35 ? bgHover : (isActivityMode ? textSecondary : nodeColorFile))
                 ctx.fillStyle = fileFill
                 ctx.fill()
-                ctx.strokeStyle = (isActivityMode && nodeDecay >= 0.75) ? textHover : borderColor
+                ctx.strokeStyle = (isActivityMode && nodeDecay >= 0.70) ? textHover : borderColor
                 ctx.lineWidth = 1.0
                 ctx.stroke()
             }
