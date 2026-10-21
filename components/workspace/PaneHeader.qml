@@ -41,6 +41,7 @@ Item {
     property var modeStack: []
 
     function switchMode(targetMode) {
+        var oldMode = headerMode
         if (headerMode === targetMode) {
             // Если нажат хоткей своего же режима:
             // Достаём из стека последний открытый предыдущий режим (отличный от текущего)
@@ -59,6 +60,10 @@ Item {
                 modeStack.push(headerMode)
             }
             headerMode = targetMode
+        }
+
+        if (oldMode === "history" && headerMode !== "history" && headerHistoryBar) {
+            headerHistoryBar.goLive()
         }
 
         if (headerMode === "history" && headerHistoryBar) {
@@ -172,6 +177,7 @@ Item {
                     Layout.fillWidth: true
                     Layout.alignment: Qt.AlignVCenter
                     text: headerRoot.statsText
+                    font.family: Theme.fontFamily
                     font.pixelSize: 13
                     color: Theme.textSecondary
                     elide: Text.ElideRight

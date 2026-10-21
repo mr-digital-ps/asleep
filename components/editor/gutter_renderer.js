@@ -98,15 +98,29 @@ function drawGutterDots(canvas, editorArea, width, height, activeColor, textColo
         }
 
         if (r.y + r.height >= -40) {
-            var isHeader = isLiveMode && (blockStarts[i] !== undefined || collapsedLines[i] !== undefined)
-            var isBody = isLiveMode && (blockBodies[i] !== undefined) && !collapsedLines[blockBodies[i].startLine]
+            var isCollapsed = isLiveMode && (collapsedLines[i] !== undefined)
+            var isOpenHeader = isLiveMode && (blockStarts[i] !== undefined) && !isCollapsed
+            var isBody = isLiveMode && (blockBodies[i] !== undefined) && !isCollapsed && (!blockStarts[i] || !collapsedLines[blockStarts[i].startLine])
+            var isHr = isLiveMode && /^[ \t]*---[ \t]*$/.test(lines[i])
 
-            if (isHeader) {
-                // Line dot заголовка — крупнее обычных, показывает, что на этой строке стоит заголовок.
-                // Стрелка свёртки удалена по требованию пользователя.
+            if (isCollapsed) {
+                // Свёрнутый блок: крупная и яркая точка свёртки activeColor
                 ctx.beginPath()
                 ctx.arc(centerX, dotY, headerDotRadius, 0, 2 * Math.PI)
                 ctx.fillStyle = activeColor
+                ctx.fill()
+            } else if (isOpenHeader) {
+                // Заголовок открытого блока: крупная точка (headerDotRadius), визуально выделяющая заголовок,
+                // но в спокойном цвете линии (textColor). Ярче (activeColor) становится, если курсор на строке.
+                ctx.beginPath()
+                ctx.arc(centerX, dotY, headerDotRadius, 0, 2 * Math.PI)
+                ctx.fillStyle = isCurrentLine ? activeColor : textColor
+                ctx.fill()
+            } else if (isHr) {
+                // Разделитель '---': крупная точка (headerDotRadius), как и у заголовка блока
+                ctx.beginPath()
+                ctx.arc(centerX, dotY, headerDotRadius, 0, 2 * Math.PI)
+                ctx.fillStyle = isCurrentLine ? activeColor : textColor
                 ctx.fill()
             } else if (isBody) {
                 // Строка внутри тела блока: вертикальная линия уже перекрывает точку тем же цветом и диаметром.

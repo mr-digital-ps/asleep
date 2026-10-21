@@ -1,8 +1,9 @@
 import json
 import copy
+import math
 from pathlib import Path
 from PyQt6.QtCore import QObject, pyqtSignal, QFileSystemWatcher, QTimer, Qt, QEvent
-from PyQt6.QtGui import QKeyEvent
+from PyQt6.QtGui import QKeyEvent, QGuiApplication, QMouseEvent
 
 from services.storage.config_service import parse_json_with_comments
 from services.system.key_mapper import (
@@ -165,6 +166,35 @@ class GlobalHotkeyFilter(QObject):
         self.matcher = HotkeyMatcher(self.hotkey_service.get_hotkeys())
         self.hotkey_service.hotkeys_changed.connect(self._on_hotkeys_changed)
         self._consumed_alt = False
+        self._is_window_dragging = False
+        self._window_drag_started = False
+        self._target_win = None
+        self._press_pos = None
+        self._last_pos = None
+
+    def _find_window(self, obj, event):
+        if hasattr(obj, "startSystemMove") and hasattr(obj, "setX"):
+            return obj
+        pt = event.globalPosition().toPoint()
+        return QGuiApplication.topLevelAt(pt) or QGuiApplication.activeWindow()
+
+    def _is_drag_enabled(self) -> bool:
+        if self.backend and hasattr(self.backend, "get_app_config"):
+            try:
+                cfg = self.backend.get_app_config()
+                return bool(cfg.get("window_drag_enabled", True))
+            except Exception:
+                pass
+        return True
+
+    def _get_drag_deadzone(self) -> float:
+        if self.backend and hasattr(self.backend, "get_app_config"):
+            try:
+                cfg = self.backend.get_app_config()
+                return float(cfg.get("window_drag_deadzone", 3.0))
+            except Exception:
+                pass
+        return 3.0
 
     def _on_hotkeys_changed(self, hotkeys: dict):
         self.matcher = HotkeyMatcher(hotkeys)
@@ -173,10 +203,84 @@ class GlobalHotkeyFilter(QObject):
         if not a1:
             return super().eventFilter(a0, a1)
         evt_type = a1.type()
-        if evt_type == QEvent.Type.KeyPress and isinstance(a1, QKeyEvent):
+
+        # 1. Перемещение окна приложения по экрану ОС (Alt + ЛКМ или ПКМ)
+        if evt_type == QEvent.Type.MouseButtonPress and isinstance(a1, QMouseEvent):
+            if not self._is_drag_enabled():
+                return super().eventFilter(a0, a1)
+
+            btn = a1.button()
+            mods = a1.modifiers()
+            is_alt = bool(mods & Qt.KeyboardModifier.AltModifier)
+            win = self._find_window(a0, a1)
+
+            # Alt + ЛКМ: нативное перемещение окна в Windows через startSystemMove
+            if btn == Qt.MouseButton.LeftButton and is_alt:
+                if win:
+                    if hasattr(win, "visibility") and win.property("visibility") == 4:
+                        win.showNormal()
+                    if hasattr(win, "startSystemMove") and win.startSystemMove():
+                        a1.accept()
+                        return True
+
+            # ПКМ драг: перемещение окна приложения по рабочему столу ОС
+            elif btn == Qt.MouseButton.RightButton:
+                if win:
+                    self._is_window_dragging = True
+                    self._window_drag_started = False
+                    self._target_win = win
+                    self._press_pos = a1.globalPosition()
+                    self._last_pos = a1.globalPosition()
+                    a1.accept()
+                    return True
+
+        elif evt_type == QEvent.Type.MouseMove and isinstance(a1, QMouseEvent):
+            if self._is_window_dragging and self._target_win and self._last_pos is not None:
+                cur = a1.globalPosition()
+                if not self._window_drag_started and self._press_pos is not None:
+                    dist = math.hypot(cur.x() - self._press_pos.x(), cur.y() - self._press_pos.y())
+                    if dist >= self._get_drag_deadzone():
+                        self._window_drag_started = True
+
+                if self._window_drag_started:
+                    dx = int(cur.x() - self._last_pos.x())
+                    dy = int(cur.y() - self._last_pos.y())
+                    if dx != 0 or dy != 0:
+                        if hasattr(self._target_win, "visibility") and self._target_win.property("visibility") == 4:
+                            self._target_win.showNormal()
+                        self._target_win.setX(self._target_win.x() + dx)
+                        self._target_win.setY(self._target_win.y() + dy)
+                        self._last_pos = cur
+                    a1.accept()
+                    return True
+
+        elif evt_type == QEvent.Type.MouseButtonRelease and isinstance(a1, QMouseEvent):
+            if self._is_window_dragging:
+                self._is_window_dragging = False
+                self._window_drag_started = False
+                self._target_win = None
+                self._press_pos = None
+                self._last_pos = None
+                a1.accept()
+                return True
+
+        # 2. Обработка клавиатурных хоткеев
+        elif evt_type == QEvent.Type.KeyPress and isinstance(a1, QKeyEvent):
             # Пропускаем нажатия самих клавиш-модификаторов (Ctrl, Alt, Shift, Meta) без символа
             if a1.key() in (Qt.Key.Key_Control.value, Qt.Key.Key_Shift.value, Qt.Key.Key_Alt.value, Qt.Key.Key_Meta.value):
                 return super().eventFilter(a0, a1)
+
+            # Режим «Рука» (Space-панорамирование холста): активируется при зажатом пробеле вне текстового поля
+            if a1.key() == Qt.Key.Key_Space.value and not a1.isAutoRepeat():
+                focus_obj = QGuiApplication.focusObject()
+                is_text_input = focus_obj is not None and (
+                    focus_obj.inherits("QQuickTextEdit") or "TextEdit" in focus_obj.metaObject().className()
+                )
+                if not is_text_input:
+                    if hasattr(self.backend, "spacePanToggled"):
+                        self.backend.spacePanToggled.emit(True)
+                    a1.accept()
+                    return True
 
             action = self.matcher.match_event(a1)
             if action:
@@ -196,6 +300,10 @@ class GlobalHotkeyFilter(QObject):
                 return True
 
         elif evt_type == QEvent.Type.KeyRelease and isinstance(a1, QKeyEvent):
+            if a1.key() == Qt.Key.Key_Space.value and not a1.isAutoRepeat():
+                if hasattr(self.backend, "spacePanToggled"):
+                    self.backend.spacePanToggled.emit(False)
+
             if a1.key() == Qt.Key.Key_Alt.value and self._consumed_alt:
                 self._consumed_alt = False
                 a1.accept()

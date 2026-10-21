@@ -167,6 +167,8 @@ ApplicationWindow {
 
     onWidthChanged: saveGeomTimer.restart()
     onHeightChanged: saveGeomTimer.restart()
+    onXChanged: saveGeomTimer.restart()
+    onYChanged: saveGeomTimer.restart()
 
     Component.onCompleted: {
         if (typeof backend !== "undefined" && backend && typeof backend.get_session_config === "function") {

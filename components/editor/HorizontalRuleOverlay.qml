@@ -53,8 +53,25 @@ Item {
         function onWidthChanged() { hrOverlay.updateRules() }
         function onHeightChanged() { hrOverlay.updateRules() }
         function onContentHeightChanged() { hrOverlay.updateRules() }
+        function onVisibleChanged() {
+            if (hrOverlay.editorArea && hrOverlay.editorArea.visible) {
+                hrOverlay.updateRules()
+            }
+        }
     }
 
+    Connections {
+        target: hrOverlay.parent
+        function onVisibleChanged() {
+            if (hrOverlay.parent && hrOverlay.parent.visible) {
+                hrOverlay.updateRules()
+            }
+        }
+    }
+
+    onVisibleChanged: {
+        if (visible) updateRules()
+    }
     onIsLiveModeChanged: updateRules()
     Component.onCompleted: updateRules()
 

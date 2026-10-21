@@ -52,6 +52,9 @@ Item {
     function toggleInfoMode() {
         if (paneHeader) {
             paneHeader.toggleInfoMode()
+            if (paneHeader.headerMode === "info") {
+                workspacePane.updateStats()
+            }
         }
     }
 
@@ -133,15 +136,34 @@ Item {
     property alias paperSheet: paperSheet
     property alias editorCanvas: paperSheet.editorCanvas
 
-    property string statsString: "0 слов · 0 знаков"
+    readonly property real canvasX: parent ? parent.x : 0
+    readonly property real canvasY: parent ? parent.y : 0
+
+    property string statsString: "0 слов · 0 знаков · ~0 мин · 0 блоков · Стр 1:1 · (0, 0)"
+
+    function updateStats() {
+        var txt = (paperSheet && paperSheet.text) ? paperSheet.text : ""
+        var bCount = (paperSheet && paperSheet.editorCanvas && paperSheet.editorCanvas.blocks) ? paperSheet.editorCanvas.blocks.length : 0
+        var cPos = editorArea ? editorArea.cursorPosition : 0
+        workspacePane.statsString = Controller.calculateStats(txt, bCount, cPos, canvasX, canvasY)
+    }
+
+    onCanvasXChanged: {
+        if (paneHeader && paneHeader.headerMode === "info") {
+            updateStats()
+        }
+    }
+    onCanvasYChanged: {
+        if (paneHeader && paneHeader.headerMode === "info") {
+            updateStats()
+        }
+    }
 
     Timer {
         id: statsUpdateTimer
         interval: 300
         repeat: false
-        onTriggered: {
-            workspacePane.statsString = Controller.calculateStats((paperSheet && paperSheet.text) ? paperSheet.text : "")
-        }
+        onTriggered: workspacePane.updateStats()
     }
 
     function saveHeaderPinnedState(pinned) {
@@ -224,11 +246,26 @@ Item {
             let curPos = editorArea.cursorPosition
             editorArea.text = newTxt
             editorArea.cursorPosition = Math.min(curPos, newTxt.length)
+            if (paperSheet && typeof paperSheet.reapplyEditorStyling === "function") {
+                paperSheet.reapplyEditorStyling()
+            }
         }
     }
 
     function toggleFullWidth() {
         Controller.toggleFullWidth(workspacePane, editorScroll, (typeof backend !== "undefined" ? backend : null))
+    }
+
+    function handleOpenLink(target, linkType) {
+        if (!target) return
+        if (linkType === "url") {
+            Qt.openUrlExternally(target)
+            return
+        }
+        workspacePane.saveRequested()
+        if (typeof backend !== "undefined" && backend && typeof backend.open_wiki_link === "function") {
+            backend.open_wiki_link(target, workspacePane.folderUrl, workspacePane.fileUrl)
+        }
     }
 
     function applyConfig(cfg) {
@@ -282,6 +319,9 @@ Item {
             editorArea.text = res.text
             editorArea.cursorPosition = res.cursor
             workspacePane.isReceivingExternalSync = false
+            if (paperSheet && typeof paperSheet.reapplyEditorStyling === "function") {
+                paperSheet.reapplyEditorStyling()
+            }
         }
     }
 
@@ -297,6 +337,9 @@ Item {
             var bName = (b && b.heading) ? b.heading : ""
             if (workspacePane._editorBlockName !== bName) {
                 workspacePane._editorBlockName = bName
+            }
+            if (paneHeader && paneHeader.headerMode === "info") {
+                workspacePane.updateStats()
             }
         }
     }
@@ -380,6 +423,11 @@ Item {
             ? 0
             : -Math.min(paneHeader.height, workspacePane.scrollY)
 
+        onHeaderModeChanged: {
+            if (headerMode === "info") {
+                workspacePane.updateStats()
+            }
+        }
         onTitleCommitted: (newTitle) => workspacePane.titleChangedByUser(newTitle)
         onPaneActivated: workspacePane.paneActivated()
         onPinToggled: {
@@ -498,6 +546,7 @@ Item {
                 viewHeight: paneBody.height
                 editorScroll: editorScroll
 
+                    onOpenLinkRequested: (target, linkType) => workspacePane.handleOpenLink(target, linkType)
                     onTitleChangedByUser: (t) => workspacePane.titleChangedByUser(t)
                     onPaneActivated: workspacePane.paneActivated()
                     onCloseRequested: workspacePane.closeRequested()

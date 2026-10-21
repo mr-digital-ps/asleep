@@ -20,6 +20,11 @@ Rectangle {
     property alias workspace: canvasLayout
     readonly property var editorArea: canvasLayout.activeEditorArea
     readonly property bool isGraphVisible: canvasLayout.isGraphVisible
+    onIsGraphVisibleChanged: {
+        if (typeof backend !== "undefined" && backend && typeof backend.set_graph_active === "function") {
+            backend.set_graph_active(isGraphVisible)
+        }
+    }
     readonly property string currentFileUrl: canvasLayout.activePane ? canvasLayout.activePane.fileUrl : ""
     readonly property string currentFileName: canvasLayout.activePane ? canvasLayout.activePane.fileName : ""
     property bool initialStateApplied: false
@@ -46,14 +51,39 @@ Rectangle {
     }
     function handleGlobalKeyEvent(event) {
         if (hotkeys.handleKeyEvent(event)) return true
-        if (event.key === Qt.Key_Escape && isGraphVisible) {
-            closeGraph()
-            event.accepted = true
-            return true
+        if (event.key === Qt.Key_Escape) {
+            if (isGraphVisible) {
+                closeGraph()
+                event.accepted = true
+                return true
+            } else if (editorArea && editorArea.activeFocus) {
+                root.focus = true
+                event.accepted = true
+                return true
+            }
         }
         return false
     }
-    Keys.onPressed: (event) => handleGlobalKeyEvent(event)
+    Keys.onPressed: (event) => {
+        if (event.key === Qt.Key_Space && !event.isAutoRepeat) {
+            if (!editorArea || !editorArea.activeFocus) {
+                canvasLayout.isSpacePanning = true
+                event.accepted = true
+                return
+            }
+        }
+        handleGlobalKeyEvent(event)
+    }
+    Keys.onReleased: (event) => {
+        if (event.key === Qt.Key_Space && !event.isAutoRepeat) {
+            canvasLayout.isSpacePanning = false
+            event.accepted = true
+            return
+        }
+    }
+    onActiveFocusChanged: {
+        if (!activeFocus) canvasLayout.isSpacePanning = false
+    }
     Component.onCompleted: Qt.callLater(function() { Lifecycle.initialize(root, backend) })
 
     Timer {
@@ -75,10 +105,26 @@ Rectangle {
                     if (block) {
                         Qt.callLater(function() {
                             if (panel && panel.pane && panel.pane.editorArea) {
-                                var index = panel.pane.text.indexOf(block)
-                                if (index >= 0) panel.pane.editorArea.cursorPosition = Math.min(index, panel.pane.editorArea.length)
+                                var fullText = panel.pane.text
+                                var targetIdx = -1
+                                var pattern = new RegExp("(^|\\n)\\s*" + block.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&") + "\\s*(\\{|\\()", "m")
+                                var match = fullText.match(pattern)
+                                if (match) {
+                                    targetIdx = match.index + (match[1] ? match[1].length : 0)
+                                } else {
+                                    targetIdx = fullText.indexOf(block)
+                                }
+                                if (targetIdx >= 0) {
+                                    panel.pane.editorArea.cursorPosition = Math.min(targetIdx, panel.pane.editorArea.length)
+                                    panel.pane.editorArea.forceActiveFocus()
+                                    if (typeof panel.pane.requestEnsureCursorVisible === "function") {
+                                        panel.pane.requestEnsureCursorVisible()
+                                    }
+                                }
                             }
                         })
+                    } else if (panel && panel.pane && panel.pane.editorArea) {
+                        panel.pane.editorArea.forceActiveFocus()
                     }
                 }
             }
@@ -89,6 +135,7 @@ Rectangle {
             autoSaveTimer.interval = backend.get_app_config().auto_save_delay_ms || 1000
             root.targetFps = backend.get_target_fps()
         }
+        function onSpacePanToggled(active) { canvasLayout.isSpacePanning = active }
         function onActionRequested(action) {
             var isSingle = (typeof backend !== "undefined" && backend && typeof backend.get_window_count === "function") ? (backend.get_window_count() <= 1) : true
             if (!root.appWindow || root.appWindow.active || isSingle) root.executeAction(action)

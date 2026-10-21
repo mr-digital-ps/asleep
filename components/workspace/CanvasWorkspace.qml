@@ -12,6 +12,7 @@ Rectangle {
     property real savedPanX: 0
     property real savedPanY: 0
     property bool isTileFocusActive: false
+    property bool isSpacePanning: false
 
     ParallelAnimation {
         id: cameraAnim
@@ -243,12 +244,26 @@ Rectangle {
     function navigatePanel(panel, url, title, block) {
         return Documents.navigatePanel(canvasWorkspaceRoot, backend, panel, url, title, block)
     }
-    function centerActive() {
-        if (!activePanel) return
+    function centerActive(animated) {
+        if (!activePanel) {
+            if (animated) {
+                camPanXAnim.to = 0; camPanXAnim.restart()
+                camPanYAnim.to = 0; camPanYAnim.restart()
+            } else {
+                canvasWorkspaceRoot.panX = 0
+                canvasWorkspaceRoot.panY = 0
+            }
+            return
+        }
         var cx = activePanel.x + activePanel.width / 2
         var cy = activePanel.y + activePanel.height / 2
-        canvasWorkspaceRoot.panX = -cx
-        canvasWorkspaceRoot.panY = -cy
+        if (animated) {
+            camPanXAnim.to = -cx; camPanXAnim.restart()
+            camPanYAnim.to = -cy; camPanYAnim.restart()
+        } else {
+            canvasWorkspaceRoot.panX = -cx
+            canvasWorkspaceRoot.panY = -cy
+        }
     }
     function applyConfig(config) { panels.forEach(function(p) { p.pane.applyConfig(config) }) }
     function applySessionConfig(sess) {
@@ -263,12 +278,41 @@ Rectangle {
         })
     }
 
-    // 1. Управление камерой холста (Панорамирование средней кнопкой или Drag по фону)
+    // 1. Управление камерой холста (Панорамирование ЛКМ по свободному фону, средней кнопкой или правой кнопкой)
     MouseArea {
         id: canvasBackgroundDrag
         anchors.fill: parent
-        acceptedButtons: Qt.MiddleButton | Qt.RightButton
-        cursorShape: pressed ? Qt.ClosedHandCursor : Qt.ArrowCursor
+        acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
+        cursorShape: pressed ? Qt.ClosedHandCursor : (canvasWorkspaceRoot.isSpacePanning ? Qt.OpenHandCursor : Qt.ArrowCursor)
+
+        property real lastMouseX: 0
+        property real lastMouseY: 0
+
+        onPressed: (mouse) => {
+            lastMouseX = mouse.x
+            lastMouseY = mouse.y
+        }
+
+        onPositionChanged: (mouse) => {
+            if (pressed) {
+                var dx = mouse.x - lastMouseX
+                var dy = mouse.y - lastMouseY
+                canvasWorkspaceRoot.panX += dx
+                canvasWorkspaceRoot.panY += dy
+                lastMouseX = mouse.x
+                lastMouseY = mouse.y
+            }
+        }
+    }
+
+    // 1.1 Режим «Рука» (Space + Drag): глобальный прозрачный оверлей панорамирования поверх всех панелей
+    MouseArea {
+        id: spacePanOverlay
+        anchors.fill: parent
+        z: canvasWorkspaceRoot.nextZ + 1000
+        visible: canvasWorkspaceRoot.isSpacePanning
+        acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
+        cursorShape: pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
 
         property real lastMouseX: 0
         property real lastMouseY: 0

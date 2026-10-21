@@ -98,6 +98,8 @@ class DialectHighlighter(QSyntaxHighlighter):
         self.re_list = re.compile(r"^[ \t]*([-+])[ \t]+")
         # Вики-ссылки [[Цель]] (строго без алиасов)
         self.re_wikilink = re.compile(r"\[\[([^\]\n]+)\]\]")
+        # Веб-ссылки (URL)
+        self.re_url = re.compile(r"https?://[^\s\)\"\'<>]+")
         # Теги #тег
         self.re_tag = re.compile(r"(?<!\S)#([a-zA-Zа-яА-ЯёЁ0-9_\-]+)(?!\S)")
         # Скобки блоков {}
@@ -151,6 +153,10 @@ class DialectHighlighter(QSyntaxHighlighter):
             self._safe_set_format(m.start(), 2, self.fmt_delimiter)
             self._safe_set_format(m.start(1), m.end(1) - m.start(1), self.fmt_wikilink)
             self._safe_set_format(m.end() - 2, 2, self.fmt_delimiter)
+
+        # 4.1 Веб-ссылки (URL)
+        for m in self.re_url.finditer(text):
+            self._safe_set_format(m.start(), m.end() - m.start(), self.fmt_wikilink)
 
         # 5. Теги #тег (только '#' затемнён, текст тега остаётся нормальным основным цветом)
         for m in self.re_tag.finditer(text):

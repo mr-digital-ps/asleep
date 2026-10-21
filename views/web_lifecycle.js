@@ -55,6 +55,9 @@ function dispatchAction(root, backend, action) {
     case "tile_restore":
         if (workspace && typeof workspace.tileRestore === "function") workspace.tileRestore()
         break
+    case "center_canvas":
+        if (workspace && typeof workspace.centerActive === "function") workspace.centerActive(true)
+        break
     case "tile_workspace":
         if (workspace && typeof workspace.tileWorkspace === "function") workspace.tileWorkspace()
         break

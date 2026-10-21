@@ -473,7 +473,7 @@ def test_qml():
     from PyQt6.QtWidgets import QApplication
     from PyQt6.QtQml import QQmlApplicationEngine, QQmlComponent
     from PyQt6.QtCore import QUrl, QObject, QEvent, Qt
-    from PyQt6.QtGui import QKeyEvent
+    from PyQt6.QtGui import QKeyEvent, QTextCursor
     from web import Backend
 
     app = QApplication.instance() or QApplication(sys.argv)
@@ -541,6 +541,7 @@ def test_qml():
     assert pane_graph.property("showBlocks") == init_blocks, "Повторное нажатие B должно восстанавливать видимость блоков"
     pane_header = primary_bar.property("paneHeader")
     assert pane_header is not None, "paneHeader должен быть доступен через свойство"
+    primary_bar.setProperty("showHeader", True)
     primary_bar.setProperty("isHeaderPinned", True)
     assert pane_header.property("visible") is True, "Закрепленный header должен оставаться видимым в режиме графа"
     primary_bar.setProperty("isHeaderPinned", False)
@@ -627,6 +628,43 @@ def test_qml():
     assert "СозданныйБлок {\n    Мой текст\n}" in text_init_live, "Созданный блок при первом входе в Live Mode должен быть открытым"
     assert "Внешний.Импорт ...." in text_init_live, "Импортированный блок при первом входе в Live Mode должен быть скрытым (....)"
 
+    # 2.3.2. Проверка сохранения line height (135.0%) и перехода в/из режима истории
+    p_sheet = primary_bar.property("paperSheet")
+    p_area = p_sheet.property("editorArea")
+    p_header = primary_bar.property("paneHeader")
+    backend.set_editor_line_height(p_area, 135.0)
+    app.processEvents()
+    p_doc = p_area.property("textDocument").textDocument()
+    assert QTextCursor(p_doc).blockFormat().lineHeight() == 135.0, "Line height должен быть 135.0%"
+
+    # Переход в снапшот истории
+    orig_snap_fetcher = getattr(backend, "get_history_file_content", None)
+    backend.get_history_file_content = lambda *_: "Снапшот из прошлого\nВторая строка"
+    p_sheet.loadHistoricalSnapshot(999)
+    app.processEvents()
+    assert p_area.property("readOnly") is True, "В режиме снапшота редактор должен быть readOnly"
+    assert QTextCursor(p_doc).blockFormat().lineHeight() == 135.0, "Line height должен восстанавливаться после загрузки снапшота"
+
+    # Возврат в Live
+    p_sheet.restoreLive()
+    app.processEvents()
+    assert p_area.property("readOnly") is False, "После restoreLive редактор должен стать редактируемым"
+    assert QTextCursor(p_doc).blockFormat().lineHeight() == 135.0, "Line height должен оставаться 135.0% в Live"
+
+    # Проверка выхода из режима History через переключение режима в хедере
+    p_header.switchMode("history")
+    app.processEvents()
+    assert p_header.property("headerMode") == "history"
+    p_header.snapshotSelected.emit(999)
+    app.processEvents()
+    assert p_area.property("readOnly") is True, "При выборе снапшота редактор должен быть readOnly"
+    p_header.switchMode("title")
+    app.processEvents()
+    assert p_header.property("headerMode") == "title"
+    assert p_area.property("readOnly") is False, "Переключение хедера из режима истории должно возвращать в Live"
+    if orig_snap_fetcher:
+        backend.get_history_file_content = orig_snap_fetcher
+
     # Проверка тайлинга и магнетизма к границам экрана камеры
     act_p = workspace.property("activePanel")
     assert act_p is not None, "Должна быть активная панель на холсте"
@@ -670,6 +708,40 @@ def test_qml():
     assert act_p.property("tileState") == "none", "tileRestore должен сбрасывать тайлинг"
     assert workspace.property("isTileFocusActive") is False, "При снятии тайлинга Focus Mode должен деактивироваться"
     assert abs(workspace.property("savedZoomScale") - 0.5) < 0.001, "Исходный масштаб 0.5 должен быть сохранен для возврата"
+
+    # Проверка навигации холста: центрирование (centerActive) и режим «Рука» (isSpacePanning)
+    workspace.setProperty("panX", 500)
+    workspace.setProperty("panY", 500)
+    workspace.centerActive(False)
+    assert workspace.property("panX") != 500 or workspace.property("panY") != 500, "centerActive должен перемещать камеру холста к активной панели"
+    assert workspace.property("isSpacePanning") is False, "isSpacePanning по умолчанию должен быть false"
+    backend.spacePanToggled.emit(True)
+    assert workspace.property("isSpacePanning") is True, "Сигнал spacePanToggled(True) должен переключать isSpacePanning в true"
+    backend.spacePanToggled.emit(False)
+    assert workspace.property("isSpacePanning") is False, "Сигнал spacePanToggled(False) должен сбрасывать isSpacePanning"
+
+    # Проверка работы GlobalHotkeyFilter для перемещения окна приложения по экрану ОС (ПКМ и Alt + ЛКМ)
+    from PyQt6.QtGui import QMouseEvent
+    from PyQt6.QtCore import QPointF
+    p_start = QPointF(200, 200)
+    p_end = QPointF(250, 260)
+    app_win = objects[0]
+    orig_win_x = app_win.x()
+    orig_win_y = app_win.y()
+
+    # 1. ПКМ драг перемещает окно приложения по рабочему столу
+    ev_rmb_press = QMouseEvent(QEvent.Type.MouseButtonPress, p_start, p_start, Qt.MouseButton.RightButton, Qt.MouseButton.RightButton, Qt.KeyboardModifier.NoModifier)
+    ev_rmb_move = QMouseEvent(QEvent.Type.MouseMove, p_end, p_end, Qt.MouseButton.RightButton, Qt.MouseButton.RightButton, Qt.KeyboardModifier.NoModifier)
+    ev_rmb_rel = QMouseEvent(QEvent.Type.MouseButtonRelease, p_end, p_end, Qt.MouseButton.RightButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+    assert backend.hotkey_filter.eventFilter(app_win, ev_rmb_press) is True, "ПКМ press должен перехватываться фильтром окна"
+    assert backend.hotkey_filter.eventFilter(app_win, ev_rmb_move) is True, "ПКМ move должен перехватываться фильтром окна"
+    assert backend.hotkey_filter.eventFilter(app_win, ev_rmb_rel) is True, "ПКМ release должен перехватываться фильтром окна"
+    assert app_win.x() == orig_win_x + 50 and app_win.y() == orig_win_y + 60, "ПКМ драг должен перемещать окно по экрану ОС"
+
+    # 2. Alt + ЛКМ инициирует нативное системное перемещение окна ОС
+    ev_alt_press = QMouseEvent(QEvent.Type.MouseButtonPress, p_start, p_start, Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.AltModifier)
+    assert backend.hotkey_filter.eventFilter(app_win, ev_alt_press) is True, "Alt+ЛКМ press должен вызывать startSystemMove и перехватываться"
+
 
     # Multiple independent canvas documents, duplicate opens and failed saves.
     import tempfile

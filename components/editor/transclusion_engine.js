@@ -99,21 +99,36 @@ function collapseTransclusions(text, activeMap) {
     for (var key in activeMap) {
         var item = activeMap[key]
         var targetHeader = item.header + " {"
+        var collapsedTarget = item.header + " ...."
 
-        for (var i = 0; i < lines.length; i++) {
-            if (lines[i].indexOf(targetHeader) !== -1) {
-                // Ищем парную закрывающую скобку } блока
-                var closeIdx = -1
-                for (var j = i + 1; j < lines.length; j++) {
-                    if (lines[j].trim() === "}") {
-                        closeIdx = j
+        // 1. Восстанавливаем свернутые заголовки трансклюзий (на случай, если они не были развернуты)
+        for (var k = 0; k < lines.length; k++) {
+            if (lines[k].trim() === collapsedTarget) {
+                lines[k] = item.rawCall
+                changed = true
+            }
+        }
+
+        // 2. Сворачиваем развернутые тела трансклюзий обратно в rawCall
+        var foundAny = true
+        while (foundAny) {
+            foundAny = false
+            for (var i = 0; i < lines.length; i++) {
+                if (lines[i].indexOf(targetHeader) !== -1) {
+                    // Ищем парную закрывающую скобку } блока
+                    var closeIdx = -1
+                    for (var j = i + 1; j < lines.length; j++) {
+                        if (lines[j].trim() === "}") {
+                            closeIdx = j
+                            break
+                        }
+                    }
+                    if (closeIdx !== -1) {
+                        lines = lines.slice(0, i).concat([item.rawCall]).concat(lines.slice(closeIdx + 1))
+                        changed = true
+                        foundAny = true
                         break
                     }
-                }
-                if (closeIdx !== -1) {
-                    lines = lines.slice(0, i).concat([item.rawCall]).concat(lines.slice(closeIdx + 1))
-                    changed = true
-                    break
                 }
             }
         }

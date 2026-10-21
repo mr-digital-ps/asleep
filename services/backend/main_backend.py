@@ -40,6 +40,7 @@ class Backend(
     appConfigChanged = pyqtSignal()
     historyUpdated = pyqtSignal()
     noteOpened = pyqtSignal(str, str)  # (file_url, block_name) — прямой фасад навигации по ссылкам
+    spacePanToggled = pyqtSignal(bool)  # Сигнал активации/деактивации режима панорамирования холста по Space
 
     def __init__(self):
         super().__init__()
@@ -62,6 +63,7 @@ class Backend(
         self.folder_watcher.directoryChanged.connect(self._on_directory_changed)
         self._current_folder: Path | None = None
         self._is_syncing_files = False
+        self.is_graph_active: bool = False
         self._last_config_mtime: int = 0
         self._last_user_files_snapshot: dict = {}
 
@@ -243,6 +245,11 @@ class Backend(
     def get_action_keys(self, action: str) -> list:
         """Возвращает комбинации клавиш для указанного действия"""
         return self.hotkey_service.get_action_keys(action)
+
+    @pyqtSlot(bool)
+    def set_graph_active(self, active: bool):
+        """Синхронизирует активное состояние графа связей для фильтрации жестов мыши"""
+        self.is_graph_active = active
 
     @pyqtSlot(str, str)
     def log_event(self, tag: str, message: str):

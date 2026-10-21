@@ -29,5 +29,11 @@
   "window_min_height": 400,
   "window_resize_margin": 8,
   "window_corner_margin": 16,
-  "window_save_geometry_delay_ms": 600
+  "window_save_geometry_delay_ms": 600,
+
+  // Перемещение окна приложения по экрану ОС:
+  // window_drag_enabled — включить/отключить перетаскивание окна по экрану (Alt+ЛКМ и ПКМ)
+  // window_drag_deadzone — мертвая зона мыши (в пикселях) для ПКМ перед началом перемещения
+  "window_drag_enabled": true,
+  "window_drag_deadzone": 3.0
 }

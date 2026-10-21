@@ -86,8 +86,22 @@ function navigatePanel(workspace, backend, panel, url, title, block) {
             if (block && other.pane.editorArea) {
                 Qt.callLater(function() {
                     if (other && other.pane && other.pane.editorArea) {
-                        var idx = other.pane.text.indexOf(block)
-                        if (idx >= 0) other.pane.editorArea.cursorPosition = Math.min(idx, other.pane.editorArea.length)
+                        var fullText = other.pane.text
+                        var targetIdx = -1
+                        var pattern = new RegExp("(^|\\n)\\s*" + block.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&") + "\\s*(\\{|\\()", "m")
+                        var match = fullText.match(pattern)
+                        if (match) {
+                            targetIdx = match.index + (match[1] ? match[1].length : 0)
+                        } else {
+                            targetIdx = fullText.indexOf(block)
+                        }
+                        if (targetIdx >= 0) {
+                            other.pane.editorArea.cursorPosition = Math.min(targetIdx, other.pane.editorArea.length)
+                            other.pane.editorArea.forceActiveFocus()
+                            if (typeof other.pane.requestEnsureCursorVisible === "function") {
+                                other.pane.requestEnsureCursorVisible()
+                            }
+                        }
                     }
                 })
             }
@@ -104,8 +118,22 @@ function navigatePanel(workspace, backend, panel, url, title, block) {
     if (block && panel.pane.editorArea) {
         Qt.callLater(function() {
             if (panel && panel.pane && panel.pane.editorArea) {
-                var index = panel.pane.text.indexOf(block)
-                if (index >= 0) panel.pane.editorArea.cursorPosition = Math.min(index, panel.pane.editorArea.length)
+                var fullText = panel.pane.text
+                var targetIdx = -1
+                var pattern = new RegExp("(^|\\n)\\s*" + block.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&") + "\\s*(\\{|\\()", "m")
+                var match = fullText.match(pattern)
+                if (match) {
+                    targetIdx = match.index + (match[1] ? match[1].length : 0)
+                } else {
+                    targetIdx = fullText.indexOf(block)
+                }
+                if (targetIdx >= 0) {
+                    panel.pane.editorArea.cursorPosition = Math.min(targetIdx, panel.pane.editorArea.length)
+                    panel.pane.editorArea.forceActiveFocus()
+                    if (typeof panel.pane.requestEnsureCursorVisible === "function") {
+                        panel.pane.requestEnsureCursorVisible()
+                    }
+                }
             }
         })
     }

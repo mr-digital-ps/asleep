@@ -1,20 +1,56 @@
 // components/workspace/pane_controller.js — Контроллер рабочей области панели (скролл, режимы, конфиг, статистика)
 .import "../editor/frontmatter_service.js" as Frontmatter
 
-function calculateStats(text) {
+function pluralize(n, one, few, many) {
+    var abs = Math.abs(n) % 100
+    var rem = abs % 10
+    if (abs > 10 && abs < 20) return many
+    if (rem > 1 && rem < 5) return few
+    if (rem === 1) return one
+    return many
+}
+
+function formatNumber(num) {
+    return String(num).replace(/\B(?=(\d{3})+(?!\d))/g, " ")
+}
+
+function calculateStats(text, blockCount, cursorPos, canvasX, canvasY) {
     var txt = text || ""
     var words = 0
     var trimmed = txt.trim()
     if (trimmed.length > 0) {
         words = trimmed.split(/\s+/).length
     }
-    var bytes = 0
-    try {
-        bytes = encodeURI(txt).split(/%..|./).length - 1
-    } catch(e) {
-        bytes = txt.length
+    var chars = txt.length
+    var readMin = Math.max(1, Math.round(words / 200))
+    if (words === 0) readMin = 0
+    var bCount = (typeof blockCount === "number") ? blockCount : 0
+
+    // Позиция курсора (Стр:Кол)
+    var line = 1
+    var col = 1
+    var pos = (typeof cursorPos === "number") ? Math.min(cursorPos, txt.length) : 0
+    if (pos > 0 && txt.length > 0) {
+        var textBefore = txt.substring(0, pos)
+        var lastNewline = textBefore.lastIndexOf("\n")
+        var lines = textBefore.split("\n")
+        line = lines.length
+        col = (lastNewline === -1) ? (pos + 1) : (pos - lastNewline)
     }
-    return words + " слов · " + txt.length + " знаков · " + bytes + " байт"
+
+    var cx = (typeof canvasX === "number") ? Math.round(canvasX) : 0
+    var cy = (typeof canvasY === "number") ? Math.round(canvasY) : 0
+
+    var parts = [
+        formatNumber(words) + " " + pluralize(words, "слово", "слова", "слов"),
+        formatNumber(chars) + " " + pluralize(chars, "знак", "знака", "знаков"),
+        "~" + readMin + " мин",
+        bCount + " " + pluralize(bCount, "блок", "блока", "блоков"),
+        "Стр " + line + ":" + col,
+        "(" + cx + ", " + cy + ")"
+    ]
+
+    return parts.join(" · ")
 }
 
 function stripExt(name) {
@@ -228,6 +264,22 @@ function handleGraphModeChanged(mainBar, editorScroll, sheetGraphView, editorAre
                 if (editorArea) {
                     editorArea.forceActiveFocus()
                 }
+                if (mainBar.paperSheet) {
+                    if (typeof mainBar.paperSheet.reapplyEditorStyling === "function") {
+                        mainBar.paperSheet.reapplyEditorStyling()
+                    }
+                    if (mainBar.paperSheet.editorCanvas) {
+                        var ec = mainBar.paperSheet.editorCanvas
+                        if (typeof ec.updateBlocks === "function") ec.updateBlocks()
+                        if (typeof ec.initializeLiveModeIfReady === "function") ec.initializeLiveModeIfReady()
+                        if (ec.horizontalRuleOverlay && typeof ec.horizontalRuleOverlay.updateRules === "function") {
+                            ec.horizontalRuleOverlay.updateRules()
+                        }
+                        if (ec.editorGutter && typeof ec.editorGutter.updateBlocks === "function") {
+                            ec.editorGutter.updateBlocks()
+                        }
+                    }
+                }
             })
         }
     }
@@ -265,6 +317,9 @@ function handleBlockSyncTriggered(mainBar, editorArea, backend, BlockSync) {
         editorArea.cursorPosition = block.contentStart + insertText.length
         mainBar.isReceivingExternalSync = false
         mainBar.showSyncNotice(block.heading)
+        if (mainBar.paperSheet && typeof mainBar.paperSheet.reapplyEditorStyling === "function") {
+            mainBar.paperSheet.reapplyEditorStyling()
+        }
         return
     }
 

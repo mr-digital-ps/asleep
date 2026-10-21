@@ -142,6 +142,22 @@ Item {
             }
             function onWidthChanged() { gutterCanvas.requestPaint() }
             function onFontChanged() { gutterCanvas.requestPaint() }
+            function onVisibleChanged() {
+                if (gutterItem.editorArea && gutterItem.editorArea.visible) {
+                    gutterItem.updateBlocks()
+                    gutterCanvas.requestPaint()
+                }
+            }
+        }
+
+        Connections {
+            target: gutterItem.parent
+            function onVisibleChanged() {
+                if (gutterItem.parent && gutterItem.parent.visible) {
+                    gutterItem.updateBlocks()
+                    gutterCanvas.requestPaint()
+                }
+            }
         }
 
         Connections {

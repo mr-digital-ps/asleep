@@ -199,9 +199,10 @@ class FileHandlerMixin:
             safe_print(f"[Backend] Ошибка создания заметки '{clean}': {e}")
             return ""
 
+    @pyqtSlot(str, str, str, result=bool)
     @pyqtSlot(str, str, result=bool)
     @pyqtSlot(str, result=bool)
-    def open_wiki_link(self, target: str, folder_url: str = "") -> bool:
+    def open_wiki_link(self, target: str, folder_url: str = "", current_file_url: str = "") -> bool:
         """
         Универсальный фасад перехода по Wiki-ссылке ([[Заметка]], [[Заметка#Блок]], [[#Блок]]).
         Эмитит сигнал noteOpened(file_url, block_name) и возвращает успех.
@@ -229,9 +230,13 @@ class FileHandlerMixin:
                 file_url = self.file_service.to_url(note_name)
             else:
                 file_url = self.get_note_file_url(note_name, folder_url)
+        elif current_file_url:
+            file_url = current_file_url
         elif folder_url:
             # Ссылка на блок внутри текущего открытого файла
-            file_url = folder_url
+            p = self.file_service.to_path(folder_url)
+            if p and p.is_file():
+                file_url = folder_url
 
         if not file_url:
             safe_print(f"[Backend] open_wiki_link: не удалось найти или создать файл для '{target}'")

@@ -31,9 +31,16 @@ RowLayout {
     property var blockFoldState: ({})
     property bool hasInitializedLiveMode: false
 
+    property string folderUrl: ""
+    property string fileUrl: ""
+    property string hoveredLinkTarget: ""
+    property string hoveredLinkType: ""
+
     property alias editorArea: editorArea
     property alias text: editorArea.text
+    property alias horizontalRuleOverlay: horizontalRuleOverlay
 
+    signal openLinkRequested(string target, string linkType)
     signal paneActivated()
     signal cursorVisibilityRequested()
     signal textChangedByUser()
@@ -154,6 +161,7 @@ RowLayout {
         editorArea.text = lines.join("\n")
         editorArea.cursorPosition = Math.min(curPos, editorArea.text.length)
         updateBlocks()
+        reapplyLineHeight()
     }
 
     function unfoldAllBlocks() {
@@ -189,7 +197,28 @@ RowLayout {
             var curPos = editorArea.cursorPosition
             editorArea.text = lines.join("\n")
             editorArea.cursorPosition = Math.min(curPos, editorArea.text.length)
+            updateBlocks()
+            reapplyLineHeight()
         }
+    }
+
+    function reapplyLineHeight() {
+        if (typeof backend !== "undefined" && backend && typeof backend.set_editor_line_height === "function" && editorArea) {
+            Qt.callLater(function() {
+                var lh = (typeof workspacePane !== "undefined" && workspacePane && workspacePane.editorLineHeightPercent)
+                    ? workspacePane.editorLineHeightPercent
+                    : (Theme.defaultLineHeightPercent || 135.0)
+                backend.set_editor_line_height(editorArea, lh)
+                updateOverlays()
+            })
+        }
+    }
+
+    function updateOverlays() {
+        if (horizontalRuleOverlay && typeof horizontalRuleOverlay.updateRules === "function") {
+            horizontalRuleOverlay.updateRules()
+        }
+        updateBlocks()
     }
 
     function resetFolding() {
@@ -208,12 +237,7 @@ RowLayout {
             editorArea.text = res.text
             editorArea.cursorPosition = Math.min(curPos, res.text.length)
             updateBlocks()
-            if (typeof backend !== "undefined" && backend && typeof backend.set_editor_line_height === "function") {
-                Qt.callLater(function() {
-                    var lh = (typeof workspacePane !== "undefined" && workspacePane && workspacePane.editorLineHeightPercent) ? workspacePane.editorLineHeightPercent : 135.0
-                    backend.set_editor_line_height(editorArea, lh)
-                })
-            }
+            reapplyLineHeight()
         }
     }
 
@@ -226,12 +250,7 @@ RowLayout {
             editorArea.text = res.text
             editorArea.cursorPosition = Math.min(curPos, res.text.length)
             updateBlocks()
-            if (typeof backend !== "undefined" && backend && typeof backend.set_editor_line_height === "function") {
-                Qt.callLater(function() {
-                    var lh = (typeof workspacePane !== "undefined" && workspacePane && workspacePane.editorLineHeightPercent) ? workspacePane.editorLineHeightPercent : 135.0
-                    backend.set_editor_line_height(editorArea, lh)
-                })
-            }
+            reapplyLineHeight()
         }
     }
 
@@ -307,12 +326,7 @@ RowLayout {
             editorArea.text = newLines.join("\n")
         }
         updateBlocks()
-        if (typeof backend !== "undefined" && backend && typeof backend.set_editor_line_height === "function") {
-            Qt.callLater(function() {
-                var lh = (typeof workspacePane !== "undefined" && workspacePane && workspacePane.editorLineHeightPercent) ? workspacePane.editorLineHeightPercent : 135.0
-                backend.set_editor_line_height(editorArea, lh)
-            })
-        }
+        reapplyLineHeight()
     }
 
     function getFullTextWithoutFolding() {
@@ -348,6 +362,109 @@ RowLayout {
     function updateBracketHighlights() {
         if (bracketHighlightOverlay) {
             bracketHighlightOverlay.updateBracketHighlights()
+        }
+    }
+
+    function getLinkAtPosition(fullText, pos) {
+        if (!fullText || pos < 0 || pos > fullText.length) return null
+        var lineStart = fullText.lastIndexOf("\n", pos - 1)
+        lineStart = (lineStart === -1) ? 0 : lineStart + 1
+        var lineEnd = fullText.indexOf("\n", pos)
+        lineEnd = (lineEnd === -1) ? fullText.length : lineEnd
+        var line = fullText.substring(lineStart, lineEnd)
+        var offsetInLine = pos - lineStart
+
+        // 1. Wiki-links [[Target]]
+        var wikiRe = /\[\[([^\]\r\n]+)\]\]/g
+        var m
+        while ((m = wikiRe.exec(line)) !== null) {
+            if (offsetInLine >= m.index && offsetInLine <= m.index + m[0].length) {
+                return {
+                    type: "wikilink",
+                    target: m[1].trim(),
+                    start: lineStart + m.index,
+                    end: lineStart + m.index + m[0].length
+                }
+            }
+        }
+
+        // 2. Web URLs (https:// or http://)
+        var urlRe = /https?:\/\/[^\s\)\"\'<>]+/g
+        while ((m = urlRe.exec(line)) !== null) {
+            if (offsetInLine >= m.index && offsetInLine <= m.index + m[0].length) {
+                return {
+                    type: "url",
+                    target: m[0].trim(),
+                    start: lineStart + m.index,
+                    end: lineStart + m.index + m[0].length
+                }
+            }
+        }
+
+        // 3. External transclusions File.Block()
+        var extTransRe = /([a-zA-Zа-яА-ЯёЁ0-9_\-]+)\.([a-zA-Zа-яА-ЯёЁ0-9_\-]+)\s*\(\s*\)/g
+        while ((m = extTransRe.exec(line)) !== null) {
+            if (offsetInLine >= m.index && offsetInLine <= m.index + m[0].length) {
+                return {
+                    type: "transclusion_ext",
+                    target: m[1] + "#" + m[2],
+                    start: lineStart + m.index,
+                    end: lineStart + m.index + m[0].length
+                }
+            }
+        }
+
+        // 4. Local transclusions Block()
+        var locTransRe = /(^|[^.\wа-яА-ЯёЁ])([a-zA-Zа-яА-ЯёЁ0-9_\-]+)\s*\(\s*\)/g
+        while ((m = locTransRe.exec(line)) !== null) {
+            var startIdx = m.index + m[1].length
+            var endIdx = m.index + m[0].length
+            if (offsetInLine >= startIdx && offsetInLine <= endIdx) {
+                return {
+                    type: "transclusion_loc",
+                    target: "#" + m[2],
+                    start: lineStart + startIdx,
+                    end: lineStart + endIdx
+                }
+            }
+        }
+
+        return null
+    }
+
+    function isPositionOverLink(link, px, py) {
+        if (!editorArea || !link) return false
+        var rStart = editorArea.positionToRectangle(link.start)
+        var rEnd = editorArea.positionToRectangle(link.end)
+        var top = Math.min(rStart.y, rEnd.y)
+        var bottom = Math.max(rStart.y + rStart.height, rEnd.y + rEnd.height)
+        if (py < top || py > bottom) return false
+        if (Math.abs(rStart.y - rEnd.y) < 4) {
+            return (px >= rStart.x && px <= rEnd.x + 4)
+        }
+        if (py >= rStart.y && py < rStart.y + rStart.height) {
+            return px >= rStart.x
+        }
+        if (py >= rEnd.y && py <= rEnd.y + rEnd.height) {
+            return px <= rEnd.x + 4
+        }
+        return true
+    }
+
+    function updateHoveredLink(px, py) {
+        if (!editorArea || !editorArea.text) {
+            hoveredLinkTarget = ""
+            hoveredLinkType = ""
+            return
+        }
+        var charPos = editorArea.positionAt(px, py)
+        var link = getLinkAtPosition(editorArea.text, charPos)
+        if (link && isPositionOverLink(link, px, py)) {
+            hoveredLinkTarget = link.target
+            hoveredLinkType = link.type
+        } else {
+            hoveredLinkTarget = ""
+            hoveredLinkType = ""
         }
     }
 
@@ -431,6 +548,49 @@ RowLayout {
                 objectName: "horizontalRuleOverlay"
                 editorArea: editorArea
                 isLiveMode: canvasRoot.isLiveMode
+            }
+        }
+
+        HoverHandler {
+            id: linkHoverHandler
+            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+            cursorShape: {
+                if (!canvasRoot.hoveredLinkTarget) return Qt.IBeamCursor
+                if (canvasRoot.isLiveMode) return Qt.PointingHandCursor
+                if (point.modifiers & Qt.ControlModifier) return Qt.PointingHandCursor
+                return Qt.IBeamCursor
+            }
+            onPointChanged: canvasRoot.updateHoveredLink(point.position.x, point.position.y)
+            onHoveredChanged: {
+                if (!hovered) {
+                    canvasRoot.hoveredLinkTarget = ""
+                    canvasRoot.hoveredLinkType = ""
+                }
+            }
+        }
+
+        TapHandler {
+            id: linkTapHandler
+            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+            gesturePolicy: TapHandler.DragThreshold
+            onTapped: (eventPoint) => {
+                var pos = editorArea.positionAt(eventPoint.position.x, eventPoint.position.y)
+                var link = canvasRoot.getLinkAtPosition(editorArea.text, pos)
+                if (!link || !canvasRoot.isPositionOverLink(link, eventPoint.position.x, eventPoint.position.y)) return
+
+                var isCtrl = (eventPoint.modifiers & Qt.ControlModifier)
+                var isAlt = (eventPoint.modifiers & Qt.AltModifier)
+
+                if (canvasRoot.isLiveMode) {
+                    if (isAlt) {
+                        return // Alt+Click позволяет редактировать текст внутри ссылки
+                    }
+                    canvasRoot.openLinkRequested(link.target, link.type)
+                } else {
+                    if (isCtrl) {
+                        canvasRoot.openLinkRequested(link.target, link.type)
+                    }
+                }
             }
         }
 
@@ -526,6 +686,11 @@ RowLayout {
         }
         Keys.onEnterPressed: (event) => {
             event.accepted = Shortcuts.handleSmartEnter(editorArea, (typeof backend !== "undefined" ? backend : null), (t) => canvasRoot.syncNoticeRequested(t))
+        }
+
+        Keys.onEscapePressed: (event) => {
+            canvasRoot.focus = true
+            event.accepted = true
         }
 
         Keys.onUpPressed: (event) => {

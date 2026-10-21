@@ -48,6 +48,7 @@ Rectangle {
 
     signal toggleLiveModeRequested()
     signal toggleSourceModeRequested()
+    signal openLinkRequested(string target, string linkType)
 
     // Естественная высота текста документа
     readonly property real contentTopMargin: sheetRoot.showHeader ? Theme.headerHeight : Theme.sheetPadding
@@ -118,7 +119,10 @@ Rectangle {
         tabSize: sheetRoot.tabSize
         hasHeader: sheetRoot.showHeader
         hasFooter: false
+        folderUrl: sheetRoot.folderUrl
+        fileUrl: sheetRoot.fileUrl
 
+        onOpenLinkRequested: (target, linkType) => sheetRoot.openLinkRequested(target, linkType)
         onPaneActivated: sheetRoot.paneActivated()
         onPanelDragStarted: (mouse, item) => sheetRoot.panelDragStarted(mouse, item)
         onPanelDragUpdated: (mouse, item) => sheetRoot.panelDragUpdated(mouse, item)
@@ -147,19 +151,43 @@ Rectangle {
         onSyncNoticeRequested: (t) => sheetRoot.syncNoticeRequested(t)
     }
 
+    function reapplyEditorStyling() {
+        if (typeof backend !== "undefined" && backend && editorArea) {
+            Qt.callLater(function() {
+                var lh = (typeof workspacePane !== "undefined" && workspacePane && workspacePane.editorLineHeightPercent)
+                    ? workspacePane.editorLineHeightPercent
+                    : (Theme.defaultLineHeightPercent || 135.0)
+                if (typeof backend.set_editor_line_height === "function") {
+                    backend.set_editor_line_height(editorArea, lh)
+                }
+                if (typeof backend.set_editor_live_mode === "function") {
+                    backend.set_editor_live_mode(editorArea, sheetRoot.isLiveMode)
+                }
+                if (editorCanvas) {
+                    if (typeof editorCanvas.updateOverlays === "function") {
+                        editorCanvas.updateOverlays()
+                    }
+                    if (typeof editorCanvas.initializeLiveModeIfReady === "function") {
+                        editorCanvas.initializeLiveModeIfReady()
+                    }
+                }
+            })
+        }
+    }
+
     function getLiveText() {
         if (typeof _liveDraftText === "string") return _liveDraftText
         if (editorCanvas && typeof editorCanvas.getFullTextWithoutFolding === "function") {
             return editorCanvas.getFullTextWithoutFolding()
         }
-        return editorArea.text
+        return editorArea ? editorArea.text : ""
     }
 
     function loadHistoricalSnapshot(snapshotId) {
         if (typeof backend === "undefined" || !backend) return
 
         if (typeof _liveDraftText === "undefined" && editorArea) {
-            _liveDraftText = editorArea.text
+            _liveDraftText = sheetRoot.getLiveText()
         }
         if (typeof backend.get_history_file_content === "function") {
             let targetPath = sheetRoot.fileUrl ? sheetRoot.fileUrl : sheetRoot.fileName
@@ -167,15 +195,22 @@ Rectangle {
             if (typeof snapText === "string" && editorArea) {
                 editorArea.text = snapText
                 editorArea.readOnly = true
+                reapplyEditorStyling()
             }
         }
     }
 
     function restoreLive() {
+        if (editorCanvas) {
+            editorCanvas.collapsedBlocks = ({})
+            if (editorCanvas.editorGutter) editorCanvas.editorGutter.collapsedBlocks = ({})
+            editorCanvas.blockFoldState = ({})
+        }
         if (typeof _liveDraftText === "string") {
             if (editorArea) {
                 editorArea.text = _liveDraftText
                 editorArea.readOnly = false
+                reapplyEditorStyling()
             }
             _liveDraftText = undefined
         } else if (sheetRoot.fileUrl && typeof backend !== "undefined" && backend) {
@@ -183,9 +218,11 @@ Rectangle {
             if (editorArea && typeof liveText === "string") {
                 editorArea.text = liveText
                 editorArea.readOnly = false
+                reapplyEditorStyling()
             }
         } else if (editorArea) {
             editorArea.readOnly = false
+            reapplyEditorStyling()
         }
     }
 }
