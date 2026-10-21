@@ -7,18 +7,32 @@ function drawDiamond(ctx, cx, cy, r) {
     ctx.closePath()
 }
 
-function drawPlus(ctx, cx, cy, half) {
+function drawCircledPlus(ctx, cx, cy, r, color, bgColor) {
     ctx.beginPath()
-    ctx.moveTo(cx - half, cy)
-    ctx.lineTo(cx + half, cy)
-    ctx.moveTo(cx, cy - half)
-    ctx.lineTo(cx, cy + half)
+    ctx.arc(cx, cy, r, 0, 2 * Math.PI)
+    if (bgColor) {
+        ctx.fillStyle = bgColor
+        ctx.fill()
+    }
+    ctx.moveTo(cx - r, cy)
+    ctx.lineTo(cx + r, cy)
+    ctx.moveTo(cx, cy - r)
+    ctx.lineTo(cx, cy + r)
+    ctx.strokeStyle = color
+    ctx.stroke()
 }
 
-function drawMinus(ctx, cx, cy, half) {
+function drawCircledMinus(ctx, cx, cy, r, color, bgColor) {
     ctx.beginPath()
-    ctx.moveTo(cx - half, cy)
-    ctx.lineTo(cx + half, cy)
+    ctx.arc(cx, cy, r, 0, 2 * Math.PI)
+    if (bgColor) {
+        ctx.fillStyle = bgColor
+        ctx.fill()
+    }
+    ctx.moveTo(cx - r, cy)
+    ctx.lineTo(cx + r, cy)
+    ctx.strokeStyle = color
+    ctx.stroke()
 }
 
 function drawGutterDots(canvas, editorArea, width, height, activeColor, textColor, isLiveMode, blocks, collapsedBlocks, diffData, diffBrightColor, bgColor) {
@@ -133,37 +147,15 @@ function drawGutterDots(canvas, editorArea, width, height, activeColor, textColo
             var isHr = isLiveMode && /^[ \t]*---[ \t]*$/.test(lines[i])
 
             if (isDiffAdded) {
-                var orbitR = 5.0 * scale
-                // 1. Контурная орбита ("протон") с подложкой цвета листа (маскирует линию скоупа)
-                ctx.beginPath()
-                ctx.arc(centerX, dotY, orbitR, 0, 2 * Math.PI)
-                ctx.fillStyle = bgColor || "#181818"
-                ctx.fill()
+                // ⊕ (Circled Plus): компактный размер блочного line dot, крестик касается окружности, цвет активной точки
+                var diffColor = isCurrentLine ? (diffBrightColor || "#ffffff") : (activeColor || "#999999")
                 ctx.lineWidth = 1.0 * scale
-                ctx.strokeStyle = isCurrentLine ? activeColor : textColor
-                ctx.stroke()
-
-                // 2. Яркий белый знак плюса (+) внутри орбиты
-                drawPlus(ctx, centerX, dotY, 2.4 * scale)
-                ctx.lineWidth = 1.2 * scale
-                ctx.strokeStyle = diffBrightColor || "#ffffff"
-                ctx.stroke()
+                drawCircledPlus(ctx, centerX, dotY, headerDotRadius, diffColor, bgColor)
             } else if (isDiffDeleted) {
-                var orbitR = 5.0 * scale
-                // 1. Контурная орбита ("электрон") с подложкой цвета листа (маскирует линию скоупа)
-                ctx.beginPath()
-                ctx.arc(centerX, dotY, orbitR, 0, 2 * Math.PI)
-                ctx.fillStyle = bgColor || "#181818"
-                ctx.fill()
+                // ⊖ (Circled Minus): компактный размер блочного line dot, тире касается окружности, цвет активной точки
+                var diffColor = isCurrentLine ? (diffBrightColor || "#ffffff") : (activeColor || "#999999")
                 ctx.lineWidth = 1.0 * scale
-                ctx.strokeStyle = isCurrentLine ? activeColor : textColor
-                ctx.stroke()
-
-                // 2. Яркий белый знак минуса/тире (-) внутри орбиты
-                drawMinus(ctx, centerX, dotY, 2.4 * scale)
-                ctx.lineWidth = 1.2 * scale
-                ctx.strokeStyle = diffBrightColor || "#ffffff"
-                ctx.stroke()
+                drawCircledMinus(ctx, centerX, dotY, headerDotRadius, diffColor, bgColor)
             } else if (isCollapsed) {
                 // Свёрнутый блок: аккуратный ромбик свёртки activeColor (семиотика: ромб = блок)
                 drawDiamond(ctx, centerX, dotY, headerDotRadius * 1.15)
