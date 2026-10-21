@@ -614,9 +614,7 @@ class HistoryService:
 
         formatted_lines = []
         for d in diff_lines:
-            t = d["type"]
-            prefix = "+ " if t == "added" else ("- " if t == "deleted" else "  ")
-            formatted_lines.append(prefix + d["text"])
+            formatted_lines.append(d["text"])
 
         return {
             "snapshotId": snapshot_id,

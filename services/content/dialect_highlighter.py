@@ -20,6 +20,7 @@ class DialectHighlighter(QSyntaxHighlighter):
         super().__init__(parent_document)
         self._is_live_mode = is_live_mode
         self._is_diff_mode = False
+        self._diff_lines = []
         self._theme = theme_config or {}
         self._build_formats()
         self._compile_patterns()
@@ -30,10 +31,10 @@ class DialectHighlighter(QSyntaxHighlighter):
             self._is_live_mode = is_live_mode
             self.rehighlight()
 
-    def set_diff_mode(self, is_diff_mode: bool):
-        if self._is_diff_mode != is_diff_mode:
-            self._is_diff_mode = is_diff_mode
-            self.rehighlight()
+    def set_diff_mode(self, is_diff_mode: bool, diff_lines=None):
+        self._is_diff_mode = is_diff_mode
+        self._diff_lines = diff_lines or []
+        self.rehighlight()
 
     def update_theme(self, theme_config: dict):
         self._theme = theme_config or {}
@@ -125,24 +126,23 @@ class DialectHighlighter(QSyntaxHighlighter):
             return
 
         if self._is_diff_mode:
-            if text.startswith("+ "):
-                fmt_add = QTextCharFormat()
-                fmt_add.setForeground(QColor(self._theme.get("text_primary", "#d4d4d4")))
-                self._safe_set_format(0, len(text), fmt_add)
-                fmt_sign = QTextCharFormat(fmt_add)
-                fmt_sign.setForeground(QColor(self._theme.get("text_muted", "#525252")))
-                self._safe_set_format(0, 1, fmt_sign)
-                return
+            line_idx = self.currentBlock().blockNumber()
+            line_type = "same"
+            if self._diff_lines and line_idx < len(self._diff_lines):
+                item = self._diff_lines[line_idx]
+                line_type = item.get("type", "same") if isinstance(item, dict) else "same"
+            elif text.startswith("+ "):
+                line_type = "added"
             elif text.startswith("- "):
+                line_type = "deleted"
+
+            if line_type == "deleted":
                 fmt_del = QTextCharFormat()
                 fmt_del.setForeground(QColor(self._theme.get("text_secondary", "#737373")))
                 fmt_del.setFontStrikeOut(True)
                 self._safe_set_format(0, len(text), fmt_del)
-                fmt_sign = QTextCharFormat(fmt_del)
-                fmt_sign.setForeground(QColor(self._theme.get("text_muted", "#525252")))
-                self._safe_set_format(0, 1, fmt_sign)
                 return
-            elif text.startswith("  "):
+            else:
                 self._safe_set_format(0, len(text), self.fmt_default)
                 return
 

@@ -81,7 +81,8 @@ class ConfigHandlerMixin:
             safe_print(f"[Backend] Ошибка set_editor_live_mode: {e}")
 
     @pyqtSlot("QVariant", bool)
-    def set_editor_diff_mode(self, editor_area, is_diff_mode: bool):
+    @pyqtSlot("QVariant", bool, "QVariant")
+    def set_editor_diff_mode(self, editor_area, is_diff_mode: bool, diff_lines=None):
         if not editor_area:
             return
         try:
@@ -92,7 +93,7 @@ class ConfigHandlerMixin:
                 if doc_key in _active_highlighters:
                     hl = _active_highlighters[doc_key]
                     if hasattr(hl, "set_diff_mode"):
-                        hl.set_diff_mode(is_diff_mode)
+                        hl.set_diff_mode(is_diff_mode, diff_lines)
         except Exception as e:
             safe_print(f"[Backend] Ошибка set_editor_diff_mode: {e}")
 

@@ -211,7 +211,7 @@ Rectangle {
                 if (diffInfo && editorArea) {
                     sheetRoot.historyDiffData = diffInfo
                     if (typeof backend.set_editor_diff_mode === "function") {
-                        backend.set_editor_diff_mode(editorArea, true)
+                        backend.set_editor_diff_mode(editorArea, true, diffInfo.lines)
                     }
                     editorArea.text = diffInfo.diffText || ""
                     editorArea.readOnly = true

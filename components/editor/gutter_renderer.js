@@ -21,7 +21,7 @@ function drawMinus(ctx, cx, cy, half) {
     ctx.lineTo(cx + half, cy)
 }
 
-function drawGutterDots(canvas, editorArea, width, height, activeColor, textColor, isLiveMode, blocks, collapsedBlocks, diffData, diffBrightColor) {
+function drawGutterDots(canvas, editorArea, width, height, activeColor, textColor, isLiveMode, blocks, collapsedBlocks, diffData, diffBrightColor, bgColor) {
     if (!canvas || typeof canvas.getContext !== "function") return
     var ctx = canvas.getContext("2d")
     ctx.clearRect(0, 0, width, height)
@@ -133,12 +133,24 @@ function drawGutterDots(canvas, editorArea, width, height, activeColor, textColo
             var isHr = isLiveMode && /^[ \t]*---[ \t]*$/.test(lines[i])
 
             if (isDiffAdded) {
+                // Маскирующий островок фона под маркером, чтобы вертикальная линия скоупа не пересекала плюс
+                ctx.fillStyle = bgColor || "#181818"
+                ctx.beginPath()
+                ctx.arc(centerX, dotY, 5.0 * scale, 0, 2 * Math.PI)
+                ctx.fill()
+
                 // Добавленная строка: яркий белый знак плюса (+)
                 drawPlus(ctx, centerX, dotY, 3.5 * scale)
                 ctx.lineWidth = 1.5 * scale
                 ctx.strokeStyle = diffBrightColor || "#ffffff"
                 ctx.stroke()
             } else if (isDiffDeleted) {
+                // Маскирующий островок фона под маркером, чтобы вертикальная линия скоупа не превращала минус в плюс
+                ctx.fillStyle = bgColor || "#181818"
+                ctx.beginPath()
+                ctx.arc(centerX, dotY, 5.0 * scale, 0, 2 * Math.PI)
+                ctx.fill()
+
                 // Удалённая строка: яркий белый знак минуса/тире (-)
                 drawMinus(ctx, centerX, dotY, 3.5 * scale)
                 ctx.lineWidth = 1.5 * scale

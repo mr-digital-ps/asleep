@@ -186,7 +186,8 @@ Item {
             gutterItem.blocks,
             gutterItem.collapsedBlocks,
             gutterItem.diffData,
-            Theme.textHover
+            Theme.textHover,
+            Theme.bgPaper
         )
     }
 }

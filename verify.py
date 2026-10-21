@@ -475,9 +475,12 @@ tags:
         diff_res = hsvc.get_snapshot_file_diff(tmp_s_p, snap2["id"], "diff_test.txt")
         assert diff_res["addedCount"] == 2, f"Ожидалось 2 добавления, получено {diff_res['addedCount']}"
         assert diff_res["deletedCount"] == 2, f"Ожидалось 2 удаления, получено {diff_res['deletedCount']}"
-        assert "+ Строка 2 (изм)" in diff_res["diffText"]
-        assert "- Строка 2" in diff_res["diffText"]
-        assert "  Строка 1" in diff_res["diffText"]
+        assert "Строка 2 (изм)" in diff_res["diffText"]
+        assert "Строка 2" in diff_res["diffText"]
+        assert "Строка 1" in diff_res["diffText"]
+        assert any(l["text"] == "Строка 2 (изм)" and l["type"] == "added" for l in diff_res["lines"])
+        assert any(l["text"] == "Строка 2" and l["type"] == "deleted" for l in diff_res["lines"])
+        assert any(l["text"] == "Строка 1" and l["type"] == "same" for l in diff_res["lines"])
 
     print("  -> Сервисы Python: OK")
 
