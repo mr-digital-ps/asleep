@@ -108,6 +108,12 @@ function renderGraph(ctx, width, height, sim, state) {
     var showTagEdges = (state.showTagEdges !== false)
     var showLinkEdges = (state.showLinkEdges !== false)
 
+    var isActivityMode = (state.activityMode === true)
+    var decayHalfLife = (vis && typeof vis.decayHalfLifeDays === "number") ? vis.decayHalfLifeDays : 14
+    var minBrightness = (vis && typeof vis.activityMinBrightness === "number") ? vis.activityMinBrightness : 0.22
+    var maxBrightness = (vis && typeof vis.activityMaxBrightness === "number") ? vis.activityMaxBrightness : 1.0
+    var curTimeSec = Date.now() / 1000
+
     // 1. Отрисовка связей (ребер)
     for (var i = 0; i < links.length; i++) {
         var l = links[i]
@@ -127,6 +133,25 @@ function renderGraph(ctx, width, height, sim, state) {
         var isConnectedToHover = hasHover && (s.id === hoveredNode.id || t.id === hoveredNode.id)
         var isTransclusion = (l.type === "transclusion")
 
+        var linkAlpha = 1.0
+        if (isActivityMode && !isConnectedToHover) {
+            var sTime = s.mtime || s.timestamp || 0
+            var tTime = t.mtime || t.timestamp || 0
+            var maxT = Math.max(sTime, tTime)
+            if (maxT > 0) {
+                var lAge = Math.max(0, (curTimeSec - maxT) / 86400)
+                var lDecay = Math.pow(0.5, lAge / decayHalfLife)
+                linkAlpha = minBrightness + (maxBrightness - minBrightness) * lDecay
+            } else {
+                linkAlpha = minBrightness
+            }
+        }
+
+        ctx.save()
+        if (isActivityMode && !isConnectedToHover) {
+            ctx.globalAlpha = Math.max(0.12, linkAlpha * 0.75)
+        }
+
         ctx.beginPath()
         if (isTransclusion) {
             ctx.setLineDash([4, 4])
@@ -144,6 +169,7 @@ function renderGraph(ctx, width, height, sim, state) {
             ctx.lineWidth = isTransclusion ? 0.7 : 0.8
         }
         ctx.stroke()
+        ctx.restore()
     }
     ctx.setLineDash([]) // сброс пунктира
 
@@ -212,11 +238,26 @@ function renderGraph(ctx, width, height, sim, state) {
         var isOpenAdjacent = (n.type === "file") && normNodeUrl && (openUrlsMap[normNodeUrl] === true) && !isActivePlayer
         var matchesSearch = (!q || (n.label && n.label.toLowerCase().indexOf(q) !== -1))
 
+        var nodeDecay = 1.0
+        var activityFactor = 1.0
+        if (isActivityMode) {
+            var nTime = n.mtime || n.timestamp || 0
+            if (nTime > 0) {
+                var nAge = Math.max(0, (curTimeSec - nTime) / 86400)
+                nodeDecay = Math.pow(0.5, nAge / decayHalfLife)
+            } else {
+                nodeDecay = 0.0
+            }
+            activityFactor = minBrightness + (maxBrightness - minBrightness) * nodeDecay
+        }
+
         var nodeAlpha = 1.0
         if (q && !matchesSearch) {
             nodeAlpha = 0.12
         } else if (hasHover && !isHover && !isConnected && !isActivePlayer && !isOpenAdjacent) {
-            nodeAlpha = 0.35
+            nodeAlpha = isActivityMode ? (0.28 * activityFactor) : 0.35
+        } else if (isActivityMode) {
+            nodeAlpha = activityFactor
         }
 
         ctx.save()
@@ -240,6 +281,15 @@ function renderGraph(ctx, width, height, sim, state) {
             ctx.stroke()
         }
 
+        // В режиме созвездия (Anki) свежие заметки сияют ярче и получают звёздный ореол
+        if (isActivityMode && nodeDecay >= 0.75 && !isHover && !isDragged && !isActivePlayer && !isOpenAdjacent) {
+            ctx.beginPath()
+            ctx.arc(n.x, n.y, baseRadius + 1.8, 0, 2 * Math.PI)
+            ctx.strokeStyle = textPrimary
+            ctx.lineWidth = 0.8
+            ctx.stroke()
+        }
+
         // Отрисовка геометрической фигуры в зависимости от типа узла:
         // - file: сплошной круг
         // - block: сглаженный ромб (smooth diamond)
@@ -259,9 +309,10 @@ function renderGraph(ctx, width, height, sim, state) {
                 ctx.lineWidth = 1.2
                 ctx.stroke()
             } else {
-                ctx.fillStyle = nodeColorTag
+                var tagFill = (isActivityMode && nodeDecay >= 0.75) ? textPrimary : (isActivityMode && nodeDecay < 0.35 ? bgHover : nodeColorTag)
+                ctx.fillStyle = tagFill
                 ctx.fill()
-                ctx.strokeStyle = borderColor
+                ctx.strokeStyle = (isActivityMode && nodeDecay >= 0.75) ? textHover : borderColor
                 ctx.lineWidth = 1.0
                 ctx.stroke()
             }
@@ -280,9 +331,10 @@ function renderGraph(ctx, width, height, sim, state) {
                 ctx.lineWidth = 1.2
                 ctx.stroke()
             } else {
-                ctx.fillStyle = nodeColorBlock
+                var blockFill = (isActivityMode && nodeDecay >= 0.75) ? textPrimary : (isActivityMode && nodeDecay < 0.35 ? bgHover : nodeColorBlock)
+                ctx.fillStyle = blockFill
                 ctx.fill()
-                ctx.strokeStyle = borderColor
+                ctx.strokeStyle = (isActivityMode && nodeDecay >= 0.75) ? textHover : borderColor
                 ctx.lineWidth = 1.0
                 ctx.stroke()
             }
@@ -316,9 +368,10 @@ function renderGraph(ctx, width, height, sim, state) {
                 ctx.lineWidth = 1.2
                 ctx.stroke()
             } else {
-                ctx.fillStyle = nodeColorFile
+                var fileFill = (isActivityMode && nodeDecay >= 0.75) ? textPrimary : (isActivityMode && nodeDecay < 0.35 ? bgHover : nodeColorFile)
+                ctx.fillStyle = fileFill
                 ctx.fill()
-                ctx.strokeStyle = borderColor
+                ctx.strokeStyle = (isActivityMode && nodeDecay >= 0.75) ? textHover : borderColor
                 ctx.lineWidth = 1.0
                 ctx.stroke()
             }
@@ -326,7 +379,7 @@ function renderGraph(ctx, width, height, sim, state) {
 
         // Текстовая подпись узла
         var shouldDrawLabel = isHover || isConnected || isActivePlayer || isOpenAdjacent || (q && matchesSearch) || (zoomScale > 0.9)
-        if (shouldDrawLabel && nodeAlpha > 0.25) {
+        if (shouldDrawLabel && nodeAlpha > 0.20) {
             if (isActivePlayer) {
                 var playerFontSize = labelFontSize + 1
                 ctx.font = "600 " + playerFontSize + "px sans-serif"

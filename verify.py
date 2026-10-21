@@ -264,12 +264,17 @@ tags:
         gdata = gs.build_graph(tmp_p)
         assert len(gdata["nodes"]) >= 3, f"Ожидалось >= 3 узлов, получено {len(gdata['nodes'])}"
         assert len(gdata["links"]) >= 2, f"Ожидалось >= 2 связей, получено {len(gdata['links'])}"
+        for n in gdata["nodes"]:
+            assert "mtime" in n, f"Узел {n['id']} должен содержать mtime"
+            assert n["mtime"] > 0, f"mtime узла {n['id']} должен быть > 0"
 
         # Проверка get_config и каскада
         cfg = gs.get_config(tmp_p)
         assert "physics" in cfg and "visual" in cfg, "Конфигурация графа должна содержать physics и visual"
         assert cfg["physics"]["repulsion"] > 0, "repulsion должен быть положительным"
         assert cfg["physics"]["linkStrength"] > 0, "linkStrength должен быть положительным"
+        assert "activityMode" in cfg["visual"], "Конфигурация графа должна содержать activityMode"
+        assert cfg["visual"]["decayHalfLifeDays"] > 0, "decayHalfLifeDays должен быть положительным"
 
         # Проверка локального переопределения через _graph_settings.json
         (tmp_p / "_graph_settings.json").write_text('{"physics": {"linkStrength": 0.099}}', encoding="utf-8")

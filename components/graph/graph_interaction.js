@@ -59,7 +59,7 @@ function pluralize(n, one, few, many) {
     return many
 }
 
-function getGraphStats(sim, isLocal) {
+function getGraphStats(sim, isLocal, activityMode) {
     if (!sim || !sim.nodes) return ""
     var nFiles = 0
     var nBlocks = 0
@@ -76,6 +76,7 @@ function getGraphStats(sim, isLocal) {
     if (nLinks > 0) parts.push(nLinks + " " + pluralize(nLinks, "связь", "связи", "связей"))
     if (nTags > 0) parts.push(nTags + " " + pluralize(nTags, "тег", "тега", "тегов"))
     if (nBlocks > 0) parts.push(nBlocks + " " + pluralize(nBlocks, "блок", "блока", "блоков"))
+    if (activityMode) parts.push("Созвездие (Anki)")
     var text = parts.join(" · ")
     return isLocal ? ("Локальный граф · " + text) : text
 }
@@ -939,6 +940,17 @@ function handleKey(graphRoot, event) {
                 graphRoot.showLinks = true
                 graphRoot.showLinkEdges = true
             }
+            event.accepted = true
+            return true
+        }
+
+        // A — Activity / Режим созвездия активности (Anki decay) (русская 'ф'/'Ф', scan 30)
+        var isKeyA = (event.key === Qt.Key_A || event.nativeScanCode === 30 ||
+                      event.text === 'a' || event.text === 'A' ||
+                      event.text === 'ф' || event.text === 'Ф' ||
+                      event.key === 1092 || event.key === 1060)
+        if (isKeyA) {
+            graphRoot.activityMode = !graphRoot.activityMode
             event.accepted = true
             return true
         }

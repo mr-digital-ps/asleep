@@ -210,10 +210,17 @@ class GraphService:
             except Exception:
                 full_label = f"{folder_path.name}.{clean_name}"
 
+            mtime = 0.0
+            try:
+                mtime = float(p.stat().st_mtime)
+            except Exception:
+                mtime = 0.0
+
             files_data[stem_norm] = {
                 "path": p,
                 "fileUrl": file_url,
-                "name": full_label
+                "name": full_label,
+                "mtime": mtime
             }
 
             nodes_map[file_url] = {
@@ -222,7 +229,8 @@ class GraphService:
                 "fileUrl": file_url,
                 "type": "file",
                 "color": "#383838",
-                "val": 1
+                "val": 1,
+                "mtime": mtime
             }
 
         aliases = {}
@@ -325,7 +333,8 @@ class GraphService:
                     "sourceFileUrl": owner_url,
                     "type": "block",
                     "color": "#424242",
-                    "val": 2
+                    "val": 2,
+                    "mtime": nodes_map.get(owner_url, {}).get("mtime", 0.0)
                 }
                 # Структурная связь от файла-владельца к блоку
                 links_set.add((owner_url, b_id, "block"))
@@ -347,13 +356,15 @@ class GraphService:
             if len(occurrences) >= tag_min:
                 tag_id = f"tag:{tag_norm}"
                 display_tag = occurrences[0][1]
+                tag_mtime = max((nodes_map.get(f_url, {}).get("mtime", 0.0) for f_url, _ in occurrences), default=0.0)
                 nodes_map[tag_id] = {
                     "id": tag_id,
                     "label": f"#{display_tag}",
                     "fileUrl": "",
                     "type": "tag",
                     "color": "#4c4c4c",
-                    "val": len(occurrences)
+                    "val": len(occurrences),
+                    "mtime": tag_mtime
                 }
                 for f_url, _ in occurrences:
                     links_set.add((f_url, tag_id, "tag"))

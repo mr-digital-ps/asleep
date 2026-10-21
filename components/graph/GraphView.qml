@@ -21,6 +21,7 @@ Rectangle {
     property bool showBlockEdges: true
     property bool showTagEdges: true
     property bool showLinkEdges: true
+    property bool activityMode: false
     property bool _layersInitialized: false
     property var historicalData: null
     property var sim: null
@@ -29,6 +30,12 @@ Rectangle {
     property real panY: 0
     property string searchQuery: ""
     property string statsText: ""
+
+    onActivityModeChanged: {
+        persistVisualLayers()
+        statsText = getGraphStats()
+        if (canvas) canvas.requestPaint()
+    }
 
     function persistVisualLayers() {
         if (!_layersInitialized) return
@@ -39,7 +46,8 @@ Rectangle {
                 "showLinks": graphRoot.showLinks,
                 "showBlockEdges": graphRoot.showBlockEdges,
                 "showTagEdges": graphRoot.showTagEdges,
-                "showLinkEdges": graphRoot.showLinkEdges
+                "showLinkEdges": graphRoot.showLinkEdges,
+                "activityMode": graphRoot.activityMode
             })
         }
     }
@@ -103,6 +111,7 @@ Rectangle {
             if (typeof graphConfig.visual.showBlockEdges === "boolean") showBlockEdges = graphConfig.visual.showBlockEdges
             if (typeof graphConfig.visual.showTagEdges === "boolean") showTagEdges = graphConfig.visual.showTagEdges
             if (typeof graphConfig.visual.showLinkEdges === "boolean") showLinkEdges = graphConfig.visual.showLinkEdges
+            if (typeof graphConfig.visual.activityMode === "boolean") activityMode = graphConfig.visual.activityMode
             _layersInitialized = true
         }
     }
@@ -152,7 +161,7 @@ Rectangle {
     }
 
     function getGraphStats() {
-        return Interaction.getGraphStats(sim, graphRoot.isLocalGraph)
+        return Interaction.getGraphStats(sim, graphRoot.isLocalGraph, graphRoot.activityMode)
     }
 
     property string lastCenteredUrl: ""
@@ -265,6 +274,7 @@ Rectangle {
                 showBlockEdges: graphRoot.showBlockEdges,
                 showTagEdges: graphRoot.showTagEdges,
                 showLinkEdges: graphRoot.showLinkEdges,
+                activityMode: graphRoot.activityMode,
                 graphConfig: graphRoot.graphConfig,
                 theme: {
                     bgApp: Theme.bgApp,
