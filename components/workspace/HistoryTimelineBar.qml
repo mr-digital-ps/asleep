@@ -339,7 +339,7 @@ RowLayout {
     Column {
         id: timestampBlock
         Layout.alignment: Qt.AlignVCenter
-        Layout.preferredWidth: (historyBarRoot.mode === "note" && historyBarRoot.historySubMode === "diff") ? 130 : 92
+        Layout.preferredWidth: 92
         spacing: 2
 
         Text {
@@ -356,7 +356,7 @@ RowLayout {
         Text {
             id: dateLabel
             width: parent.width
-            text: (historyBarRoot.mode === "note" && historyBarRoot.historySubMode === "diff") ? (historyBarRoot.displayDateText + " · дифф") : historyBarRoot.displayDateText
+            text: historyBarRoot.displayDateText
             font.pixelSize: 11
             font.family: Theme.fontFamily
             font.weight: Font.Normal

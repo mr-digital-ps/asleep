@@ -330,7 +330,6 @@
     - Переключение режимов переведено строго на горячую клавишу `Alt+D` (`toggle_history_diff`):
       - В режиме истории нажатие `Alt+D` переключает отображение между «Снимок» (полное состояние файла) и «Дифф» (построчное сравнение с предыдущим срезом).
       - В обычном режиме редактора нажатие `Alt+D` открывает историю непосредственно в режиме диффа последнего среза.
-    - При активном режиме диффа блок даты и времени компактно отображает статус `DD/MM/YYYY · дифф`.
   - Бэкенд вычислений диффа (`services/history_service.py`, `services/backend/graph_history_handler.py`):
     - Метод `get_snapshot_file_diff(folder, snapshot_id, file_path, base_snapshot_id)` на основе стандартного `difflib.SequenceMatcher` генерирует структурированный список строк с типами (`"same"`, `"added"`, `"deleted"`), метаданными статистики изменений (`addedCount`, `deletedCount`) и готовым монолитным текстом.
   - Подсветка и стилизация разметки (`services/content/dialect_highlighter.py`, `config/default/theme.json`, `Theme.qml`):
