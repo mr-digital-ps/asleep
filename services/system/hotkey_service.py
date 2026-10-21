@@ -82,17 +82,19 @@ class HotkeyMatcher:
                     qt_keys.update([87, 1062, 1094])
                     chars.update(['W', 'Ц'])
 
-                # Для detach_window гарантируем оба варианта для Ctrl, но для Alt только физическую D (scan 32) во избежание коллизий с Alt+L (scan 38):
+                # Для detach_window: Ctrl+D (физическая D/L, русские 'В'/'Д', scan 32/38, VK 0x44/0x4C)
                 if action == "detach_window" and ctrl:
                     vks.update([0x44, 0x4C])
                     scan_codes.update([32, 38])
                     qt_keys.update([68, 76, 1042, 1074, 1044, 1076])
                     chars.update(['D', 'L', 'В', 'Д'])
-                elif action == "detach_window" and alt:
+
+                # Для toggle_history_diff: Alt+D (физическая D, русская 'В', scan 32, VK 0x44)
+                elif action == "toggle_history_diff" and alt:
                     vks.add(0x44)
                     scan_codes.add(32)
                     qt_keys.update([68, 1042, 1074])
-                    chars.update(['D', 'В'])
+                    chars.update(['D', 'В', 'd', 'в'])
 
                 # Для tile_workspace: Alt+Shift+M (физическая M, русская 'Ь', scan 50, VK 0x4D)
                 if action == "tile_workspace" and alt:

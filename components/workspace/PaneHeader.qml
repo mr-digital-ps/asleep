@@ -76,6 +76,23 @@ Item {
         switchMode("history")
     }
 
+    function toggleHistoryDiffMode() {
+        if (headerRoot.isGraphMode) return
+        if (headerMode !== "history") {
+            if (headerHistoryBar) {
+                headerHistoryBar.historySubMode = "diff"
+            }
+            switchMode("history")
+            if (headerHistoryBar && !headerHistoryBar.isHistoricalMode && headerHistoryBar.daysList.length > 1) {
+                headerHistoryBar.selectDay(headerHistoryBar.daysList.length - 2)
+            }
+        } else {
+            if (headerHistoryBar) {
+                headerHistoryBar.toggleDiffSubMode()
+            }
+        }
+    }
+
     function toggleInfoMode() {
         switchMode("info")
     }

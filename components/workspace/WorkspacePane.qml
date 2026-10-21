@@ -49,6 +49,12 @@ Item {
         }
     }
 
+    function toggleHistoryDiffMode() {
+        if (paneHeader) {
+            paneHeader.toggleHistoryDiffMode()
+        }
+    }
+
     function toggleInfoMode() {
         if (paneHeader) {
             paneHeader.toggleInfoMode()

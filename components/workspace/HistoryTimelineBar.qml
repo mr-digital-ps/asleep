@@ -122,10 +122,19 @@ RowLayout {
     function goLive() {
         historyBarRoot.isPlaying = false
         historyBarRoot.isHistoricalMode = false
+        historyBarRoot.historySubMode = "snapshot"
         if (historyBarRoot.timelineList.length > 0) {
             historyBarRoot.currentSnapshotIndex = historyBarRoot.timelineList.length - 1
         }
         historyBarRoot.liveRequested()
+    }
+
+    function toggleDiffSubMode() {
+        historyBarRoot.activated()
+        historyBarRoot.historySubMode = (historyBarRoot.historySubMode === "snapshot" ? "diff" : "snapshot")
+        if (historyBarRoot.historySubMode === "diff" && !historyBarRoot.isHistoricalMode && historyBarRoot.daysList.length > 1) {
+            historyBarRoot.selectDay(historyBarRoot.daysList.length - 2)
+        }
     }
 
     function stepPrev() {
@@ -200,72 +209,6 @@ RowLayout {
                 historyBarRoot.selectDay(curDay + 1)
             } else {
                 historyBarRoot.goLive()
-            }
-        }
-    }
-
-    // Левый блок переключения: [ Снимок | Дифф ]
-    Row {
-        id: historyModeSwitch
-        Layout.alignment: Qt.AlignVCenter
-        spacing: 2
-        visible: historyBarRoot.mode === "note"
-
-        Rectangle {
-            id: snapTab
-            width: 58
-            height: 24
-            radius: 3
-            color: historyBarRoot.historySubMode === "snapshot" ? Theme.bgActive : "transparent"
-            border.color: historyBarRoot.historySubMode === "snapshot" ? Theme.borderColor : "transparent"
-            border.width: 1
-
-            Text {
-                anchors.centerIn: parent
-                text: "Снимок"
-                font.pixelSize: 11
-                font.family: Theme.fontFamily
-                color: historyBarRoot.historySubMode === "snapshot" ? Theme.textPrimary : Theme.textSecondary
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    historyBarRoot.activated()
-                    if (historyBarRoot.historySubMode !== "snapshot") {
-                        historyBarRoot.historySubMode = "snapshot"
-                    }
-                }
-            }
-        }
-
-        Rectangle {
-            id: diffTab
-            width: 48
-            height: 24
-            radius: 3
-            color: historyBarRoot.historySubMode === "diff" ? Theme.bgActive : "transparent"
-            border.color: historyBarRoot.historySubMode === "diff" ? Theme.borderColor : "transparent"
-            border.width: 1
-
-            Text {
-                anchors.centerIn: parent
-                text: "Дифф"
-                font.pixelSize: 11
-                font.family: Theme.fontFamily
-                color: historyBarRoot.historySubMode === "diff" ? Theme.textPrimary : Theme.textSecondary
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    historyBarRoot.activated()
-                    if (historyBarRoot.historySubMode !== "diff") {
-                        historyBarRoot.historySubMode = "diff"
-                    }
-                }
             }
         }
     }
@@ -396,7 +339,7 @@ RowLayout {
     Column {
         id: timestampBlock
         Layout.alignment: Qt.AlignVCenter
-        Layout.preferredWidth: 92
+        Layout.preferredWidth: (historyBarRoot.mode === "note" && historyBarRoot.historySubMode === "diff") ? 130 : 92
         spacing: 2
 
         Text {
@@ -413,7 +356,7 @@ RowLayout {
         Text {
             id: dateLabel
             width: parent.width
-            text: historyBarRoot.displayDateText
+            text: (historyBarRoot.mode === "note" && historyBarRoot.historySubMode === "diff") ? (historyBarRoot.displayDateText + " · дифф") : historyBarRoot.displayDateText
             font.pixelSize: 11
             font.family: Theme.fontFamily
             font.weight: Font.Normal

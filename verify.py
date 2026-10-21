@@ -249,6 +249,11 @@ tags:
     ev_tile_ws = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_M, Qt.KeyboardModifier.AltModifier | Qt.KeyboardModifier.ShiftModifier, 50, 0x4D, 0, 'M')
     assert matcher.match_event(ev_tile_ws) == "tile_workspace", "Alt+Shift+M должен распознаваться как tile_workspace"
 
+    # 15. Проверка toggle_history_diff: Alt+D (RU 'В', scan 32, VK 0x44)
+    assert "toggle_history_diff" in hks, "toggle_history_diff должен присутствовать в hotkeys"
+    ev_hist_diff = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.AltModifier, 32, 0x44, 0)
+    assert matcher.match_event(ev_hist_diff) == "toggle_history_diff", "Alt+D/Alt+В должен распознаваться как toggle_history_diff"
+
     # 7. Тест GraphService
     from services.graph_service import GraphService
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -714,6 +719,14 @@ def test_qml():
     app.processEvents()
     assert p_sheet.property("historySubMode") == "snapshot", "historySubMode должен возвращаться в 'snapshot'"
     assert p_sheet.property("historyDiffData") is None, "В режиме snapshot historyDiffData должен сбрасываться в null"
+
+    # Проверка вызова через toggleHistoryDiffMode() панели
+    primary_bar.toggleHistoryDiffMode()
+    app.processEvents()
+    assert p_sheet.property("historySubMode") == "diff", "toggleHistoryDiffMode() должен переключать в diff"
+    primary_bar.toggleHistoryDiffMode()
+    app.processEvents()
+    assert p_sheet.property("historySubMode") == "snapshot", "Повторный toggleHistoryDiffMode() должен возвращать в snapshot"
 
     # Выход в Live
     p_header.switchMode("title")

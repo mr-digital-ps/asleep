@@ -19,6 +19,7 @@ function dispatchAction(root, backend, action) {
     var pane = workspace.activePane
     var methods = {
         toggle_header: "toggleHeaderOnly", toggle_history: "toggleHistoryMode",
+        toggle_history_diff: "toggleHistoryDiffMode",
         toggle_info: "toggleInfoMode", toggle_search: "toggleSearchMode",
         toggle_path: "togglePathMode", toggle_tabs: "toggleTabsMode",
         toggle_centered_mode: "toggleCenteredMode", toggle_scrollbar: "toggleScrollbar",
