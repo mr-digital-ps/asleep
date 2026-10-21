@@ -7,38 +7,22 @@ function drawDiamond(ctx, cx, cy, r) {
     ctx.closePath()
 }
 
-function drawCircledPlus(ctx, cx, cy, r, color, bgColor, lineWidth) {
-    var lw = lineWidth || 1.3
-    if (bgColor) {
-        ctx.beginPath()
-        ctx.arc(cx, cy, Math.max(0.5, r - (lw * 0.5)), 0, 2 * Math.PI)
-        ctx.fillStyle = bgColor
-        ctx.fill()
-    }
+function drawPlus(ctx, cx, cy, half, color, lineWidth) {
     ctx.beginPath()
-    ctx.arc(cx, cy, r, 0, 2 * Math.PI)
-    ctx.moveTo(cx - r, cy)
-    ctx.lineTo(cx + r, cy)
-    ctx.moveTo(cx, cy - r)
-    ctx.lineTo(cx, cy + r)
-    ctx.lineWidth = lw
+    ctx.moveTo(cx - half, cy)
+    ctx.lineTo(cx + half, cy)
+    ctx.moveTo(cx, cy - half)
+    ctx.lineTo(cx, cy + half)
+    ctx.lineWidth = lineWidth || 2.0
     ctx.strokeStyle = color
     ctx.stroke()
 }
 
-function drawCircledMinus(ctx, cx, cy, r, color, bgColor, lineWidth) {
-    var lw = lineWidth || 1.3
-    if (bgColor) {
-        ctx.beginPath()
-        ctx.arc(cx, cy, Math.max(0.5, r - (lw * 0.5)), 0, 2 * Math.PI)
-        ctx.fillStyle = bgColor
-        ctx.fill()
-    }
+function drawMinus(ctx, cx, cy, half, color, lineWidth) {
     ctx.beginPath()
-    ctx.arc(cx, cy, r, 0, 2 * Math.PI)
-    ctx.moveTo(cx - r, cy)
-    ctx.lineTo(cx + r, cy)
-    ctx.lineWidth = lw
+    ctx.moveTo(cx - half, cy)
+    ctx.lineTo(cx + half, cy)
+    ctx.lineWidth = lineWidth || 2.0
     ctx.strokeStyle = color
     ctx.stroke()
 }
@@ -102,10 +86,10 @@ function drawGutterDots(canvas, editorArea, width, height, activeColor, textColo
     }
 
     // 1. В Live Mode рисуем непрерывные вертикальные линии блоков
-    // Ширина и цвет линии совпадают с диаметром и цветом круга точек (textColor), перекрывая их
+    // Элегантная толщина направляющей линии скоупа: 2.0px (совпадает с толщиной штрихов + и -)
     if (isLiveMode && blocks && blocks.length > 0) {
         ctx.strokeStyle = textColor
-        ctx.lineWidth = dotRadius * 2
+        ctx.lineWidth = 2.0 * scale
         ctx.lineCap = "round"
         ctx.globalAlpha = 1.0
 
@@ -155,15 +139,21 @@ function drawGutterDots(canvas, editorArea, width, height, activeColor, textColo
             var isHr = isLiveMode && /^[ \t]*---[ \t]*$/.test(lines[i])
 
             if (isDiffAdded) {
-                // ⊕ (Circled Plus): размер строго равен ромбу блочного текста, единый цвет с блочной линией (textColor)
-                var diffMarkerRadius = headerDotRadius * 1.15
-                var diffColor = isCurrentLine ? (diffBrightColor || "#ffffff") : textColor
-                drawCircledPlus(ctx, centerX, dotY, diffMarkerRadius, diffColor, bgColor, 1.3 * scale)
+                // Разрыв вертикальной линии скоупа: чистое окно под знак, исключающее наложение
+                ctx.fillStyle = bgColor || "#181818"
+                ctx.fillRect(centerX - 4.5 * scale, dotY - 5.5 * scale, 9.0 * scale, 11.0 * scale)
+
+                // Яркий чистый плюс (+): толщина 2.0px строго равна толщине вертикальной линии
+                var diffColor = isCurrentLine ? (diffBrightColor || "#ffffff") : (activeColor || "#999999")
+                drawPlus(ctx, centerX, dotY, 3.5 * scale, diffColor, 2.0 * scale)
             } else if (isDiffDeleted) {
-                // ⊖ (Circled Minus): размер строго равен ромбу блочного текста, единый цвет с блочной линией (textColor)
-                var diffMarkerRadius = headerDotRadius * 1.15
-                var diffColor = isCurrentLine ? (diffBrightColor || "#ffffff") : textColor
-                drawCircledMinus(ctx, centerX, dotY, diffMarkerRadius, diffColor, bgColor, 1.3 * scale)
+                // Разрыв вертикальной линии скоупа: чистое окно под знак, исключающее наложение
+                ctx.fillStyle = bgColor || "#181818"
+                ctx.fillRect(centerX - 4.5 * scale, dotY - 5.5 * scale, 9.0 * scale, 11.0 * scale)
+
+                // Яркий чистый минус/тире (—): толщина 2.0px строго равна толщине вертикальной линии
+                var diffColor = isCurrentLine ? (diffBrightColor || "#ffffff") : (activeColor || "#999999")
+                drawMinus(ctx, centerX, dotY, 3.5 * scale, diffColor, 2.0 * scale)
             } else if (isCollapsed) {
                 // Свёрнутый блок: аккуратный ромбик свёртки activeColor (семиотика: ромб = блок)
                 drawDiamond(ctx, centerX, dotY, headerDotRadius * 1.15)
