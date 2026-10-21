@@ -7,7 +7,21 @@ function drawDiamond(ctx, cx, cy, r) {
     ctx.closePath()
 }
 
-function drawGutterDots(canvas, editorArea, width, height, activeColor, textColor, isLiveMode, blocks, collapsedBlocks, diffData, diffAddedColor, diffDeletedColor) {
+function drawPlus(ctx, cx, cy, half) {
+    ctx.beginPath()
+    ctx.moveTo(cx - half, cy)
+    ctx.lineTo(cx + half, cy)
+    ctx.moveTo(cx, cy - half)
+    ctx.lineTo(cx, cy + half)
+}
+
+function drawMinus(ctx, cx, cy, half) {
+    ctx.beginPath()
+    ctx.moveTo(cx - half, cy)
+    ctx.lineTo(cx + half, cy)
+}
+
+function drawGutterDots(canvas, editorArea, width, height, activeColor, textColor, isLiveMode, blocks, collapsedBlocks, diffData, diffBrightColor) {
     if (!canvas || typeof canvas.getContext !== "function") return
     var ctx = canvas.getContext("2d")
     ctx.clearRect(0, 0, width, height)
@@ -105,16 +119,12 @@ function drawGutterDots(canvas, editorArea, width, height, activeColor, textColo
         }
 
         if (r.y + r.height >= -40) {
-            // Отрисовка полоски Diff у левого края гаттера (x=2, width=3)
+            var isDiffAdded = false
+            var isDiffDeleted = false
             if (diffData && diffData.lines && i < diffData.lines.length) {
                 var dType = diffData.lines[i].type
-                if (dType === "added") {
-                    ctx.fillStyle = diffAddedColor || "#22c55e"
-                    ctx.fillRect(2, r.y, 3, r.height)
-                } else if (dType === "deleted") {
-                    ctx.fillStyle = diffDeletedColor || "#ef4444"
-                    ctx.fillRect(2, r.y, 3, r.height)
-                }
+                if (dType === "added") isDiffAdded = true
+                else if (dType === "deleted") isDiffDeleted = true
             }
 
             var isCollapsed = isLiveMode && (collapsedLines[i] !== undefined)
@@ -122,7 +132,19 @@ function drawGutterDots(canvas, editorArea, width, height, activeColor, textColo
             var isBody = isLiveMode && (blockBodies[i] !== undefined) && !isCollapsed && (!blockStarts[i] || !collapsedLines[blockStarts[i].startLine])
             var isHr = isLiveMode && /^[ \t]*---[ \t]*$/.test(lines[i])
 
-            if (isCollapsed) {
+            if (isDiffAdded) {
+                // Добавленная строка: яркий белый знак плюса (+)
+                drawPlus(ctx, centerX, dotY, 3.5 * scale)
+                ctx.lineWidth = 1.5 * scale
+                ctx.strokeStyle = diffBrightColor || "#ffffff"
+                ctx.stroke()
+            } else if (isDiffDeleted) {
+                // Удалённая строка: яркий белый знак минуса/тире (-)
+                drawMinus(ctx, centerX, dotY, 3.5 * scale)
+                ctx.lineWidth = 1.5 * scale
+                ctx.strokeStyle = diffBrightColor || "#ffffff"
+                ctx.stroke()
+            } else if (isCollapsed) {
                 // Свёрнутый блок: аккуратный ромбик свёртки activeColor (семиотика: ромб = блок)
                 drawDiamond(ctx, centerX, dotY, headerDotRadius * 1.15)
                 ctx.fillStyle = activeColor

@@ -127,21 +127,19 @@ class DialectHighlighter(QSyntaxHighlighter):
         if self._is_diff_mode:
             if text.startswith("+ "):
                 fmt_add = QTextCharFormat()
-                fmt_add.setBackground(QColor(self._theme.get("diff_added_bg", "#122316")))
                 fmt_add.setForeground(QColor(self._theme.get("text_primary", "#d4d4d4")))
                 self._safe_set_format(0, len(text), fmt_add)
                 fmt_sign = QTextCharFormat(fmt_add)
-                fmt_sign.setForeground(QColor(self._theme.get("diff_added", "#22c55e")))
+                fmt_sign.setForeground(QColor(self._theme.get("text_muted", "#525252")))
                 self._safe_set_format(0, 1, fmt_sign)
                 return
             elif text.startswith("- "):
                 fmt_del = QTextCharFormat()
-                fmt_del.setBackground(QColor(self._theme.get("diff_deleted_bg", "#241416")))
                 fmt_del.setForeground(QColor(self._theme.get("text_secondary", "#737373")))
                 fmt_del.setFontStrikeOut(True)
                 self._safe_set_format(0, len(text), fmt_del)
                 fmt_sign = QTextCharFormat(fmt_del)
-                fmt_sign.setForeground(QColor(self._theme.get("diff_deleted", "#ef4444")))
+                fmt_sign.setForeground(QColor(self._theme.get("text_muted", "#525252")))
                 self._safe_set_format(0, 1, fmt_sign)
                 return
             elif text.startswith("  "):
