@@ -128,6 +128,35 @@ class GraphHistoryHandlerMixin:
                     file_path = fpath.name
         return self.history_service.get_snapshot_file_content(folder, snap_id, file_path)
 
+    @pyqtSlot(int, str, result="QVariantMap")
+    @pyqtSlot(int, str, int, result="QVariantMap")
+    @pyqtSlot(str, int, str, result="QVariantMap")
+    @pyqtSlot(str, int, str, int, result="QVariantMap")
+    def get_history_file_diff(self, arg1, arg2, arg3=None, arg4=None) -> dict:
+        if isinstance(arg1, int):
+            folder = self._current_folder
+            snap_id = int(arg1)
+            file_path = str(arg2)
+            base_id = int(arg3) if arg3 is not None else None
+        else:
+            folder = self.file_service.to_path(arg1) if arg1 else self._current_folder
+            snap_id = int(arg2)
+            file_path = str(arg3)
+            base_id = int(arg4) if arg4 is not None else None
+
+        if not folder or not folder.exists():
+            return {}
+
+        if str(file_path).startswith("file:"):
+            fpath = self.file_service.to_path(file_path)
+            if fpath:
+                try:
+                    file_path = str(fpath.relative_to(folder))
+                except ValueError:
+                    file_path = fpath.name
+
+        return self.history_service.get_snapshot_file_diff(folder, snap_id, file_path, base_id)
+
     @pyqtSlot(str)
     @pyqtSlot(str, str)
     def record_manual_snapshot(self, description: str, folder_url: str = ""):

@@ -56,6 +56,10 @@ Item {
     property color scrollbarHover: "#646464"
     property color scrollbarTrack: "#18ffffff"
     property color dangerColor: "#ef4444"
+    property color diffAdded: "#22c55e"
+    property color diffAddedBg: "#122316"
+    property color diffDeleted: "#ef4444"
+    property color diffDeletedBg: "#241416"
 
     // 6. Размеры и геометрия (Geometry Tokens)
     property int barSize: 36

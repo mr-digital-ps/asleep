@@ -33,6 +33,7 @@ Item {
     signal openStructureRequested()
     signal snapshotSelected(int snapshotId)
     signal liveRequested()
+    signal historySubModeChanged(string subMode)
     signal dragStarted(var mouse, var item)
     signal dragUpdated(var mouse, var item)
     signal dragFinished()
@@ -163,6 +164,7 @@ Item {
                 onActivated: headerRoot.paneActivated()
                 onSnapshotSelected: (snapshotId) => headerRoot.snapshotSelected(snapshotId)
                 onLiveRequested: headerRoot.liveRequested()
+                onHistorySubModeChanged: headerRoot.historySubModeChanged(headerHistoryBar.historySubMode)
             }
 
             // 2. РЕЖИМ INFO: заменяет название файла статистикой

@@ -1,6 +1,13 @@
-// js/editor/gutter_renderer.js — Отрисовка разметки строк, точек и направляющих блоков на Canvas гаттера
+function drawDiamond(ctx, cx, cy, r) {
+    ctx.beginPath()
+    ctx.moveTo(cx, cy - r)
+    ctx.lineTo(cx + r, cy)
+    ctx.lineTo(cx, cy + r)
+    ctx.lineTo(cx - r, cy)
+    ctx.closePath()
+}
 
-function drawGutterDots(canvas, editorArea, width, height, activeColor, textColor, isLiveMode, blocks, collapsedBlocks) {
+function drawGutterDots(canvas, editorArea, width, height, activeColor, textColor, isLiveMode, blocks, collapsedBlocks, diffData, diffAddedColor, diffDeletedColor) {
     if (!canvas || typeof canvas.getContext !== "function") return
     var ctx = canvas.getContext("2d")
     ctx.clearRect(0, 0, width, height)
@@ -98,22 +105,32 @@ function drawGutterDots(canvas, editorArea, width, height, activeColor, textColo
         }
 
         if (r.y + r.height >= -40) {
+            // Отрисовка полоски Diff у левого края гаттера (x=2, width=3)
+            if (diffData && diffData.lines && i < diffData.lines.length) {
+                var dType = diffData.lines[i].type
+                if (dType === "added") {
+                    ctx.fillStyle = diffAddedColor || "#22c55e"
+                    ctx.fillRect(2, r.y, 3, r.height)
+                } else if (dType === "deleted") {
+                    ctx.fillStyle = diffDeletedColor || "#ef4444"
+                    ctx.fillRect(2, r.y, 3, r.height)
+                }
+            }
+
             var isCollapsed = isLiveMode && (collapsedLines[i] !== undefined)
             var isOpenHeader = isLiveMode && (blockStarts[i] !== undefined) && !isCollapsed
             var isBody = isLiveMode && (blockBodies[i] !== undefined) && !isCollapsed && (!blockStarts[i] || !collapsedLines[blockStarts[i].startLine])
             var isHr = isLiveMode && /^[ \t]*---[ \t]*$/.test(lines[i])
 
             if (isCollapsed) {
-                // Свёрнутый блок: крупная и яркая точка свёртки activeColor
-                ctx.beginPath()
-                ctx.arc(centerX, dotY, headerDotRadius, 0, 2 * Math.PI)
+                // Свёрнутый блок: аккуратный ромбик свёртки activeColor (семиотика: ромб = блок)
+                drawDiamond(ctx, centerX, dotY, headerDotRadius * 1.15)
                 ctx.fillStyle = activeColor
                 ctx.fill()
             } else if (isOpenHeader) {
-                // Заголовок открытого блока: крупная точка (headerDotRadius), визуально выделяющая заголовок,
-                // но в спокойном цвете линии (textColor). Ярче (activeColor) становится, если курсор на строке.
-                ctx.beginPath()
-                ctx.arc(centerX, dotY, headerDotRadius, 0, 2 * Math.PI)
+                // Заголовок открытого блока: аккуратный ромбик (семиотика: ромб = блок)
+                // В спокойном цвете линии (textColor), а при нахождении курсора на строке — activeColor
+                drawDiamond(ctx, centerX, dotY, headerDotRadius * 1.15)
                 ctx.fillStyle = isCurrentLine ? activeColor : textColor
                 ctx.fill()
             } else if (isHr) {

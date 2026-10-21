@@ -121,6 +121,7 @@ Rectangle {
         hasFooter: false
         folderUrl: sheetRoot.folderUrl
         fileUrl: sheetRoot.fileUrl
+        historyDiffData: sheetRoot.historyDiffData
 
         onOpenLinkRequested: (target, linkType) => sheetRoot.openLinkRequested(target, linkType)
         onPaneActivated: sheetRoot.paneActivated()
@@ -183,14 +184,49 @@ Rectangle {
         return editorArea ? editorArea.text : ""
     }
 
+    property string historySubMode: "snapshot"
+    property var historyDiffData: null
+    property int currentHistoricalSnapshotId: -1
+
+    function setHistorySubMode(subMode) {
+        sheetRoot.historySubMode = subMode
+        if (sheetRoot.currentHistoricalSnapshotId >= 0) {
+            sheetRoot.loadHistoricalSnapshot(sheetRoot.currentHistoricalSnapshotId)
+        }
+    }
+
     function loadHistoricalSnapshot(snapshotId) {
         if (typeof backend === "undefined" || !backend) return
 
         if (typeof _liveDraftText === "undefined" && editorArea) {
             _liveDraftText = sheetRoot.getLiveText()
         }
+        sheetRoot.currentHistoricalSnapshotId = snapshotId
+
+        let targetPath = sheetRoot.fileUrl ? sheetRoot.fileUrl : sheetRoot.fileName
+
+        if (sheetRoot.historySubMode === "diff") {
+            if (typeof backend.get_history_file_diff === "function") {
+                let diffInfo = backend.get_history_file_diff(sheetRoot.folderUrl, snapshotId, targetPath)
+                if (diffInfo && editorArea) {
+                    sheetRoot.historyDiffData = diffInfo
+                    if (typeof backend.set_editor_diff_mode === "function") {
+                        backend.set_editor_diff_mode(editorArea, true)
+                    }
+                    editorArea.text = diffInfo.diffText || ""
+                    editorArea.readOnly = true
+                    reapplyEditorStyling()
+                    return
+                }
+            }
+        }
+
+        // Режим чистого снимка (по умолчанию)
+        sheetRoot.historyDiffData = null
+        if (typeof backend.set_editor_diff_mode === "function" && editorArea) {
+            backend.set_editor_diff_mode(editorArea, false)
+        }
         if (typeof backend.get_history_file_content === "function") {
-            let targetPath = sheetRoot.fileUrl ? sheetRoot.fileUrl : sheetRoot.fileName
             let snapText = backend.get_history_file_content(sheetRoot.folderUrl, snapshotId, targetPath)
             if (typeof snapText === "string" && editorArea) {
                 editorArea.text = snapText
@@ -201,6 +237,12 @@ Rectangle {
     }
 
     function restoreLive() {
+        sheetRoot.historyDiffData = null
+        sheetRoot.currentHistoricalSnapshotId = -1
+        sheetRoot.historySubMode = "snapshot"
+        if (typeof backend !== "undefined" && backend && typeof backend.set_editor_diff_mode === "function" && editorArea) {
+            backend.set_editor_diff_mode(editorArea, false)
+        }
         if (editorCanvas) {
             editorCanvas.collapsedBlocks = ({})
             if (editorCanvas.editorGutter) editorCanvas.editorGutter.collapsedBlocks = ({})

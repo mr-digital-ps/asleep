@@ -464,6 +464,21 @@ tags:
         assert "- Logseq: блоки" in doc_blks[0]["content"]
         assert doc_blks[1]["heading"] == "Следующая секция"
 
+        # 11. Тестирование построчного Inline Diff в HistoryService
+        from services.history_service import HistoryService
+        hsvc = HistoryService()
+        (tmp_s_p / "diff_test.txt").write_text("Строка 1\nСтрока 2\nСтарая 3", encoding="utf-8")
+        snap1 = hsvc.create_snapshot(tmp_s_p, trigger="manual", description="Версия 1", force=True)
+        (tmp_s_p / "diff_test.txt").write_text("Строка 1\nСтрока 2 (изм)\nНовая 4", encoding="utf-8")
+        snap2 = hsvc.create_snapshot(tmp_s_p, trigger="manual", description="Версия 2", force=True)
+        assert snap1 and snap2, "Снимки должны успешно создаваться"
+        diff_res = hsvc.get_snapshot_file_diff(tmp_s_p, snap2["id"], "diff_test.txt")
+        assert diff_res["addedCount"] == 2, f"Ожидалось 2 добавления, получено {diff_res['addedCount']}"
+        assert diff_res["deletedCount"] == 2, f"Ожидалось 2 удаления, получено {diff_res['deletedCount']}"
+        assert "+ Строка 2 (изм)" in diff_res["diffText"]
+        assert "- Строка 2" in diff_res["diffText"]
+        assert "  Строка 1" in diff_res["diffText"]
+
     print("  -> Сервисы Python: OK")
 
 def test_qml():
@@ -664,6 +679,46 @@ def test_qml():
     assert p_area.property("readOnly") is False, "Переключение хедера из режима истории должно возвращать в Live"
     if orig_snap_fetcher:
         backend.get_history_file_content = orig_snap_fetcher
+
+    # 2.3.3. Проверка Inline Diff в History Mode
+    mock_diff = {
+        "snapshotId": 999,
+        "baseId": 998,
+        "addedCount": 1,
+        "deletedCount": 1,
+        "diffText": "- Старая строка\n+ Новая строка\n  Одинаковая строка",
+        "lines": [
+            {"type": "deleted", "text": "Старая строка"},
+            {"type": "added", "text": "Новая строка"},
+            {"type": "same", "text": "Одинаковая строка"}
+        ]
+    }
+    orig_diff_fetcher = getattr(backend, "get_history_file_diff", None)
+    orig_hs_diff = getattr(backend.history_service, "get_snapshot_file_diff", None)
+    backend.get_history_file_diff = lambda *_: mock_diff
+    backend.history_service.get_snapshot_file_diff = lambda *_: mock_diff
+    p_header.switchMode("history")
+    p_sheet.loadHistoricalSnapshot(999)
+    p_sheet.setHistorySubMode("diff")
+    app.processEvents()
+    assert p_sheet.property("historySubMode") == "diff", "historySubMode должен переключаться в 'diff'"
+    assert "+ Новая строка" in p_area.property("text"), "В режиме diff текст должен содержать добавленную строку с префиксом '+'"
+    assert "- Старая строка" in p_area.property("text"), "В режиме diff текст должен содержать удаленную строку с префиксом '-'"
+    assert p_area.property("readOnly") is True, "В режиме diff редактор должен оставаться readOnly"
+
+    # Переключение обратно в режим чистого снимка
+    p_sheet.setHistorySubMode("snapshot")
+    app.processEvents()
+    assert p_sheet.property("historySubMode") == "snapshot", "historySubMode должен возвращаться в 'snapshot'"
+    assert p_sheet.property("historyDiffData") is None, "В режиме snapshot historyDiffData должен сбрасываться в null"
+
+    # Выход в Live
+    p_header.switchMode("title")
+    app.processEvents()
+    if orig_diff_fetcher:
+        backend.get_history_file_diff = orig_diff_fetcher
+    if orig_hs_diff:
+        backend.history_service.get_snapshot_file_diff = orig_hs_diff
 
     # Проверка тайлинга и магнетизма к границам экрана камеры
     act_p = workspace.property("activePanel")

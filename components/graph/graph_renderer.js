@@ -242,10 +242,10 @@ function renderGraph(ctx, width, height, sim, state) {
 
         // Отрисовка геометрической фигуры в зависимости от типа узла:
         // - file: сплошной круг
-        // - block: сглаженный пентагон (smooth pentagon)
-        // - tag: сглаженный ромб (smooth diamond)
+        // - block: сглаженный ромб (smooth diamond)
+        // - tag: сглаженный пентагон (smooth pentagon - ярлык/бирка)
         if (nType === "tag") {
-            drawSmoothDiamond(n.x, n.y, baseRadius)
+            drawSmoothPentagon(n.x, n.y, baseRadius)
             if (isDragged || isHover) {
                 ctx.fillStyle = borderHover
                 ctx.fill()
@@ -266,7 +266,7 @@ function renderGraph(ctx, width, height, sim, state) {
                 ctx.stroke()
             }
         } else if (nType === "block") {
-            drawSmoothPentagon(n.x, n.y, baseRadius)
+            drawSmoothDiamond(n.x, n.y, baseRadius)
             if (isDragged || isHover) {
                 ctx.fillStyle = borderHover
                 ctx.fill()

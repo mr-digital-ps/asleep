@@ -454,6 +454,11 @@ Item {
                 paperSheet.restoreLive()
             }
         }
+        onHistorySubModeChanged: (subMode) => {
+            if (paperSheet && typeof paperSheet.setHistorySubMode === "function") {
+                paperSheet.setHistorySubMode(subMode)
+            }
+        }
         onDragStarted: (mouse, item) => workspacePane.panelDragStarted(mouse, item)
         onDragUpdated: (mouse, item) => workspacePane.panelDragUpdated(mouse, item)
         onDragFinished: () => workspacePane.panelDragFinished()

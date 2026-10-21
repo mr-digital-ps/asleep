@@ -30,6 +30,7 @@ RowLayout {
     property var activeTransclusions: ({})
     property var blockFoldState: ({})
     property bool hasInitializedLiveMode: false
+    property var historyDiffData: null
 
     property string folderUrl: ""
     property string fileUrl: ""
@@ -479,6 +480,7 @@ RowLayout {
         isLiveMode: canvasRoot.isLiveMode
         blocks: canvasRoot.blocks
         collapsedBlocks: canvasRoot.collapsedBlocks
+        diffData: canvasRoot.historyDiffData
         Layout.preferredWidth: barSize
         Layout.fillHeight: true
         onActivated: canvasRoot.paneActivated()

@@ -80,6 +80,22 @@ class ConfigHandlerMixin:
         except Exception as e:
             safe_print(f"[Backend] Ошибка set_editor_live_mode: {e}")
 
+    @pyqtSlot("QVariant", bool)
+    def set_editor_diff_mode(self, editor_area, is_diff_mode: bool):
+        if not editor_area:
+            return
+        try:
+            doc_prop = editor_area.property("textDocument")
+            if doc_prop and hasattr(doc_prop, "textDocument"):
+                qtdoc = doc_prop.textDocument()
+                doc_key = id(qtdoc)
+                if doc_key in _active_highlighters:
+                    hl = _active_highlighters[doc_key]
+                    if hasattr(hl, "set_diff_mode"):
+                        hl.set_diff_mode(is_diff_mode)
+        except Exception as e:
+            safe_print(f"[Backend] Ошибка set_editor_diff_mode: {e}")
+
     def update_highlighters_theme(self):
         """Обновляет цветовую палитру всех активных подсветчиков при смене темы"""
         theme = self.config_service.get_theme_config()

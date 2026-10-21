@@ -52,6 +52,7 @@ RowLayout {
     signal activated()
     signal snapshotSelected(int snapshotId)
     signal liveRequested()
+    property string historySubMode: "snapshot"
 
     function reloadTimeline() {
         if (typeof backend === "undefined" || !backend) return
@@ -199,6 +200,72 @@ RowLayout {
                 historyBarRoot.selectDay(curDay + 1)
             } else {
                 historyBarRoot.goLive()
+            }
+        }
+    }
+
+    // Левый блок переключения: [ Снимок | Дифф ]
+    Row {
+        id: historyModeSwitch
+        Layout.alignment: Qt.AlignVCenter
+        spacing: 2
+        visible: historyBarRoot.mode === "note"
+
+        Rectangle {
+            id: snapTab
+            width: 58
+            height: 24
+            radius: 3
+            color: historyBarRoot.historySubMode === "snapshot" ? Theme.bgActive : "transparent"
+            border.color: historyBarRoot.historySubMode === "snapshot" ? Theme.borderColor : "transparent"
+            border.width: 1
+
+            Text {
+                anchors.centerIn: parent
+                text: "Снимок"
+                font.pixelSize: 11
+                font.family: Theme.fontFamily
+                color: historyBarRoot.historySubMode === "snapshot" ? Theme.textPrimary : Theme.textSecondary
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    historyBarRoot.activated()
+                    if (historyBarRoot.historySubMode !== "snapshot") {
+                        historyBarRoot.historySubMode = "snapshot"
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            id: diffTab
+            width: 48
+            height: 24
+            radius: 3
+            color: historyBarRoot.historySubMode === "diff" ? Theme.bgActive : "transparent"
+            border.color: historyBarRoot.historySubMode === "diff" ? Theme.borderColor : "transparent"
+            border.width: 1
+
+            Text {
+                anchors.centerIn: parent
+                text: "Дифф"
+                font.pixelSize: 11
+                font.family: Theme.fontFamily
+                color: historyBarRoot.historySubMode === "diff" ? Theme.textPrimary : Theme.textSecondary
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    historyBarRoot.activated()
+                    if (historyBarRoot.historySubMode !== "diff") {
+                        historyBarRoot.historySubMode = "diff"
+                    }
+                }
             }
         }
     }

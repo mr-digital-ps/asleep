@@ -13,6 +13,7 @@ Item {
     property bool isLiveMode: false
     property var blocks: []
     property var collapsedBlocks: ({})
+    property var diffData: null
 
     signal activated()
     signal dragStarted(var mouse, var item)
@@ -169,6 +170,9 @@ Item {
             function onCollapsedBlocksChanged() {
                 gutterCanvas.requestPaint()
             }
+            function onDiffDataChanged() {
+                gutterCanvas.requestPaint()
+            }
         }
 
         onPaint: GutterRenderer.drawGutterDots(
@@ -180,7 +184,10 @@ Item {
             Theme.gutterText,
             gutterItem.isLiveMode,
             gutterItem.blocks,
-            gutterItem.collapsedBlocks
+            gutterItem.collapsedBlocks,
+            gutterItem.diffData,
+            Theme.diffAdded,
+            Theme.diffDeleted
         )
     }
 }

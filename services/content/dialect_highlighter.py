@@ -19,6 +19,7 @@ class DialectHighlighter(QSyntaxHighlighter):
     def __init__(self, parent_document, theme_config: dict | None = None, is_live_mode: bool = True):
         super().__init__(parent_document)
         self._is_live_mode = is_live_mode
+        self._is_diff_mode = False
         self._theme = theme_config or {}
         self._build_formats()
         self._compile_patterns()
@@ -29,11 +30,15 @@ class DialectHighlighter(QSyntaxHighlighter):
             self._is_live_mode = is_live_mode
             self.rehighlight()
 
+    def set_diff_mode(self, is_diff_mode: bool):
+        if self._is_diff_mode != is_diff_mode:
+            self._is_diff_mode = is_diff_mode
+            self.rehighlight()
+
     def update_theme(self, theme_config: dict):
         self._theme = theme_config or {}
         self._build_formats()
-        if self._is_live_mode:
-            self.rehighlight()
+        self.rehighlight()
 
     def _build_formats(self):
         text_primary = self._theme.get("text_primary", "#d4d4d4")
@@ -118,6 +123,30 @@ class DialectHighlighter(QSyntaxHighlighter):
     def highlightBlock(self, text: str):
         if not text:
             return
+
+        if self._is_diff_mode:
+            if text.startswith("+ "):
+                fmt_add = QTextCharFormat()
+                fmt_add.setBackground(QColor(self._theme.get("diff_added_bg", "#122316")))
+                fmt_add.setForeground(QColor(self._theme.get("text_primary", "#d4d4d4")))
+                self._safe_set_format(0, len(text), fmt_add)
+                fmt_sign = QTextCharFormat(fmt_add)
+                fmt_sign.setForeground(QColor(self._theme.get("diff_added", "#22c55e")))
+                self._safe_set_format(0, 1, fmt_sign)
+                return
+            elif text.startswith("- "):
+                fmt_del = QTextCharFormat()
+                fmt_del.setBackground(QColor(self._theme.get("diff_deleted_bg", "#241416")))
+                fmt_del.setForeground(QColor(self._theme.get("text_secondary", "#737373")))
+                fmt_del.setFontStrikeOut(True)
+                self._safe_set_format(0, len(text), fmt_del)
+                fmt_sign = QTextCharFormat(fmt_del)
+                fmt_sign.setForeground(QColor(self._theme.get("diff_deleted", "#ef4444")))
+                self._safe_set_format(0, 1, fmt_sign)
+                return
+            elif text.startswith("  "):
+                self._safe_set_format(0, len(text), self.fmt_default)
+                return
 
         if not self._is_live_mode:
             # В Source Mode текст строго монолитный и сухой (все символы и --- гарантированно видны)

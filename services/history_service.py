@@ -558,3 +558,72 @@ class HistoryService:
                     pass
         return ""
 
+    def get_snapshot_file_diff(self, folder: Path, snapshot_id: int, file_path: str, base_snapshot_id: int | None = None) -> dict:
+        """
+        Вычисляет построчный Inline Diff для файла между снимком snapshot_id и базовым снимком.
+        Если base_snapshot_id не указан, берется предшествующий снимок из таймлайна файла.
+        """
+        import difflib
+
+        curr_text = self.get_snapshot_file_content(folder, snapshot_id, file_path)
+        base_id = base_snapshot_id
+
+        if base_id is None:
+            timeline = self.get_file_timeline(folder, file_path)
+            curr_idx = -1
+            for idx, item in enumerate(timeline):
+                if item.get("id") == snapshot_id:
+                    curr_idx = idx
+                    break
+            if curr_idx > 0:
+                base_id = timeline[curr_idx - 1].get("id")
+            elif curr_idx == -1 and timeline:
+                earlier = [item for item in timeline if item.get("id", 0) < snapshot_id]
+                if earlier:
+                    base_id = earlier[-1].get("id")
+
+        prev_text = self.get_snapshot_file_content(folder, base_id, file_path) if base_id else ""
+
+        prev_lines = prev_text.splitlines()
+        curr_lines = curr_text.splitlines()
+
+        matcher = difflib.SequenceMatcher(None, prev_lines, curr_lines)
+        diff_lines = []
+        added_count = 0
+        deleted_count = 0
+
+        for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+            if tag == "equal":
+                for l in curr_lines[j1:j2]:
+                    diff_lines.append({"type": "same", "text": l})
+            elif tag == "delete":
+                for l in prev_lines[i1:i2]:
+                    diff_lines.append({"type": "deleted", "text": l})
+                    deleted_count += 1
+            elif tag == "insert":
+                for l in curr_lines[j1:j2]:
+                    diff_lines.append({"type": "added", "text": l})
+                    added_count += 1
+            elif tag == "replace":
+                for l in prev_lines[i1:i2]:
+                    diff_lines.append({"type": "deleted", "text": l})
+                    deleted_count += 1
+                for l in curr_lines[j1:j2]:
+                    diff_lines.append({"type": "added", "text": l})
+                    added_count += 1
+
+        formatted_lines = []
+        for d in diff_lines:
+            t = d["type"]
+            prefix = "+ " if t == "added" else ("- " if t == "deleted" else "  ")
+            formatted_lines.append(prefix + d["text"])
+
+        return {
+            "snapshotId": snapshot_id,
+            "baseId": base_id or 0,
+            "addedCount": added_count,
+            "deletedCount": deleted_count,
+            "diffText": "\n".join(formatted_lines),
+            "lines": diff_lines,
+        }
+
