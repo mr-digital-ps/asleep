@@ -133,27 +133,35 @@ function drawGutterDots(canvas, editorArea, width, height, activeColor, textColo
             var isHr = isLiveMode && /^[ \t]*---[ \t]*$/.test(lines[i])
 
             if (isDiffAdded) {
-                // Маскирующий островок фона под маркером, чтобы вертикальная линия скоупа не пересекала плюс
-                ctx.fillStyle = bgColor || "#181818"
+                var orbitR = 5.0 * scale
+                // 1. Контурная орбита ("протон") с подложкой цвета листа (маскирует линию скоупа)
                 ctx.beginPath()
-                ctx.arc(centerX, dotY, 5.0 * scale, 0, 2 * Math.PI)
+                ctx.arc(centerX, dotY, orbitR, 0, 2 * Math.PI)
+                ctx.fillStyle = bgColor || "#181818"
                 ctx.fill()
+                ctx.lineWidth = 1.0 * scale
+                ctx.strokeStyle = isCurrentLine ? activeColor : textColor
+                ctx.stroke()
 
-                // Добавленная строка: яркий белый знак плюса (+)
-                drawPlus(ctx, centerX, dotY, 3.5 * scale)
-                ctx.lineWidth = 1.5 * scale
+                // 2. Яркий белый знак плюса (+) внутри орбиты
+                drawPlus(ctx, centerX, dotY, 2.4 * scale)
+                ctx.lineWidth = 1.2 * scale
                 ctx.strokeStyle = diffBrightColor || "#ffffff"
                 ctx.stroke()
             } else if (isDiffDeleted) {
-                // Маскирующий островок фона под маркером, чтобы вертикальная линия скоупа не превращала минус в плюс
-                ctx.fillStyle = bgColor || "#181818"
+                var orbitR = 5.0 * scale
+                // 1. Контурная орбита ("электрон") с подложкой цвета листа (маскирует линию скоупа)
                 ctx.beginPath()
-                ctx.arc(centerX, dotY, 5.0 * scale, 0, 2 * Math.PI)
+                ctx.arc(centerX, dotY, orbitR, 0, 2 * Math.PI)
+                ctx.fillStyle = bgColor || "#181818"
                 ctx.fill()
+                ctx.lineWidth = 1.0 * scale
+                ctx.strokeStyle = isCurrentLine ? activeColor : textColor
+                ctx.stroke()
 
-                // Удалённая строка: яркий белый знак минуса/тире (-)
-                drawMinus(ctx, centerX, dotY, 3.5 * scale)
-                ctx.lineWidth = 1.5 * scale
+                // 2. Яркий белый знак минуса/тире (-) внутри орбиты
+                drawMinus(ctx, centerX, dotY, 2.4 * scale)
+                ctx.lineWidth = 1.2 * scale
                 ctx.strokeStyle = diffBrightColor || "#ffffff"
                 ctx.stroke()
             } else if (isCollapsed) {
