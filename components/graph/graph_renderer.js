@@ -86,6 +86,7 @@ function renderGraph(ctx, width, height, sim, state) {
     var textMuted = (theme.textMuted ? theme.textMuted.toString() : "#666666")
     var textPrimary = (theme.textPrimary ? theme.textPrimary.toString() : "#d4d4d4")
     var textSecondary = (theme.textSecondary ? theme.textSecondary.toString() : "#888888")
+    var textHover = (theme.textHover ? theme.textHover.toString() : "#ffffff")
     var borderColor = (theme.borderColor ? theme.borderColor.toString() : "#282828")
     var borderHover = (theme.borderHover ? theme.borderHover.toString() : "#383838")
     var bgActive = (theme.bgActive ? theme.bgActive.toString() : "#282828")

@@ -280,6 +280,7 @@ Rectangle {
                     bgApp: Theme.bgApp,
                     textPrimary: Theme.textPrimary,
                     textSecondary: Theme.textSecondary,
+                    textHover: Theme.textHover,
                     textMuted: Theme.textMuted,
                     borderColor: Theme.borderColor,
                     borderHover: Theme.borderHover,
