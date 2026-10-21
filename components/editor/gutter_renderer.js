@@ -7,10 +7,11 @@ function drawDiamond(ctx, cx, cy, r) {
     ctx.closePath()
 }
 
-function drawCircledPlus(ctx, cx, cy, r, color, bgColor) {
+function drawCircledPlus(ctx, cx, cy, r, color, bgColor, lineWidth) {
+    var lw = lineWidth || 1.3
     if (bgColor) {
         ctx.beginPath()
-        ctx.arc(cx, cy, r, 0, 2 * Math.PI)
+        ctx.arc(cx, cy, Math.max(0.5, r - (lw * 0.5)), 0, 2 * Math.PI)
         ctx.fillStyle = bgColor
         ctx.fill()
     }
@@ -20,14 +21,16 @@ function drawCircledPlus(ctx, cx, cy, r, color, bgColor) {
     ctx.lineTo(cx + r, cy)
     ctx.moveTo(cx, cy - r)
     ctx.lineTo(cx, cy + r)
+    ctx.lineWidth = lw
     ctx.strokeStyle = color
     ctx.stroke()
 }
 
-function drawCircledMinus(ctx, cx, cy, r, color, bgColor) {
+function drawCircledMinus(ctx, cx, cy, r, color, bgColor, lineWidth) {
+    var lw = lineWidth || 1.3
     if (bgColor) {
         ctx.beginPath()
-        ctx.arc(cx, cy, r, 0, 2 * Math.PI)
+        ctx.arc(cx, cy, Math.max(0.5, r - (lw * 0.5)), 0, 2 * Math.PI)
         ctx.fillStyle = bgColor
         ctx.fill()
     }
@@ -35,6 +38,7 @@ function drawCircledMinus(ctx, cx, cy, r, color, bgColor) {
     ctx.arc(cx, cy, r, 0, 2 * Math.PI)
     ctx.moveTo(cx - r, cy)
     ctx.lineTo(cx + r, cy)
+    ctx.lineWidth = lw
     ctx.strokeStyle = color
     ctx.stroke()
 }
@@ -151,17 +155,15 @@ function drawGutterDots(canvas, editorArea, width, height, activeColor, textColo
             var isHr = isLiveMode && /^[ \t]*---[ \t]*$/.test(lines[i])
 
             if (isDiffAdded) {
-                // ⊕ (Circled Plus): оптически равен ромбу или самую малость компактнее (headerDotRadius * 0.88)
-                var diffMarkerRadius = headerDotRadius * 0.88
-                var diffColor = isCurrentLine ? (diffBrightColor || "#ffffff") : (activeColor || "#999999")
-                ctx.lineWidth = 1.0 * scale
-                drawCircledPlus(ctx, centerX, dotY, diffMarkerRadius, diffColor, bgColor)
+                // ⊕ (Circled Plus): размер строго равен ромбу блочного текста, единый цвет с блочной линией (textColor)
+                var diffMarkerRadius = headerDotRadius * 1.15
+                var diffColor = isCurrentLine ? (diffBrightColor || "#ffffff") : textColor
+                drawCircledPlus(ctx, centerX, dotY, diffMarkerRadius, diffColor, bgColor, 1.3 * scale)
             } else if (isDiffDeleted) {
-                // ⊖ (Circled Minus): оптически равен ромбу или самую малость компактнее (headerDotRadius * 0.88)
-                var diffMarkerRadius = headerDotRadius * 0.88
-                var diffColor = isCurrentLine ? (diffBrightColor || "#ffffff") : (activeColor || "#999999")
-                ctx.lineWidth = 1.0 * scale
-                drawCircledMinus(ctx, centerX, dotY, diffMarkerRadius, diffColor, bgColor)
+                // ⊖ (Circled Minus): размер строго равен ромбу блочного текста, единый цвет с блочной линией (textColor)
+                var diffMarkerRadius = headerDotRadius * 1.15
+                var diffColor = isCurrentLine ? (diffBrightColor || "#ffffff") : textColor
+                drawCircledMinus(ctx, centerX, dotY, diffMarkerRadius, diffColor, bgColor, 1.3 * scale)
             } else if (isCollapsed) {
                 // Свёрнутый блок: аккуратный ромбик свёртки activeColor (семиотика: ромб = блок)
                 drawDiamond(ctx, centerX, dotY, headerDotRadius * 1.15)
