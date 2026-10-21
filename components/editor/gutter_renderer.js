@@ -8,12 +8,14 @@ function drawDiamond(ctx, cx, cy, r) {
 }
 
 function drawCircledPlus(ctx, cx, cy, r, color, bgColor) {
-    ctx.beginPath()
-    ctx.arc(cx, cy, r, 0, 2 * Math.PI)
     if (bgColor) {
+        ctx.beginPath()
+        ctx.arc(cx, cy, r, 0, 2 * Math.PI)
         ctx.fillStyle = bgColor
         ctx.fill()
     }
+    ctx.beginPath()
+    ctx.arc(cx, cy, r, 0, 2 * Math.PI)
     ctx.moveTo(cx - r, cy)
     ctx.lineTo(cx + r, cy)
     ctx.moveTo(cx, cy - r)
@@ -23,12 +25,14 @@ function drawCircledPlus(ctx, cx, cy, r, color, bgColor) {
 }
 
 function drawCircledMinus(ctx, cx, cy, r, color, bgColor) {
-    ctx.beginPath()
-    ctx.arc(cx, cy, r, 0, 2 * Math.PI)
     if (bgColor) {
+        ctx.beginPath()
+        ctx.arc(cx, cy, r, 0, 2 * Math.PI)
         ctx.fillStyle = bgColor
         ctx.fill()
     }
+    ctx.beginPath()
+    ctx.arc(cx, cy, r, 0, 2 * Math.PI)
     ctx.moveTo(cx - r, cy)
     ctx.lineTo(cx + r, cy)
     ctx.strokeStyle = color
@@ -147,15 +151,17 @@ function drawGutterDots(canvas, editorArea, width, height, activeColor, textColo
             var isHr = isLiveMode && /^[ \t]*---[ \t]*$/.test(lines[i])
 
             if (isDiffAdded) {
-                // ⊕ (Circled Plus): компактный размер блочного line dot, крестик касается окружности, цвет активной точки
+                // ⊕ (Circled Plus): оптически равен ромбу или самую малость компактнее (headerDotRadius * 0.88)
+                var diffMarkerRadius = headerDotRadius * 0.88
                 var diffColor = isCurrentLine ? (diffBrightColor || "#ffffff") : (activeColor || "#999999")
                 ctx.lineWidth = 1.0 * scale
-                drawCircledPlus(ctx, centerX, dotY, headerDotRadius, diffColor, bgColor)
+                drawCircledPlus(ctx, centerX, dotY, diffMarkerRadius, diffColor, bgColor)
             } else if (isDiffDeleted) {
-                // ⊖ (Circled Minus): компактный размер блочного line dot, тире касается окружности, цвет активной точки
+                // ⊖ (Circled Minus): оптически равен ромбу или самую малость компактнее (headerDotRadius * 0.88)
+                var diffMarkerRadius = headerDotRadius * 0.88
                 var diffColor = isCurrentLine ? (diffBrightColor || "#ffffff") : (activeColor || "#999999")
                 ctx.lineWidth = 1.0 * scale
-                drawCircledMinus(ctx, centerX, dotY, headerDotRadius, diffColor, bgColor)
+                drawCircledMinus(ctx, centerX, dotY, diffMarkerRadius, diffColor, bgColor)
             } else if (isCollapsed) {
                 // Свёрнутый блок: аккуратный ромбик свёртки activeColor (семиотика: ромб = блок)
                 drawDiamond(ctx, centerX, dotY, headerDotRadius * 1.15)
