@@ -35,7 +35,7 @@ Rectangle {
     function createNewTab() { return Documents.createDocument(canvasLayout, backend, currentFolderUrl) }
     function openFileFromFolder(url, name) { return Documents.openDocument(canvasLayout, backend, url, name) }
     function closeActiveTab() {
-        if (canvasLayout.isGraphVisible) canvasLayout.closeGraph()
+        if (canvasLayout.isGraphVisible || canvasLayout.isMetroVisible) canvasLayout.closeGraph()
         else Documents.closePanel(canvasLayout, backend, canvasLayout.activePanel)
     }
     function saveAll() { return Documents.saveAll(canvasLayout, backend) }
@@ -54,7 +54,7 @@ Rectangle {
     function handleGlobalKeyEvent(event) {
         if (hotkeys.handleKeyEvent(event)) return true
         if (event.key === Qt.Key_Escape) {
-            if (isGraphVisible) {
+            if (isGraphVisible || isMetroVisible) {
                 closeGraph()
                 event.accepted = true
                 return true

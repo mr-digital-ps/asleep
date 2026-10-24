@@ -129,11 +129,21 @@ Item {
     }
 
     function toggleLiveMode() {
-        workspacePane.isLiveMode = !workspacePane.isLiveMode
+        if (workspacePane.isMetroMode || workspacePane.isGraphMode) {
+            workspacePane.isMetroMode = false
+            workspacePane.isGraphMode = false
+            workspacePane.isLiveMode = true
+        } else {
+            workspacePane.isLiveMode = !workspacePane.isLiveMode
+        }
+        if (editorArea) editorArea.forceActiveFocus()
     }
 
     function toggleSourceMode() {
+        workspacePane.isMetroMode = false
+        workspacePane.isGraphMode = false
         workspacePane.isLiveMode = false
+        if (editorArea) editorArea.forceActiveFocus()
     }
 
     // Режим локального графа заметки

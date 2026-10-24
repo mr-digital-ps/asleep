@@ -6,6 +6,24 @@
  * благодаря чему они визуально отображаются на листе ТОЧНО КАК ОБЫЧНЫЕ БЛОКИ:
  * с шевроном ▼ в гаттере, направляющими линиями и скрытием скобок в Live Mode.
  */
+function dedentText(text) {
+    if (!text) return ""
+    var lines = text.split("\n")
+    var minIndent = Infinity
+    for (var i = 0; i < lines.length; i++) {
+        var l = lines[i]
+        if (!l.trim()) continue
+        var m = l.match(/^([ \t]*)/)
+        var indLen = m ? m[1].length : 0
+        if (indLen < minIndent) minIndent = indLen
+    }
+    if (minIndent === Infinity || minIndent === 0) return lines.join("\n")
+    return lines.map(function(l) {
+        if (!l.trim()) return ""
+        return (l.length >= minIndent) ? l.substring(minIndent) : l.trimStart()
+    }).join("\n")
+}
+
 function expandTransclusions(text, backend, activeMap) {
     if (!text || !backend) return { text: text, changed: false, map: activeMap || {} }
 
@@ -38,7 +56,10 @@ function expandTransclusions(text, backend, activeMap) {
             var res = (typeof backend.get_external_block === "function") ? backend.get_external_block(fStem, bName) : null
             if (res && res.found && res.content && res.content.trim().length > 0) {
                 var headerLine = indent + extKey + " {"
-                var bodyLines = res.content.trim().split("\n").map(function(s) { return indent + "    " + s })
+                var cleanContent = dedentText(res.content.replace(/^\r?\n+|\r?\n+$/g, ""))
+                var bodyLines = cleanContent.split("\n").map(function(s) {
+                    return s.trim().length > 0 ? (indent + "    " + s) : ""
+                })
                 var closeLine = indent + "}"
                 var blockLines = [headerLine].concat(bodyLines).concat([closeLine])
 
@@ -62,7 +83,10 @@ function expandTransclusions(text, backend, activeMap) {
             var resLoc = (typeof backend.get_block === "function") ? backend.get_block(lName) : null
             if (resLoc && resLoc.found && resLoc.content && resLoc.content.trim().length > 0) {
                 var headerLoc = indentLoc + locKey + " {"
-                var bodyLoc = resLoc.content.trim().split("\n").map(function(s) { return indentLoc + "    " + s })
+                var cleanContentLoc = dedentText(resLoc.content.replace(/^\r?\n+|\r?\n+$/g, ""))
+                var bodyLoc = cleanContentLoc.split("\n").map(function(s) {
+                    return s.trim().length > 0 ? (indentLoc + "    " + s) : ""
+                })
                 var closeLoc = indentLoc + "}"
                 var blockLinesLoc = [headerLoc].concat(bodyLoc).concat([closeLoc])
 

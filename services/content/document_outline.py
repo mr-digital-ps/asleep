@@ -133,6 +133,7 @@ def parse_user_dialect(text: str) -> DialectParseResult:
                 "children": top["children"]
             })
             if block_stack:
+                block_stack[-1]["lines"].extend(top["lines"])
                 block_stack[-1]["lines"].append(line_raw)
             current_char_offset += line_len
             continue
