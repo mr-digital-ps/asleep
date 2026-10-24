@@ -110,6 +110,8 @@ function stepSimulation(sim, dt) {
     var recoveryRate = (typeof sim.plasticRecoveryRate === "number") ? sim.plasticRecoveryRate : 0.0005
     var maxV = sim.maxVelocity || 15.0
 
+    var maxDistSq = repulsionDistMax * repulsionDistMax
+
     // 1. Отталкивание (Repulsion) всех пар узлов
     for (var i = 0; i < nLen; i++) {
         var n1 = nodes[i]
@@ -118,9 +120,9 @@ function stepSimulation(sim, dt) {
             var dx = n2.x - n1.x
             var dy = n2.y - n1.y
             var distSq = dx * dx + dy * dy + 0.1
-            var dist = Math.sqrt(distSq)
 
-            if (dist < repulsionDistMax) {
+            if (distSq < maxDistSq) {
+                var dist = Math.sqrt(distSq)
                 var force = repulsion / distSq
                 var fx = (dx / dist) * force
                 var fy = (dy / dist) * force

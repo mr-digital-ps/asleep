@@ -129,7 +129,11 @@ function renderGraph(ctx, width, height, sim, state) {
     }
     var mtimeSpan = (maxMtime > minMtime) ? (maxMtime - minMtime) : 0
 
-    // 1. Отрисовка связей (ребер)
+    // 1. Отрисовка связей (ребер) с пакетной группировкой (Batch Link Rendering)
+    var normalLinks = []
+    var transclusionLinks = []
+    var hoverLinks = []
+
     for (var i = 0; i < links.length; i++) {
         var l = links[i]
         var s = l.source
@@ -146,49 +150,58 @@ function renderGraph(ctx, width, height, sim, state) {
         }
 
         var isConnectedToHover = hasHover && (s.id === hoveredNode.id || t.id === hoveredNode.id)
-        var isTransclusion = (l.type === "transclusion")
-
-        var linkAlpha = 1.0
-        if (isActivityMode && !isConnectedToHover) {
-            var sTime = s.mtime || s.timestamp || 0
-            var tTime = t.mtime || t.timestamp || 0
-            var maxT = Math.max(sTime, tTime)
-            if (maxT > 0) {
-                var lAge = Math.max(0, (curTimeSec - maxT) / 86400)
-                var lAbs = Math.pow(0.5, lAge / decayHalfLife)
-                var lRel = (mtimeSpan > 60) ? Math.pow(Math.max(0, Math.min(1.0, (maxT - minMtime) / mtimeSpan)), 1.8) : lAbs
-                var lDecay = (mtimeSpan > 60) ? lRel : lAbs
-                linkAlpha = minBrightness + (maxBrightness - minBrightness) * lDecay
-            } else {
-                linkAlpha = minBrightness
-            }
-        }
-
-        ctx.save()
-        if (isActivityMode && !isConnectedToHover) {
-            ctx.globalAlpha = Math.max(0.08, linkAlpha * 0.75)
-        }
-
-        ctx.beginPath()
-        if (isTransclusion) {
-            ctx.setLineDash([4, 4])
-        } else {
-            ctx.setLineDash([])
-        }
-        ctx.moveTo(s.x, s.y)
-        ctx.lineTo(t.x, t.y)
-
         if (isConnectedToHover) {
-            ctx.strokeStyle = linkHoverCol
-            ctx.lineWidth = isTransclusion ? 1.1 : 1.3
+            hoverLinks.push(l)
+        } else if (l.type === "transclusion") {
+            transclusionLinks.push(l)
         } else {
-            ctx.strokeStyle = linkCol
-            ctx.lineWidth = isTransclusion ? 0.7 : 0.8
+            normalLinks.push(l)
+        }
+    }
+
+    // 1.1 Пакетная отрисовка обычных связей (1 draw call)
+    if (normalLinks.length > 0) {
+        ctx.beginPath()
+        ctx.strokeStyle = linkCol
+        ctx.lineWidth = 0.8
+        for (var ni = 0; ni < normalLinks.length; ni++) {
+            var nl = normalLinks[ni]
+            ctx.moveTo(nl.source.x, nl.source.y)
+            ctx.lineTo(nl.target.x, nl.target.y)
         }
         ctx.stroke()
-        ctx.restore()
     }
-    ctx.setLineDash([]) // сброс пунктира
+
+    // 1.2 Пакетная отрисовка трансклюзий (пунктир, 1 draw call)
+    if (transclusionLinks.length > 0) {
+        ctx.beginPath()
+        ctx.strokeStyle = linkCol
+        ctx.lineWidth = 0.7
+        ctx.setLineDash([4, 4])
+        for (var ti = 0; ti < transclusionLinks.length; ti++) {
+            var tl = transclusionLinks[ti]
+            ctx.moveTo(tl.source.x, tl.source.y)
+            ctx.lineTo(tl.target.x, tl.target.y)
+        }
+        ctx.stroke()
+        ctx.setLineDash([])
+    }
+
+    // 1.3 Подсвеченные связи при наведении
+    if (hoverLinks.length > 0) {
+        for (var hi = 0; hi < hoverLinks.length; hi++) {
+            var hl = hoverLinks[hi]
+            ctx.beginPath()
+            if (hl.type === "transclusion") ctx.setLineDash([4, 4])
+            else ctx.setLineDash([])
+            ctx.moveTo(hl.source.x, hl.source.y)
+            ctx.lineTo(hl.target.x, hl.target.y)
+            ctx.strokeStyle = linkHoverCol
+            ctx.lineWidth = (hl.type === "transclusion") ? 1.1 : 1.3
+            ctx.stroke()
+        }
+        ctx.setLineDash([])
+    }
 
     // Вспомогательная функция рисования сглаженного многоугольника (пентагон для блоков)
     function drawSmoothPentagon(cx, cy, r, cornerRadius) {

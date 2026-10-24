@@ -358,6 +358,8 @@ Rectangle {
         id: gridCanvas
         anchors.fill: parent
         z: 0
+        renderTarget: Canvas.FramebufferObject
+        renderStrategy: Canvas.Threaded
 
         Connections {
             target: canvasWorkspaceRoot
@@ -383,14 +385,16 @@ Rectangle {
 
             ctx.fillStyle = Theme.borderHover
             var dotSize = Math.max(1.8, Math.min(3.5, 2.2 * canvasWorkspaceRoot.zoomScale))
+            var half = dotSize / 2
 
+            // Пакетная быстрая отрисовка всех точек единым графическим вызовом (Batch Draw)
+            ctx.beginPath()
             for (var x = offsetX; x < width; x += step) {
                 for (var y = offsetY; y < height; y += step) {
-                    ctx.beginPath()
-                    ctx.arc(x, y, dotSize / 2, 0, Math.PI * 2)
-                    ctx.fill()
+                    ctx.rect(x - half, y - half, dotSize, dotSize)
                 }
             }
+            ctx.fill()
         }
     }
 

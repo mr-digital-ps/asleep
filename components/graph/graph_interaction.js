@@ -636,20 +636,19 @@ function stepAnimation(graphRoot, canvas, animTimer, Physics, backend, dt) {
     Physics.stepSimulation(graphRoot.sim, dt)
     canvas.requestPaint()
 
-    // Непрерывно синхронизируем актуальные координаты узлов в оперативный кэш
-    if (graphRoot.sim.nodes) {
-        for (var i = 0; i < graphRoot.sim.nodes.length; i++) {
-            var node = graphRoot.sim.nodes[i]
-            var posObj = { x: node.x, y: node.y }
-            globalNodePositionsCache[node.id] = posObj
-            if (graphRoot.nodePositionsCache) {
-                graphRoot.nodePositionsCache[node.id] = posObj
-            }
-        }
-    }
-
     if (graphRoot.sim.isSleeping) {
         animTimer.running = false
+        // Синхронизируем координаты в оперативный кэш строго при завершении движения
+        if (graphRoot.sim.nodes) {
+            for (var i = 0; i < graphRoot.sim.nodes.length; i++) {
+                var node = graphRoot.sim.nodes[i]
+                var posObj = { x: node.x, y: node.y }
+                globalNodePositionsCache[node.id] = posObj
+                if (graphRoot.nodePositionsCache) {
+                    graphRoot.nodePositionsCache[node.id] = posObj
+                }
+            }
+        }
         if (backend && typeof backend.save_node_positions === "function") {
             backend.save_node_positions(graphRoot.folderUrl, globalNodePositionsCache)
         }

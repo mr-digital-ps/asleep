@@ -9,6 +9,8 @@ import "../theme"
 Canvas {
     id: root
     anchors.fill: parent
+    renderTarget: Canvas.FramebufferObject
+    renderStrategy: Canvas.Threaded
 
     property var editorArea: null
     property var polygons: []
@@ -49,14 +51,30 @@ Canvas {
     }
 
     function rebuild() {
+        if (!editorArea) {
+            if (polygons.length > 0) {
+                polygons = []
+                requestPaint()
+            }
+            return
+        }
+
+        let s = Math.min(editorArea.selectionStart, editorArea.selectionEnd)
+        let e = Math.max(editorArea.selectionStart, editorArea.selectionEnd)
+
+        // Оптимизация: если выделения нет и ранее не было, избегаем холостых запросов requestPaint
+        if (s < 0 || s === e) {
+            if (polygons.length > 0) {
+                polygons = []
+                requestPaint()
+            }
+            return
+        }
+
         let resultPolygons = []
-        if (editorArea) {
-            let s = Math.min(editorArea.selectionStart, editorArea.selectionEnd)
-            let e = Math.max(editorArea.selectionStart, editorArea.selectionEnd)
-            if (s >= 0 && e > s) {
-                let rows = collectRows(s, e)
-                let n = rows.length
-                if (n > 0) {
+        let rows = collectRows(s, e)
+        let n = rows.length
+        if (n > 0) {
                     let cw = Math.max(1, Math.round(fm.advanceWidth(" ")))
                     let snap = Theme.selectionRadius * 2
 
@@ -113,8 +131,6 @@ Canvas {
                         }
                     }
                 }
-            }
-        }
         polygons = resultPolygons
         requestPaint()
     }

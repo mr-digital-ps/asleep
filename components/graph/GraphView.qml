@@ -257,6 +257,8 @@ Rectangle {
     Canvas {
         id: canvas
         anchors.fill: parent
+        renderTarget: Canvas.FramebufferObject
+        renderStrategy: Canvas.Threaded
 
         onPaint: {
             var ctx = getContext("2d")
@@ -314,7 +316,6 @@ Rectangle {
         property real dragOffsetX: 0
         property real dragOffsetY: 0
 
-        onWheel: (wheel) => Interaction.handleWheel(graphRoot, canvas, wheel)
         onPositionChanged: (mouse) => Interaction.handleMouseMove(graphRoot, canvas, animTimer, mouse, graphMouse, Renderer)
         onPressed: (mouse) => {
             graphRoot.forceActiveFocus()
