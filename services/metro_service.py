@@ -217,6 +217,21 @@ class MetroService:
                 "bounds": {"min_x": 0, "max_x": 800, "min_y": 0, "max_y": 600, "width": 800, "height": 600}
             }
 
+        # Если в папке есть файл-хронология с вызовами сцен Файл.Сцена(), упорядочиваем станции по нему
+        chronology_order = []
+        for f, text, parsed, level_1_blocks in parsed_files:
+            ext_calls = parsed.get("external_calls", [])
+            if len(ext_calls) >= 2:
+                for c in ext_calls:
+                    chronology_order.append((c.get("target_file", "").strip(), c.get("target_block", "").strip()))
+                break
+
+        if chronology_order:
+            order_map = {(f_stem, b_name): idx for idx, (f_stem, b_name) in enumerate(chronology_order)}
+            raw_stations.sort(key=lambda st: order_map.get((Path(st["file_path"]).stem, st["block_name"]), 9999))
+            for s_idx, st in enumerate(raw_stations):
+                st["id"] = f"st_{s_idx}"
+
         # 3. Формируем упорядоченный список веток (Tracks)
         track_names = sorted(list(track_names_set))
         tracks = []

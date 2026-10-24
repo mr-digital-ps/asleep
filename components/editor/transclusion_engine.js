@@ -89,51 +89,97 @@ function expandTransclusions(text, backend, activeMap) {
  * Применяется при переходе в Source Mode (Alt+S) и при сохранении на диск (Ctrl+S).
  */
 function collapseTransclusions(text, activeMap) {
-    if (!text || !activeMap || Object.keys(activeMap).length === 0) {
+    if (!text) {
         return { text: text, changed: false }
     }
 
     var lines = text.split("\n")
     var changed = false
 
-    for (var key in activeMap) {
-        var item = activeMap[key]
-        var targetHeader = item.header + " {"
-        var collapsedTarget = item.header + " ...."
+    // 1. Сворачивание по activeMap
+    if (activeMap && Object.keys(activeMap).length > 0) {
+        for (var key in activeMap) {
+            var item = activeMap[key]
+            var targetHeader = item.header + " {"
+            var collapsedTarget = item.header + " ...."
 
-        // 1. Восстанавливаем свернутые заголовки трансклюзий (на случай, если они не были развернуты)
-        for (var k = 0; k < lines.length; k++) {
-            if (lines[k].trim() === collapsedTarget) {
-                lines[k] = item.rawCall
-                changed = true
+            // 1a. Восстанавливаем свернутые заголовки трансклюзий
+            for (var k = 0; k < lines.length; k++) {
+                if (lines[k].trim() === collapsedTarget || lines[k].trim().indexOf(collapsedTarget) !== -1) {
+                    lines[k] = item.rawCall
+                    changed = true
+                }
             }
-        }
 
-        // 2. Сворачиваем развернутые тела трансклюзий обратно в rawCall
-        var foundAny = true
-        while (foundAny) {
-            foundAny = false
-            for (var i = 0; i < lines.length; i++) {
-                if (lines[i].indexOf(targetHeader) !== -1) {
-                    // Ищем парную закрывающую скобку } блока с учетом глубины вложенности
-                    var closeIdx = -1
-                    var depth = 0
-                    for (var j = i; j < lines.length; j++) {
-                        var l = lines[j]
-                        var opens = (l.match(/\{/g) || []).length
-                        var closes = (l.match(/\}/g) || []).length
-                        depth += opens - closes
-                        if (j > i && depth <= 0) {
-                            closeIdx = j
+            // 1b. Сворачиваем развернутые тела трансклюзий обратно в rawCall с балансировкой глубины
+            var foundAny = true
+            while (foundAny) {
+                foundAny = false
+                for (var i = 0; i < lines.length; i++) {
+                    if (lines[i].indexOf(targetHeader) !== -1) {
+                        var closeIdx = -1
+                        var depth = 0
+                        for (var j = i; j < lines.length; j++) {
+                            var l = lines[j]
+                            var opens = (l.match(/\{/g) || []).length
+                            var closes = (l.match(/\}/g) || []).length
+                            depth += opens - closes
+                            if (j > i && depth <= 0) {
+                                closeIdx = j
+                                break
+                            }
+                        }
+                        if (closeIdx !== -1) {
+                            lines = lines.slice(0, i).concat([item.rawCall]).concat(lines.slice(closeIdx + 1))
+                            changed = true
+                            foundAny = true
                             break
                         }
                     }
-                    if (closeIdx !== -1) {
-                        lines = lines.slice(0, i).concat([item.rawCall]).concat(lines.slice(closeIdx + 1))
-                        changed = true
-                        foundAny = true
+                }
+            }
+        }
+    }
+
+    // 2. Гарантированное сворачивание любых внешних блоков Файл.Блок { ... }
+    // (По канону asleep точка в имени блока зарезервирована исключительно для трансклюзий)
+    var extHeaderRegex = /^([ \t]*)([^.(){}\n\r]+?)\.([^.(){}\n\r]+)\s*\{[ \t]*$/
+    var extCollapsedRegex = /^([ \t]*)([^.(){}\n\r]+?)\.([^.(){}\n\r]+)\s*\.{3,4}[ \t]*$/
+
+    // 2a. Свернутые заголовки Файл.Блок ....
+    for (var m = 0; m < lines.length; m++) {
+        var cMatch = lines[m].match(extCollapsedRegex)
+        if (cMatch) {
+            lines[m] = cMatch[1] + cMatch[2].trim() + "." + cMatch[3].trim() + "()"
+            changed = true
+        }
+    }
+
+    // 2b. Развернутые тела Файл.Блок { ... }
+    var scanExt = true
+    while (scanExt) {
+        scanExt = false
+        for (var n = 0; n < lines.length; n++) {
+            var hMatch = lines[n].match(extHeaderRegex)
+            if (hMatch) {
+                var cCloseIdx = -1
+                var cDepth = 0
+                for (var p = n; p < lines.length; p++) {
+                    var lineP = lines[p]
+                    var opensP = (lineP.match(/\{/g) || []).length
+                    var closesP = (lineP.match(/\}/g) || []).length
+                    cDepth += opensP - closesP
+                    if (p > n && cDepth <= 0) {
+                        cCloseIdx = p
                         break
                     }
+                }
+                if (cCloseIdx !== -1) {
+                    var rawCallStr = hMatch[1] + hMatch[2].trim() + "." + hMatch[3].trim() + "()"
+                    lines = lines.slice(0, n).concat([rawCallStr]).concat(lines.slice(cCloseIdx + 1))
+                    changed = true
+                    scanExt = true
+                    break
                 }
             }
         }

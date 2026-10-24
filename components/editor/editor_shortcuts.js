@@ -172,48 +172,6 @@ function handleSmartEnter(editor, backend, onSyncNotice) {
     let lineStart = fullText.lastIndexOf("\n", Math.max(0, pos - 1)) + 1
     let textBeforeCursor = fullText.substring(lineStart, pos)
 
-    // 0a. Внешняя трансклюзия: Файл.Блок()
-    let extMatch = textBeforeCursor.match(/^([ \t]*)([^.(){}\n\r]+?)\.([^.(){}\n\r]+)\s*\(\s*\)\s*$/)
-    if (extMatch) {
-        let indent = extMatch[1]
-        let fStem = extMatch[2].trim()
-        let bName = extMatch[3].trim()
-        if (typeof backend !== "undefined" && backend && typeof backend.get_external_block === "function") {
-            let block = backend.get_external_block(fStem, bName)
-            if (block && block.found && block.content && block.content.trim().length > 0) {
-                let body = block.content.trim().split("\n").map(function(s) { return indent + "    " + s }).join("\n")
-                let newBlockText = indent + fStem + "." + bName + " {\n" + body + "\n" + indent + "}\n"
-                editor.remove(lineStart, pos)
-                editor.insert(lineStart, newBlockText)
-                editor.cursorPosition = lineStart + newBlockText.length
-                if (typeof onSyncNotice === "function") {
-                    onSyncNotice(fStem + "." + bName)
-                }
-                return true
-            }
-        }
-    }
-
-    // 0b. Локальная трансклюзия: Блок()
-    let locMatch = textBeforeCursor.match(/^([ \t]*)([^.(){}\n\r]+)\s*\(\s*\)\s*$/)
-    if (locMatch) {
-        let indentLoc = locMatch[1]
-        let lName = locMatch[2].trim()
-        if (typeof backend !== "undefined" && backend && typeof backend.get_block === "function") {
-            let block = backend.get_block(lName)
-            if (block && block.found && block.content && block.content.trim().length > 0) {
-                let bodyLoc = block.content.trim().split("\n").map(function(s) { return indentLoc + "    " + s }).join("\n")
-                let newBlockText = indentLoc + lName + " {\n" + bodyLoc + "\n" + indentLoc + "}\n"
-                editor.remove(lineStart, pos)
-                editor.insert(lineStart, newBlockText)
-                editor.cursorPosition = lineStart + newBlockText.length
-                if (typeof onSyncNotice === "function") {
-                    onSyncNotice(lName)
-                }
-                return true
-            }
-        }
-    }
 
     // 0c. Авто-заполнение именованного блока: Имя { ... }
     let blockMatch = textBeforeCursor.match(/^[ \t]*([a-zA-Zа-яА-ЯёЁ0-9_\-\s]+?)\s*\{\s*$/)
