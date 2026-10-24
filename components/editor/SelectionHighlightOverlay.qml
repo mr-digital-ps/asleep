@@ -9,8 +9,6 @@ import "../theme"
 Canvas {
     id: root
     anchors.fill: parent
-    renderTarget: Canvas.FramebufferObject
-    renderStrategy: Canvas.Threaded
 
     property var editorArea: null
     property var polygons: []

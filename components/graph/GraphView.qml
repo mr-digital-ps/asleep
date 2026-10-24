@@ -257,8 +257,6 @@ Rectangle {
     Canvas {
         id: canvas
         anchors.fill: parent
-        renderTarget: Canvas.FramebufferObject
-        renderStrategy: Canvas.Threaded
 
         onPaint: {
             var ctx = getContext("2d")
@@ -278,18 +276,7 @@ Rectangle {
                 showLinkEdges: graphRoot.showLinkEdges,
                 activityMode: graphRoot.activityMode,
                 graphConfig: graphRoot.graphConfig,
-                theme: {
-                    bgApp: Theme.bgApp,
-                    textPrimary: Theme.textPrimary,
-                    textSecondary: Theme.textSecondary,
-                    textHover: Theme.textHover,
-                    textMuted: Theme.textMuted,
-                    borderColor: Theme.borderColor,
-                    borderHover: Theme.borderHover,
-                    bgActive: Theme.bgActive,
-                    bgHover: Theme.bgHover,
-                    accentColor: Theme.accentColor
-                }
+                theme: Theme
             })
         }
     }

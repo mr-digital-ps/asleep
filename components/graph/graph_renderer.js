@@ -1,5 +1,8 @@
 // graph_renderer.js — Отрисовка Canvas и экранная проекция для интерактивного графа связей
 
+var PENTAGON_COS = [0, 0.9510565, 0.5877853, -0.5877853, -0.9510565]
+var PENTAGON_SIN = [-1, -0.309017, 0.809017, 0.809017, -0.309017]
+
 function toWorldX(screenX, width, panX, zoomScale) {
     return (screenX - (width / 2 + panX)) / zoomScale + width / 2
 }
@@ -19,22 +22,25 @@ function findNodeAtScreen(sim, screenX, screenY, width, height, zoomScale, panX,
     var px = panX
     var py = panY
 
+    // Преобразуем координаты мыши в мировые координаты один раз
+    var wx = (screenX - (w / 2 + px)) / zs + w / 2
+    var wy = (screenY - (h / 2 + py)) / zs + h / 2
+    var invZs = 1.0 / zs
+
     for (var i = nodes.length - 1; i >= 0; i--) {
         var n = nodes[i]
-        var sx = (n.x - w / 2) * zs + w / 2 + px
-        var sy = (n.y - h / 2) * zs + h / 2 + py
-        var dx = screenX - sx
-        var dy = screenY - sy
+        var dx = wx - n.x
+        var dy = wy - n.y
         var distSq = dx * dx + dy * dy
 
-        // 1. Попадание в сам кружок (комфортный радиус минимум 22px на экране)
-        var circleRadius = Math.max(22, (n.radius || 4.5) * zs + 12)
-        var hitCircle = (distSq <= circleRadius * circleRadius)
+        // 1. Попадание в сам кружок (минимальный радиус в мировых координатах)
+        var hitR = Math.max(22 * invZs, (n.radius || 4.5) + 12 * invZs)
+        var hitCircle = (distSq <= hitR * hitR)
 
         // 2. Попадание в подпись под кружком
         var labelLen = (n.label ? n.label.length : 6)
-        var labelHalfW = Math.max(26, (labelLen * 3.5 + 10) * Math.min(1.2, zs))
-        var hitLabel = (Math.abs(dx) <= labelHalfW && dy >= 0 && dy <= (26 * Math.min(1.2, zs)))
+        var labelHalfW = Math.max(26 * invZs, (labelLen * 3.5 + 10) * Math.min(1.2 * invZs, 1.2))
+        var hitLabel = (Math.abs(dx) <= labelHalfW && dy >= 0 && dy <= (26 * Math.min(1.2 * invZs, 1.2)))
 
         if ((hitCircle || hitLabel) && distSq < bestDistSq) {
             bestDistSq = distSq
@@ -205,56 +211,57 @@ function renderGraph(ctx, width, height, sim, state) {
 
     // Вспомогательная функция рисования сглаженного многоугольника (пентагон для блоков)
     function drawSmoothPentagon(cx, cy, r, cornerRadius) {
-        var sides = 5
         var cr = cornerRadius || (r * 0.28)
-        var points = []
-        // Вершины пентагона, развернутого вверх (-PI/2)
-        for (var p = 0; p < sides; p++) {
-            var angle = -Math.PI / 2 + (p * 2 * Math.PI / sides)
-            points.push({
-                x: cx + r * 1.15 * Math.cos(angle),
-                y: cy + r * 1.15 * Math.sin(angle)
-            })
-        }
+        var s = r * 1.15
+        var x0 = cx + s * PENTAGON_COS[0], y0 = cy + s * PENTAGON_SIN[0]
+        var x1 = cx + s * PENTAGON_COS[1], y1 = cy + s * PENTAGON_SIN[1]
+        var x2 = cx + s * PENTAGON_COS[2], y2 = cy + s * PENTAGON_SIN[2]
+        var x3 = cx + s * PENTAGON_COS[3], y3 = cy + s * PENTAGON_SIN[3]
+        var x4 = cx + s * PENTAGON_COS[4], y4 = cy + s * PENTAGON_SIN[4]
 
         ctx.beginPath()
-        for (var k = 0; k < sides; k++) {
-            var p1 = points[k]
-            var p2 = points[(k + 1) % sides]
-            var p0 = points[(k - 1 + sides) % sides]
-            if (k === 0) {
-                // Стартуем из середины первого ребра
-                ctx.moveTo((p0.x + p1.x) / 2, (p0.y + p1.y) / 2)
-            }
-            ctx.arcTo(p1.x, p1.y, p2.x, p2.y, cr)
-        }
+        ctx.moveTo((x4 + x0) / 2, (y4 + y0) / 2)
+        ctx.arcTo(x0, y0, x1, y1, cr)
+        ctx.arcTo(x1, y1, x2, y2, cr)
+        ctx.arcTo(x2, y2, x3, y3, cr)
+        ctx.arcTo(x3, y3, x4, y4, cr)
+        ctx.arcTo(x4, y4, x0, y0, cr)
         ctx.closePath()
     }
 
     // Вспомогательная функция рисования сглаженного ромба (для тегов)
     function drawSmoothDiamond(cx, cy, r, cornerRadius) {
         var cr = cornerRadius || (r * 0.28)
-        var dPoints = [
-            { x: cx, y: cy - r * 1.25 },
-            { x: cx + r * 1.25, y: cy },
-            { x: cx, y: cy + r * 1.25 },
-            { x: cx - r * 1.25, y: cy }
-        ]
+        var s = r * 1.25
+        var x0 = cx, y0 = cy - s
+        var x1 = cx + s, y1 = cy
+        var x2 = cx, y2 = cy + s
+        var x3 = cx - s, y3 = cy
 
         ctx.beginPath()
-        for (var d = 0; d < 4; d++) {
-            var dp1 = dPoints[d]
-            var dp2 = dPoints[(d + 1) % 4]
-            var dp0 = dPoints[(d - 1 + 4) % 4]
-            if (d === 0) {
-                ctx.moveTo((dp0.x + dp1.x) / 2, (dp0.y + dp1.y) / 2)
-            }
-            ctx.arcTo(dp1.x, dp1.y, dp2.x, dp2.y, cr)
-        }
+        ctx.moveTo((x3 + x0) / 2, (y3 + y0) / 2)
+        ctx.arcTo(x0, y0, x1, y1, cr)
+        ctx.arcTo(x1, y1, x2, y2, cr)
+        ctx.arcTo(x2, y2, x3, y3, cr)
+        ctx.arcTo(x3, y3, x0, y0, cr)
         ctx.closePath()
     }
 
-    // 2. Отрисовка узлов
+    // 2. Отрисовка узлов (с предварительно вычисленными шрифтами и без избыточного save/restore)
+    var fontNormal = labelFontSize + "px sans-serif"
+    var fontHover = "500 " + (labelFontSize + 0.5) + "px sans-serif"
+    var fontPlayer = "600 " + (labelFontSize + 1) + "px sans-serif"
+    var fontOpen = "600 " + (labelFontSize + 0.5) + "px sans-serif"
+    var curFont = ""
+    function applyFont(f) {
+        if (curFont !== f) {
+            ctx.font = f
+            curFont = f
+        }
+    }
+    var currentAlpha = 1.0
+    ctx.textAlign = "center"
+
     for (var j = 0; j < nodes.length; j++) {
         var n = nodes[j]
         var isDragged = (draggedNode && draggedNode.id === n.id)
@@ -292,8 +299,10 @@ function renderGraph(ctx, width, height, sim, state) {
             nodeAlpha = activityFactor
         }
 
-        ctx.save()
-        ctx.globalAlpha = nodeAlpha
+        if (Math.abs(currentAlpha - nodeAlpha) > 0.01) {
+            ctx.globalAlpha = nodeAlpha
+            currentAlpha = nodeAlpha
+        }
 
         var baseRadius = n.radius || 4.5
         var nType = n.type || "file"
@@ -413,23 +422,21 @@ function renderGraph(ctx, width, height, sim, state) {
         var shouldDrawLabel = isHover || isConnected || isActivePlayer || isOpenAdjacent || (q && matchesSearch) || (zoomScale > 0.9)
         if (shouldDrawLabel && nodeAlpha > 0.20) {
             if (isActivePlayer) {
-                var playerFontSize = labelFontSize + 1
-                ctx.font = "600 " + playerFontSize + "px sans-serif"
+                applyFont(fontPlayer)
                 ctx.fillStyle = textPrimary
             } else if (isOpenAdjacent) {
-                var openFontSize = labelFontSize + 0.5
-                ctx.font = "600 " + openFontSize + "px sans-serif"
+                applyFont(fontOpen)
                 ctx.fillStyle = textPrimary
             } else {
-                var curFontSize = isHover ? (labelFontSize + 0.5) : labelFontSize
-                ctx.font = (isHover ? "500 " + curFontSize + "px sans-serif" : curFontSize + "px sans-serif")
+                applyFont(isHover ? fontHover : fontNormal)
                 ctx.fillStyle = isHover ? labelHoverCol : (isConnected ? textSecondary : labelCol)
             }
-            ctx.textAlign = "center"
             ctx.fillText(n.label || "", n.x, n.y + (n.radius || 4.5) + 11)
         }
+    }
 
-        ctx.restore()
+    if (currentAlpha !== 1.0) {
+        ctx.globalAlpha = 1.0
     }
 
     ctx.restore()

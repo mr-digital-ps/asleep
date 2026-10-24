@@ -109,6 +109,7 @@ function stepSimulation(sim, dt) {
     var plasticMax = (typeof sim.plasticMaxDistance === "number") ? sim.plasticMaxDistance : 300
     var recoveryRate = (typeof sim.plasticRecoveryRate === "number") ? sim.plasticRecoveryRate : 0.0005
     var maxV = sim.maxVelocity || 15.0
+    var maxVSq = maxV * maxV
 
     var maxDistSq = repulsionDistMax * repulsionDistMax
 
@@ -206,17 +207,20 @@ function stepSimulation(sim, dt) {
             n.vx *= effectiveDamping
             n.vy *= effectiveDamping
 
-            // Ограничение максимальной скорости
-            var speed = Math.sqrt(n.vx * n.vx + n.vy * n.vy)
-            if (speed > maxV) {
-                n.vx = (n.vx / speed) * maxV
-                n.vy = (n.vy / speed) * maxV
+            // Ограничение максимальной скорости без избыточного Math.sqrt
+            var spdSq = n.vx * n.vx + n.vy * n.vy
+            if (spdSq > maxVSq) {
+                var speed = Math.sqrt(spdSq)
+                var invSpd = maxV / speed
+                n.vx *= invSpd
+                n.vy *= invSpd
+                spdSq = maxVSq
             }
 
             n.x += n.vx * timeScale
             n.y += n.vy * timeScale
 
-            energy += n.vx * n.vx + n.vy * n.vy
+            energy += spdSq
         }
     }
 

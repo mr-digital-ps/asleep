@@ -119,8 +119,6 @@ Item {
         id: gutterCanvas
         anchors.fill: parent
         visible: gutterItem.showDots
-        renderTarget: Canvas.FramebufferObject
-        renderStrategy: Canvas.Threaded
         property real lastCursorY: -1
 
         Component.onCompleted: requestPaint()

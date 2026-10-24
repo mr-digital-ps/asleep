@@ -358,8 +358,6 @@ Rectangle {
         id: gridCanvas
         anchors.fill: parent
         z: 0
-        renderTarget: Canvas.FramebufferObject
-        renderStrategy: Canvas.Threaded
 
         Connections {
             target: canvasWorkspaceRoot
