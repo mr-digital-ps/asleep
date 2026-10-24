@@ -91,7 +91,7 @@ function renderGraph(ctx, width, height, sim, state) {
     var borderHover = (theme.borderHover ? theme.borderHover.toString() : "#383838")
     var bgActive = (theme.bgActive ? theme.bgActive.toString() : "#282828")
     var bgHover = (theme.bgHover ? theme.bgHover.toString() : "#202020")
-    var accentColor = (theme.accentColor ? theme.accentColor.toString() : "#7aa2f7")
+    var accentColor = (theme.accentColor ? theme.accentColor.toString() : "#d4d4d4")
 
     var linkCol = vis.linkColor || borderColor
     var linkHoverCol = vis.linkHoverColor || borderHover

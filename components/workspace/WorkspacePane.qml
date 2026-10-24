@@ -64,12 +64,6 @@ Item {
         }
     }
 
-    function toggleSearchMode() {
-        if (paneHeader) {
-            paneHeader.toggleSearchMode()
-        }
-    }
-
     function showPathMode() {
         if (paneHeader) {
             paneHeader.showPathMode()
@@ -85,12 +79,6 @@ Item {
     function togglePathMode() {
         if (paneHeader) {
             paneHeader.togglePathMode()
-        }
-    }
-
-    function toggleTabsMode() {
-        if (paneHeader) {
-            paneHeader.toggleTabsMode()
         }
     }
 
@@ -572,10 +560,8 @@ Item {
                     onCursorVisibilityRequested: workspacePane.requestEnsureCursorVisible()
                     onToggleHistoryRequested: workspacePane.toggleHistoryMode()
                     onToggleInfoRequested: workspacePane.toggleInfoMode()
-                    onToggleSearchRequested: workspacePane.toggleSearchMode()
                     onTogglePathRequested: workspacePane.togglePathMode()
                     onShowFileNameRequested: workspacePane.showFileNameMode()
-                    onToggleTabsRequested: workspacePane.toggleTabsMode()
                     onToggleHeaderRequested: workspacePane.toggleHeaderOnly()
                     onToggleCenteredModeRequested: workspacePane.isCenteredMode = !workspacePane.isCenteredMode
                     onToggleLiveModeRequested: workspacePane.isLiveMode = !workspacePane.isLiveMode

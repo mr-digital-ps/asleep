@@ -22,7 +22,7 @@ Item {
     property real contentRightPadding: 0
     property string statsText: ""
 
-    // Режим работы хедера: "title" (по умолчанию, полное имя Папка.Файл[.Блок]) | "history" (Git Graph таймлайн) | "info" (статистика) | "search" | "tabs"
+    // Режим работы хедера: "title" (по умолчанию, полное имя Папка.Файл[.Блок]) | "history" (Git Graph таймлайн) | "info" (статистика)
     property string headerMode: "title"
 
     property alias titleField: titleField
@@ -97,10 +97,6 @@ Item {
         switchMode("info")
     }
 
-    function toggleSearchMode() {
-        switchMode("search")
-    }
-
     function togglePathMode() {
         // Alt+P: если уже в режиме полного пути (title), ничего не стираем и не переключаем
         if (headerMode !== "title") {
@@ -112,10 +108,6 @@ Item {
         if (headerMode !== "title") {
             switchMode("title")
         }
-    }
-
-    function toggleTabsMode() {
-        switchMode("tabs")
     }
 
     function stripExt(name) {
@@ -326,7 +318,7 @@ Item {
                 height: 2
                 radius: 1
                 color: headerRoot.isPinned
-                    ? (headerDividerMouse.containsMouse ? Theme.textPrimary : Theme.textSecondary)
+                    ? (headerDividerMouse.containsMouse ? Theme.accentHover : Theme.accentColor)
                     : (headerDividerMouse.containsMouse ? Theme.borderFocus : Theme.borderColor)
                 opacity: headerRoot.isPinned ? 0.9 : 0.6
                 Behavior on color { ColorAnimation { duration: Theme.animDurationNormal } }

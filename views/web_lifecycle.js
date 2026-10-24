@@ -20,8 +20,8 @@ function dispatchAction(root, backend, action) {
     var methods = {
         toggle_header: "toggleHeaderOnly", toggle_history: "toggleHistoryMode",
         toggle_history_diff: "toggleHistoryDiffMode",
-        toggle_info: "toggleInfoMode", toggle_search: "toggleSearchMode",
-        toggle_path: "togglePathMode", toggle_tabs: "toggleTabsMode",
+        toggle_info: "toggleInfoMode",
+        toggle_path: "togglePathMode",
         toggle_centered_mode: "toggleCenteredMode", toggle_scrollbar: "toggleScrollbar",
         toggle_line_dots: "toggleLineDots", toggle_live_mode: "toggleLiveMode",
         toggle_source_mode: "toggleSourceMode"
@@ -33,6 +33,7 @@ function dispatchAction(root, backend, action) {
     switch (action) {
     case "new_tab": root.createNewTab(); break
     case "open_file": root.openDialog.open(); break
+    case "open_folder": root.folderDialog.open(); break
     case "save_file": Documents.savePanel(workspace, backend, workspace.activePanel); break
     case "close_tab": root.closeActiveTab(); break
     case "toggle_graph": root.toggleGraph(); break
