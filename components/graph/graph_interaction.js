@@ -377,9 +377,9 @@ function reloadGraph(graphRoot, canvas, backend, Physics, animTimer, forcedW, fo
     graphRoot.sim = sim
     graphRoot.statsText = getGraphStats(sim, graphRoot.isLocalGraph)
 
-    // 1. Быстрый расчет равновесия только при холодном старте с отсутствующими координатами:
+    // 1. Мгновенный микро-расчет равновесия при холодном старте (без блокировки UI-потока):
     if (!hadExistingSim && anyMissing) {
-        var warmupTicks = 300
+        var warmupTicks = 15
         for (var tick = 0; tick < warmupTicks; tick++) {
             Physics.stepSimulation(sim)
             if (sim.isSleeping) break
@@ -597,14 +597,15 @@ function handleResize(graphRoot, canvas, newWidth, newHeight) {
 
 function wakeSimulation(graphRoot, canvas, animTimer, energyBoost) {
     if (graphRoot.sim && graphRoot.sim.nodes && graphRoot.sim.nodes.length > 0) {
-        var boost = (typeof energyBoost === "number") ? energyBoost : 8
+        var boost = (typeof energyBoost === "number") ? energyBoost : 18
         graphRoot.sim.isSleeping = false
         graphRoot.sim.totalEnergy = boost
+        var impulse = Math.min(2.5, Math.max(1.0, boost * 0.12))
         for (var v = 0; v < graphRoot.sim.nodes.length; v++) {
             var n = graphRoot.sim.nodes[v]
             if (!n.isFixed) {
-                n.vx = (n.vx || 0) * 0.3 + (Math.random() - 0.5) * 0.6
-                n.vy = (n.vy || 0) * 0.3 + (Math.random() - 0.5) * 0.6
+                n.vx = (n.vx || 0) * 0.4 + (Math.random() - 0.5) * impulse
+                n.vy = (n.vy || 0) * 0.4 + (Math.random() - 0.5) * impulse
             }
         }
         if (animTimer) animTimer.running = true
@@ -722,6 +723,11 @@ function handleMouseDown(graphRoot, animTimer, mouse, graphMouse, Renderer) {
         graphMouse.dragOffsetX = node.x - wx
         graphMouse.dragOffsetY = node.y - wy
         graphMouse.cursorShape = Qt.ClosedHandCursor
+        if (graphRoot.sim) {
+            graphRoot.sim.isSleeping = false
+            graphRoot.sim.totalEnergy = 20
+        }
+        if (animTimer) animTimer.running = true
     } else {
         graphRoot.draggedNode = null
         graphMouse.isPanning = true

@@ -224,8 +224,16 @@ function stepSimulation(sim, dt) {
         }
     }
 
+    var hasDraggingNode = false
+    for (var d = 0; d < nLen; d++) {
+        if (nodes[d].isDragging) {
+            hasDraggingNode = true
+            break
+        }
+    }
+
     sim.totalEnergy = energy
-    if (energy < 0.05) {
+    if (energy < 0.05 && !hasDraggingNode) {
         sim.isSleeping = true
     }
 
