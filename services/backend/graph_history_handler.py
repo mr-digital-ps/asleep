@@ -171,3 +171,21 @@ class GraphHistoryHandlerMixin:
                     self.historyUpdated.emit()
             except Exception as e:
                 safe_print(f"[Backend] Ошибка создания ручного снимка истории: {e}")
+
+    @pyqtSlot(result="QVariantMap")
+    @pyqtSlot(str, result="QVariantMap")
+    def get_metro_data(self, folder_url: str = "") -> dict:
+        """Возвращает узлы станций и ветки схемы метро сюжета для указанной или текущей папки"""
+        folder = self.file_service.to_path(folder_url) if folder_url else self._current_folder
+        if hasattr(self, "metro_service"):
+            return self.metro_service.build_metro(folder)
+        return {"stations": [], "tracks": [], "segments": [], "bounds": {"min_x": 0, "max_x": 800, "min_y": 0, "max_y": 600, "width": 800, "height": 600}}
+
+    @pyqtSlot(result="QVariantMap")
+    @pyqtSlot(str, result="QVariantMap")
+    def get_metro_config(self, folder_url: str = "") -> dict:
+        """Возвращает конфигурацию metro.json (Layout, Visual, Palette)"""
+        folder = self.file_service.to_path(folder_url) if folder_url else self._current_folder
+        if hasattr(self, "metro_service"):
+            return self.metro_service.get_config(folder)
+        return {}

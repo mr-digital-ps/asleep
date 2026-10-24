@@ -10,6 +10,7 @@ from services.storage.config_service import ConfigService
 from services.system.hotkey_service import HotkeyService, GlobalHotkeyFilter
 from services.graph_service import GraphService
 from services.history_service import HistoryService
+from services.metro_service import MetroService
 from services.content.outline_service import OutlineService
 
 from services.backend.app_initializer import safe_print, configure_app_font
@@ -51,6 +52,7 @@ class Backend(
         self.hotkey_service = HotkeyService()
         self.graph_service = GraphService(self.block_engine, self.file_service, self.config_service)
         self.history_service = HistoryService(self.file_service, self.graph_service)
+        self.metro_service = MetroService(self.file_service, self.config_service)
         self.outline_service = OutlineService()
 
         self.hotkey_service.hotkeys_changed.connect(lambda _: self.hotkeysChanged.emit())

@@ -38,6 +38,7 @@ function dispatchAction(root, backend, action) {
     case "close_tab": root.closeActiveTab(); break
     case "toggle_graph": root.toggleGraph(); break
     case "toggle_local_graph": root.toggleLocalGraph(); break
+    case "toggle_metro": root.toggleMetro(); break
     case "show_text_mode": root.closeGraph(); break
     case "toggle_fullscreen":
         if (root.appWindow) {

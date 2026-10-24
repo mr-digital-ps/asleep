@@ -116,10 +116,49 @@ def foo():
     assert "Файл_в_коде" not in res["wikilinks"]
 
 
+def test_nested_blocks():
+    text = """
+Сцена 1 - План {
+    Обсуждение ограбления.
+
+    Вайс {
+        Вайс изучает чертежи банка.
+    }
+
+    Маркус {
+        Маркус проверяет оружие.
+    }
+}
+"""
+    res = parse_user_dialect(text)
+    assert len(res["errors"]) == 0, f"Ошибки: {res['errors']}"
+    assert len(res["blocks"]) == 3
+
+    # Проверяем иерархию блоков
+    scene = next(b for b in res["blocks"] if b["name"] == "Сцена 1 - План")
+    weiss = next(b for b in res["blocks"] if b["name"] == "Вайс")
+    marcus = next(b for b in res["blocks"] if b["name"] == "Маркус")
+
+    assert scene["level"] == 1
+    assert scene["parent_name"] == ""
+    assert "Вайс" in scene["children"]
+    assert "Маркус" in scene["children"]
+
+    assert weiss["level"] == 2
+    assert weiss["parent_name"] == "Сцена 1 - План"
+    assert "чертежи банка" in weiss["content"]
+
+    assert marcus["level"] == 2
+    assert marcus["parent_name"] == "Сцена 1 - План"
+    assert "проверяет оружие" in marcus["content"]
+
+
 if __name__ == "__main__":
     test_basic_blocks()
     test_duplicate_block_names()
     test_dot_in_block_name()
     test_block_calls_transclusion()
     test_code_block_escaping()
+    test_nested_blocks()
     print("[OK] Все тесты пользовательского парсера пройдены успешно!")
+

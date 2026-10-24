@@ -36,8 +36,10 @@ def parse_syntax_blocks(text: str, heading_regex: re.Pattern | None = None) -> l
             "raw_content": raw_cnt,
             "heading_start": b["start_char"],
             "content_start": b["start_char"],
-            "content_end": b["end_char"],
-            "level": 1
+            "level": b.get("level", 1),
+            "parent_name": b.get("parent_name", ""),
+            "parent_norm": b.get("parent_norm", ""),
+            "children": b.get("children", [])
         })
     return blocks
 

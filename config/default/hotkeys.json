@@ -119,6 +119,12 @@
     "description": "Показать / скрыть локальный граф связей текущей заметки (Local Graph)"
   },
 
+  // Схема метро сюжета (Metro Transit Map) — строго Alt+M
+  "toggle_metro": {
+    "keys": ["Alt+M", "Ctrl+M"],
+    "description": "Показать / скрыть схему метро сюжета (Metro Transit Map)"
+  },
+
 
 
   // Визуальное включение / отключение полосы прокрутки (Scrollbar)

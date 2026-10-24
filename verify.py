@@ -550,6 +550,17 @@ def test_qml():
     # Canvas is the only workspace; documents are independent dynamic panels.
     assert workspace.property("panelCount") >= 1
 
+    # 2.2.9. Проверка схемы метро сюжета (Metro Map)
+    assert web_item.property("isMetroVisible") is False, "Метро по умолчанию скрыто"
+    web_item.toggleMetro()
+    assert web_item.property("isMetroVisible") is True, "toggleMetro должен активировать отображение схемы метро"
+    assert primary_bar.property("isMetroMode") is True, "primaryBar должен переключиться в isMetroMode"
+    pane_metro = primary_bar.property("paneMetroView")
+    assert pane_metro is not None, "paneMetroView должен существовать"
+    web_item.toggleMetro()
+    assert web_item.property("isMetroVisible") is False, "Повторный toggleMetro должен возвращать в source mode"
+    assert primary_bar.property("isMetroMode") is False, "Панель должна вернуться из isMetroMode"
+
     # 2.3. Проверка интерактивного графа связей (Фаза 5)
     assert web_item.property("isGraphVisible") is False, "Граф по умолчанию скрыт"
     expected_pinned = backend.get_session_config().get("header_pinned", True)
@@ -975,9 +986,11 @@ def test_structure():
         "services/system/hotkey_service.py",
         "services/system/reloader.py",
         "services/system/key_mapper.py",
+        "services/metro_service.py",
         "config/default/editor.json",
         "config/default/hotkeys.json",
         "config/default/graph.json",
+        "config/default/metro.json",
         "config/default/theme.json",
         "config/default/app.json",
         "config/default/syntax.json",
@@ -988,6 +1001,7 @@ def test_structure():
         "components/graph/graph_physics.js",
         "components/graph/graph_renderer.js",
         "components/graph/graph_interaction.js",
+        "components/metro/metro_renderer.js",
 
         # QML компоненты
         "components/editor/EditorDialogs.qml",
@@ -1011,6 +1025,8 @@ def test_structure():
         "components/workspace/qmldir",
         "components/graph/GraphView.qml",
         "components/graph/qmldir",
+        "components/metro/MetroView.qml",
+        "components/metro/qmldir",
         "views/web.qml",
         "views/window.qml",
         "web.py"

@@ -12,6 +12,10 @@ class BlockItem(TypedDict):
     end_line: int
     start_char: int
     end_char: int
+    level: int
+    parent_name: str
+    parent_norm: str
+    children: list[str]
 
 
 class ExternalCallItem(TypedDict):
@@ -75,11 +79,7 @@ def parse_user_dialect(text: str) -> DialectParseResult:
     lines = text.splitlines(keepends=True)
 
     in_code_block = False
-    in_user_block = False
-    current_block_name = ""
-    current_block_start_line = 0
-    current_block_start_char = 0
-    current_block_lines: list[str] = []
+    block_stack: list[dict] = []
 
     blocks: list[BlockItem] = []
     seen_block_names: set[str] = set()
@@ -99,51 +99,45 @@ def parse_user_dialect(text: str) -> DialectParseResult:
         # 1. Проверка блоков кода ```
         if RE_CODE_FENCE.match(line_raw):
             in_code_block = not in_code_block
-            if in_user_block:
-                current_block_lines.append(line_raw)
+            if block_stack:
+                block_stack[-1]["lines"].append(line_raw)
             else:
                 free_text_lines.append(line_raw)
             current_char_offset += line_len
             continue
 
         if in_code_block:
-            if in_user_block:
-                current_block_lines.append(line_raw)
+            if block_stack:
+                block_stack[-1]["lines"].append(line_raw)
             else:
                 free_text_lines.append(line_raw)
             current_char_offset += line_len
             continue
 
-        # 2. Обработка закрытия блока
-        if in_user_block:
-            if RE_BLOCK_END.match(line_raw):
-                content = "".join(current_block_lines)
-                end_char = current_char_offset + line_len
-                blocks.append({
-                    "name": current_block_name,
-                    "name_norm": current_block_name.lower(),
-                    "content": content,
-                    "start_line": current_block_start_line,
-                    "end_line": line_idx,
-                    "start_char": current_block_start_char,
-                    "end_char": end_char
-                })
-                in_user_block = False
-                current_block_name = ""
-                current_block_lines = []
-                current_char_offset += line_len
-                continue
-
-            nested_match = RE_BLOCK_START.match(stripped)
-            if nested_match and "{" in line_raw:
-                errors.append(f"Line {line_idx}: Nested blocks are forbidden ('{nested_match.group(1).strip()}')")
-
-            _extract_links_and_calls(line_raw, line_idx, local_calls, external_calls, wikilinks)
-            current_block_lines.append(line_raw)
+        # 2. Обработка закрытия блока } через стек
+        if block_stack and RE_BLOCK_END.match(line_raw):
+            top = block_stack.pop()
+            content = "".join(top["lines"])
+            end_char = current_char_offset + line_len
+            blocks.append({
+                "name": top["name"],
+                "name_norm": top["name_norm"],
+                "content": content,
+                "start_line": top["start_line"],
+                "end_line": line_idx,
+                "start_char": top["start_char"],
+                "end_char": end_char,
+                "level": top["level"],
+                "parent_name": top["parent_name"],
+                "parent_norm": top["parent_norm"],
+                "children": top["children"]
+            })
+            if block_stack:
+                block_stack[-1]["lines"].append(line_raw)
             current_char_offset += line_len
             continue
 
-        # 3. Вне блока: проверка на открытие нового блока
+        # 3. Проверка на открытие блока (верхнеуровневого или вложенного)
         block_match = RE_BLOCK_START.match(stripped)
         if block_match:
             raw_name = block_match.group(1).strip()
@@ -158,31 +152,56 @@ def parse_user_dialect(text: str) -> DialectParseResult:
                 else:
                     seen_block_names.add(name_norm)
 
-                in_user_block = True
-                current_block_name = raw_name
-                current_block_start_line = line_idx
-                current_block_start_char = current_char_offset
-                current_block_lines = []
+                parent_name = block_stack[-1]["name"] if block_stack else ""
+                parent_norm = block_stack[-1]["name_norm"] if block_stack else ""
+                if block_stack:
+                    block_stack[-1]["children"].append(raw_name)
+                    block_stack[-1]["lines"].append(line_raw)
+
+                block_stack.append({
+                    "name": raw_name,
+                    "name_norm": name_norm,
+                    "start_line": line_idx,
+                    "start_char": current_char_offset,
+                    "level": len(block_stack) + 1,
+                    "parent_name": parent_name,
+                    "parent_norm": parent_norm,
+                    "lines": [],
+                    "children": []
+                })
                 current_char_offset += line_len
                 continue
 
-        # 4. Свободный текст
-        free_text_lines.append(line_raw)
+        # 4. Обычные строки внутри блока или свободный текст
+        if block_stack:
+            block_stack[-1]["lines"].append(line_raw)
+        else:
+            free_text_lines.append(line_raw)
+
         _extract_links_and_calls(line_raw, line_idx, local_calls, external_calls, wikilinks)
         current_char_offset += line_len
 
-    if in_user_block:
-        errors.append(f"Unclosed block '{current_block_name}' starting at line {current_block_start_line}")
-        content = "".join(current_block_lines)
+    # Завершаем незакрытые блоки при внезапном конце файла
+    while block_stack:
+        top = block_stack.pop()
+        errors.append(f"Unclosed block '{top['name']}' starting at line {top['start_line']}")
+        content = "".join(top["lines"])
         blocks.append({
-            "name": current_block_name,
-            "name_norm": current_block_name.lower(),
+            "name": top["name"],
+            "name_norm": top["name_norm"],
             "content": content,
-            "start_line": current_block_start_line,
+            "start_line": top["start_line"],
             "end_line": len(lines),
-            "start_char": current_block_start_char,
-            "end_char": current_char_offset
+            "start_char": top["start_char"],
+            "end_char": current_char_offset,
+            "level": top["level"],
+            "parent_name": top["parent_name"],
+            "parent_norm": top["parent_norm"],
+            "children": top["children"]
         })
+
+    # Сортируем блоки по порядку строк в документе
+    blocks.sort(key=lambda b: (b["start_line"], -b["end_line"]))
 
     return {
         "blocks": blocks,

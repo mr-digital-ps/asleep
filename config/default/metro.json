@@ -1,0 +1,39 @@
+{
+  "layout": {
+    "stepX": 200,
+    "stepY": 70,
+    "margin": 100,
+    "bevelRadius": 14,
+    "bevelAngle": 45
+  },
+  "visual": {
+    "lineWidth": 4.5,
+    "stationRadius": 6.5,
+    "interchangeRadius": 9.0,
+    "stationBorderWidth": 2.5,
+    "stationBorderColor": "#121212",
+    "stationFillColor": "#FFFFFF",
+    "labelFontSize": 12,
+    "labelFontFamily": "Segoe UI, Inter, sans-serif",
+    "labelOffset": 16,
+    "labelColor": "#E2E8F0",
+    "labelSubColor": "#85929E",
+    "showGrid": true,
+    "gridColor": "rgba(255, 255, 255, 0.03)",
+    "gridStep": 40
+  },
+  "palette": [
+    "#E5484D",
+    "#3B82F6",
+    "#10B981",
+    "#F59E0B",
+    "#8B5CF6",
+    "#EC4899",
+    "#06B6D4",
+    "#84CC16",
+    "#F97316",
+    "#6366F1",
+    "#14B8A6",
+    "#E11D48"
+  ]
+}

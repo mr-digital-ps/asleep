@@ -20,6 +20,7 @@ Rectangle {
     property alias workspace: canvasLayout
     readonly property var editorArea: canvasLayout.activeEditorArea
     readonly property bool isGraphVisible: canvasLayout.isGraphVisible
+    readonly property bool isMetroVisible: canvasLayout.isMetroVisible
     onIsGraphVisibleChanged: {
         if (typeof backend !== "undefined" && backend && typeof backend.set_graph_active === "function") {
             backend.set_graph_active(isGraphVisible)
@@ -40,6 +41,7 @@ Rectangle {
     function saveAll() { return Documents.saveAll(canvasLayout, backend) }
     function toggleGraph() { canvasLayout.toggleGraph(false) }
     function toggleLocalGraph() { canvasLayout.toggleGraph(true) }
+    function toggleMetro() { canvasLayout.toggleMetro() }
     function closeGraph() { canvasLayout.closeGraph() }
     function executeAction(action) { Lifecycle.dispatchAction(root, backend, action) }
     function applyInitialState() {
@@ -96,12 +98,14 @@ Rectangle {
         function onNoteOpened(url, block) {
             var active = canvasLayout.activePanel
             var panel = null
-            if (active && active.pane && active.pane.isGraphMode) {
+            if (active && active.pane && (active.pane.isGraphMode || active.pane.isMetroMode)) {
+                active.pane.isMetroMode = false
                 panel = Documents.navigatePanel(canvasLayout, backend, active, url, backend.get_filename(url), block)
             } else {
                 panel = root.openFileFromFolder(url, backend.get_filename(url))
                 if (panel) {
                     panel.pane.isGraphMode = false
+                    panel.pane.isMetroMode = false
                     if (block) {
                         Qt.callLater(function() {
                             if (panel && panel.pane && panel.pane.editorArea) {

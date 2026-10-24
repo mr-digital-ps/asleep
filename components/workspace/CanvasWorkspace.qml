@@ -31,6 +31,7 @@ Rectangle {
     readonly property var activePane: activePanel ? activePanel.pane : null
     readonly property var activeEditorArea: activePane ? activePane.editorArea : null
     readonly property bool isGraphVisible: activePane ? activePane.isGraphMode : false
+    readonly property bool isMetroVisible: activePane ? activePane.isMetroMode : false
     readonly property var openFileUrls: panels.map(function(panel) { return panel.pane.fileUrl })
     signal actionRequested(string action)
     signal closeRequested(var panel)
@@ -57,6 +58,8 @@ Rectangle {
         panel.z = ++nextZ
         if (panel.pane.isGraphMode) {
             if (panel.pane.paneGraphView) panel.pane.paneGraphView.forceActiveFocus()
+        } else if (panel.pane.isMetroMode) {
+            if (panel.pane.paneMetroView) panel.pane.paneMetroView.forceActiveFocus()
         } else {
             if (panel.pane.editorArea) panel.pane.editorArea.forceActiveFocus()
         }
@@ -230,14 +233,27 @@ Rectangle {
             activePane.isGraphMode = false
             if (activePane.editorArea) activePane.editorArea.forceActiveFocus()
         } else {
+            activePane.isMetroMode = false
             activePane.isLocalGraphMode = Boolean(local)
             activePane.isGraphMode = true
             if (activePane.paneGraphView) activePane.paneGraphView.forceActiveFocus()
         }
     }
+    function toggleMetro() {
+        if (!activePane) return
+        if (activePane.isMetroMode) {
+            activePane.isMetroMode = false
+            if (activePane.editorArea) activePane.editorArea.forceActiveFocus()
+        } else {
+            activePane.isGraphMode = false
+            activePane.isMetroMode = true
+            if (activePane.paneMetroView) activePane.paneMetroView.forceActiveFocus()
+        }
+    }
     function closeGraph() {
         if (activePane) {
             activePane.isGraphMode = false
+            activePane.isMetroMode = false
             if (activePane.editorArea) activePane.editorArea.forceActiveFocus()
         }
     }

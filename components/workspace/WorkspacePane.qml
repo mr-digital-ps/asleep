@@ -4,6 +4,7 @@ import "../editor/block_sync.js" as BlockSync
 import "./pane_controller.js" as Controller
 import "../editor"
 import "../graph"
+import "../metro"
 import "../theme"
 
 Item {
@@ -30,12 +31,25 @@ Item {
     property int tabSize: Theme.defaultTabSize
     readonly property var targetWindow: Window.window
 
-    // Режимы рабочей области (paneBody): "editor" | "graph"
+    // Режимы рабочей области (paneBody): "editor" | "graph" | "metro"
     property bool isGraphMode: false
-    readonly property string viewMode: isGraphMode ? "graph" : "editor"
+    property bool isMetroMode: false
+    readonly property string viewMode: isMetroMode ? "metro" : (isGraphMode ? "graph" : "editor")
 
     onIsGraphModeChanged: {
         Controller.handleGraphModeChanged(workspacePane, editorScroll, paneGraphView, editorArea, smoothScrollAnim)
+    }
+
+    onIsMetroModeChanged: {
+        if (isMetroMode) {
+            isGraphMode = false
+            if (paneMetroView) {
+                paneMetroView.reloadMetro()
+                paneMetroView.forceActiveFocus()
+            }
+        } else {
+            if (editorArea) editorArea.forceActiveFocus()
+        }
     }
 
     property string folderUrl: ""
@@ -126,6 +140,7 @@ Item {
     property bool isLocalGraphMode: false
 
     property alias paneGraphView: paneGraphView
+    property alias paneMetroView: paneMetroView
     property alias paneHeader: paneHeader
     property alias paperSheet: paperSheet
     property alias editorCanvas: paperSheet.editorCanvas
@@ -403,12 +418,12 @@ Item {
         isActivePane: workspacePane.isActivePane
         isEmpty: workspacePane.isEmpty
         isPinned: workspacePane.isHeaderPinned
-        isGraphMode: workspacePane.isGraphMode
+        isGraphMode: workspacePane.isGraphMode || workspacePane.isMetroMode
         scrollY: workspacePane.scrollY
         contentLeftPadding: editorArea ? editorArea.leftPadding : 0
         contentRightPadding: editorArea ? editorArea.rightPadding : 0
-        statsText: workspacePane.isGraphMode ? workspacePane.graphStatsText : workspacePane.statsString
-        visible: workspacePane.showHeader && (workspacePane.isGraphMode ? workspacePane.isHeaderPinned : !workspacePane.isEmpty)
+        statsText: workspacePane.isMetroMode ? "Metro Transit Map" : (workspacePane.isGraphMode ? workspacePane.graphStatsText : workspacePane.statsString)
+        visible: workspacePane.showHeader && ((workspacePane.isGraphMode || workspacePane.isMetroMode) ? workspacePane.isHeaderPinned : !workspacePane.isEmpty)
         z: 10
 
         // Когда закреплен — y: 0.
@@ -620,6 +635,37 @@ Item {
                 workspacePane.closeGraphRequested()
             }
         }
+
+        // 2.4 Схема метро сюжета (MetroView)
+        MetroView {
+            id: paneMetroView
+            anchors.top: parent.top
+            anchors.topMargin: (paneHeader.visible) ? paneHeader.height : 0
+            anchors.bottom: parent.bottom
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: workspacePane.effectiveSheetWidth
+            visible: workspacePane.viewMode === "metro"
+            folderUrl: workspacePane.folderUrl
+            activeFileUrl: workspacePane.fileUrl
+
+            onMetroPressed: workspacePane.paneActivated()
+            onActiveFocusChanged: {
+                if (activeFocus) {
+                    workspacePane.paneActivated()
+                }
+            }
+            onStationClicked: (fUrl, blkName) => {
+                workspacePane.paneActivated()
+                var target = fUrl ? (fUrl + (blkName ? ("#" + blkName) : "")) : ""
+                if (backend && typeof backend.open_wiki_link === "function") {
+                    backend.open_wiki_link(target, workspacePane.folderUrl)
+                }
+                workspacePane.isMetroMode = false
+            }
+            onCloseRequested: {
+                workspacePane.isMetroMode = false
+            }
+        }
     }
 
     // Правая полоса со скроллбаром документа
@@ -636,7 +682,7 @@ Item {
         anchors.bottomMargin: Theme.sheetPadding
         anchors.right: parent.right
         anchors.rightMargin: 4
-        isEmpty: workspacePane.isEmpty || workspacePane.isGraphMode
+        isEmpty: workspacePane.isEmpty || workspacePane.isGraphMode || workspacePane.isMetroMode
         visible: workspacePane.showScrollbar && !isEmpty
         onActivated: workspacePane.paneActivated()
         onDragStarted: (mouse, item) => workspacePane.panelDragStarted(mouse, item)
