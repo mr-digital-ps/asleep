@@ -1,28 +1,69 @@
-# Python-generated files
+# ==============================================================================
+# Python & Bytecode
+# ==============================================================================
 __pycache__/
-*.py[oc]
+*.py[cod]
+*$py.class
+*.so
 build/
 dist/
 wheels/
-*.egg-info
+*.egg-info/
+*.egg
 
-# Virtual environments & caches
+# ==============================================================================
+# Virtual Environments & Package Managers
+# ==============================================================================
 .venv/
+venv/
+env/
+ENV/
 .pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
 
-# User-specific configurations
+# ==============================================================================
+# Asleep Application Runtime & User Data
+# ==============================================================================
 config/user/
 .session_config.json
 *_vault/
-
-# Test data & runtime storage
 test_notes/
 .asleep/
 *.db
+*.sqlite
+*.sqlite3
 *_graph_positions.json
 .canvas-baseline.json
 .canvas-preview.png
 
-# Third-party tools
+# ==============================================================================
+# Temporary Scratch & Runtime Logs
+# ==============================================================================
+scratch/
+*.log
+.agents/debug.log
+
+# ==============================================================================
+# IDEs & Editor Tooling
+# ==============================================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 .obsidian/
 .backup_my-text-editor-pre-split/
+
+# ==============================================================================
+# OS Generated Files
+# ==============================================================================
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+.Spotlight-V100
+.Trashes
