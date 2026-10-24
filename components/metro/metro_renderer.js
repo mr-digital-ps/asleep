@@ -60,7 +60,7 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
 
     for (var i = 0; i < segments.length; i++) {
         var seg = segments[i]
-        ctx.strokeStyle = seg.color || "#3B82F6"
+        ctx.strokeStyle = seg.color || "#A1A1AA"
         ctx.beginPath()
         drawBeveledMetroLine(ctx, seg.from_x, seg.from_y, seg.to_x, seg.to_y, 14)
         ctx.stroke()
@@ -83,7 +83,7 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
         if (isHov || isCurrent) {
             ctx.beginPath()
             ctx.arc(st.x, st.y, rad + 6, 0, Math.PI * 2)
-            ctx.fillStyle = isCurrent ? "rgba(59, 130, 246, 0.25)" : "rgba(255, 255, 255, 0.18)"
+            ctx.fillStyle = isCurrent ? "rgba(228, 228, 231, 0.3)" : "rgba(255, 255, 255, 0.18)"
             ctx.fill()
         }
 
@@ -189,14 +189,17 @@ function renderTrackBadges(ctx, tracks, stations, fontFamily) {
         var badgeW = Math.max(40, textW + 16)
         var badgeH = 20
 
-        // Фон плашки ветки
-        ctx.fillStyle = tr.color || "#3B82F6"
+        // Фон плашки ветки: темная монохромная плашка с аккуратной рамкой цвета ветки
         ctx.beginPath()
         roundRect(ctx, badgeX - badgeW, badgeY - badgeH / 2, badgeW, badgeH, 10)
+        ctx.fillStyle = "#18181B"
         ctx.fill()
+        ctx.lineWidth = 1.5
+        ctx.strokeStyle = tr.color || "#71717A"
+        ctx.stroke()
 
         // Текст названия ветки
-        ctx.fillStyle = "#FFFFFF"
+        ctx.fillStyle = "#FAFAFA"
         ctx.textAlign = "center"
         ctx.fillText(text, badgeX - badgeW / 2, badgeY)
     }

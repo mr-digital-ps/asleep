@@ -79,6 +79,8 @@ class MetroService:
         }
         """
         folder = folder_path or self.project_root
+        if isinstance(folder, str):
+            folder = Path(folder)
         if not folder or not folder.exists() or not folder.is_dir():
             return {
                 "stations": [],

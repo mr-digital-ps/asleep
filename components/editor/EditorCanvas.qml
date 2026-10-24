@@ -175,16 +175,22 @@ RowLayout {
 
         if (collapsedBlocks && Object.keys(collapsedBlocks).length > 0) {
             var remaining = Object.assign({}, collapsedBlocks)
-            for (var i = lines.length - 1; i >= 0; i--) {
-                var lineTrimmed = lines[i].trim()
-                for (var cId in remaining) {
-                    var cBlk = remaining[cId]
-                    if (cBlk && cBlk.name + " ...." === lineTrimmed) {
-                        lines = lines.slice(0, i).concat(cBlk.lines).concat(lines.slice(i + 1))
-                        delete remaining[cId]
-                        changed = true
-                        break
+            var pass = true
+            while (pass) {
+                pass = false
+                for (var i = lines.length - 1; i >= 0; i--) {
+                    var lineTrimmed = lines[i].trim()
+                    for (var cId in remaining) {
+                        var cBlk = remaining[cId]
+                        if (cBlk && (cBlk.name + " ...." === lineTrimmed || lineTrimmed.indexOf(cBlk.name + " ....") !== -1)) {
+                            lines = lines.slice(0, i).concat(cBlk.lines).concat(lines.slice(i + 1))
+                            delete remaining[cId]
+                            changed = true
+                            pass = true
+                            break
+                        }
                     }
+                    if (pass) break
                 }
             }
         }
@@ -308,6 +314,13 @@ RowLayout {
             var collapsedHeader = indent + block.name + " ...."
 
             var newMap = Object.assign({}, collapsedBlocks)
+            // Очищаем любые внутренние блоки, чьи заголовки находились внутри сворачиваемого диапазона
+            for (var cKey in newMap) {
+                var entry = newMap[cKey]
+                if (entry && entry.headerLine > startL && entry.headerLine <= endL) {
+                    delete newMap[cKey]
+                }
+            }
             newMap[block.id] = {
                 id: block.id,
                 name: block.name,
@@ -336,15 +349,21 @@ RowLayout {
         // 1. Восстановление свернутых блоков Имя ....
         if (collapsedBlocks && Object.keys(collapsedBlocks).length > 0) {
             var remaining = Object.assign({}, collapsedBlocks)
-            for (var i = lines.length - 1; i >= 0; i--) {
-                var lineTrimmed = lines[i].trim()
-                for (var cId in remaining) {
-                    var cBlk = remaining[cId]
-                    if (cBlk && cBlk.name + " ...." === lineTrimmed) {
-                        lines = lines.slice(0, i).concat(cBlk.lines).concat(lines.slice(i + 1))
-                        delete remaining[cId]
-                        break
+            var pass = true
+            while (pass) {
+                pass = false
+                for (var i = lines.length - 1; i >= 0; i--) {
+                    var lineTrimmed = lines[i].trim()
+                    for (var cId in remaining) {
+                        var cBlk = remaining[cId]
+                        if (cBlk && (cBlk.name + " ...." === lineTrimmed || lineTrimmed.indexOf(cBlk.name + " ....") !== -1)) {
+                            lines = lines.slice(0, i).concat(cBlk.lines).concat(lines.slice(i + 1))
+                            delete remaining[cId]
+                            pass = true
+                            break
+                        }
                     }
+                    if (pass) break
                 }
             }
         }

@@ -115,10 +115,15 @@ function collapseTransclusions(text, activeMap) {
             foundAny = false
             for (var i = 0; i < lines.length; i++) {
                 if (lines[i].indexOf(targetHeader) !== -1) {
-                    // Ищем парную закрывающую скобку } блока
+                    // Ищем парную закрывающую скобку } блока с учетом глубины вложенности
                     var closeIdx = -1
-                    for (var j = i + 1; j < lines.length; j++) {
-                        if (lines[j].trim() === "}") {
+                    var depth = 0
+                    for (var j = i; j < lines.length; j++) {
+                        var l = lines[j]
+                        var opens = (l.match(/\{/g) || []).length
+                        var closes = (l.match(/\}/g) || []).length
+                        depth += opens - closes
+                        if (j > i && depth <= 0) {
                             closeIdx = j
                             break
                         }

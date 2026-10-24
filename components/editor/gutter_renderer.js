@@ -68,18 +68,12 @@ function drawGutterDots(canvas, editorArea, width, height, activeColor, textColo
                 if (lTrim.indexOf(" ....") !== -1) {
                     for (var ck = 0; ck < cKeys.length; ck++) {
                         var cb = collapsedBlocks[cKeys[ck]]
-                        if (cb && (cb.name + " ...." === lTrim || cb.headerLine === l)) {
+                        if (cb && (cb.name + " ...." === lTrim || lTrim.indexOf(cb.name + " ....") !== -1)) {
                             collapsedLines[l] = cb
                             cb.headerLine = l
                             break
                         }
                     }
-                }
-            }
-            for (var cId in collapsedBlocks) {
-                var cBlk = collapsedBlocks[cId]
-                if (cBlk && cBlk.headerLine !== undefined && !collapsedLines[cBlk.headerLine]) {
-                    collapsedLines[cBlk.headerLine] = cBlk
                 }
             }
         }
