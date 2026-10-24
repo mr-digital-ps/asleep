@@ -100,24 +100,29 @@ class MetroService:
         files = list_project_notes(folder, config_service=self.config_service)
         files.sort(key=_natural_note_sort_key)
 
+        # Предварительный анализ: есть ли в папке файлы со сценами/блоками
+        parsed_files = []
+        has_any_blocks = False
+        for f in files:
+            try:
+                text = f.read_text(encoding="utf-8")
+                parsed = parse_user_dialect(text)
+                l1 = [b for b in parsed.get("blocks", []) if b.get("level", 1) == 1]
+                if l1:
+                    has_any_blocks = True
+                parsed_files.append((f, text, parsed, l1))
+            except Exception:
+                continue
+
         raw_stations = []
         track_names_set = set()
         station_counter = 0
 
-        # 2. Извлекаем станции из каждого файла
-        for f in files:
-            try:
-                text = f.read_text(encoding="utf-8")
-            except Exception:
-                continue
-
-            parsed = parse_user_dialect(text)
-            blocks = parsed.get("blocks", [])
+        # 2. Извлекаем станции из файлов
+        for f, text, parsed, level_1_blocks in parsed_files:
             file_url = QUrl.fromLocalFile(str(f.resolve())).toString()
             file_name = f.name
             file_stem = f.stem
-
-            level_1_blocks = [b for b in blocks if b.get("level", 1) == 1]
 
             if level_1_blocks:
                 # В файле есть именованные сцены/блоки верхнего уровня
@@ -167,8 +172,8 @@ class MetroService:
                         "is_interchange": len(st_tracks) > 1,
                         "summary": summary
                     })
-            else:
-                # В файле нет блоков: весь файл является станцией
+            elif not has_any_blocks:
+                # В папке вообще ни в одном файле нет блоков: каждый файл является станцией
                 st_id = f"st_{station_counter}"
                 station_counter += 1
                 wikilinks = parsed.get("wikilinks", [])
