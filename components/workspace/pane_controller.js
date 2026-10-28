@@ -59,57 +59,12 @@ function stripExt(name) {
 }
 
 function formatBreadcrumbTitle(folderUrl, currentFolderName, fileUrl, fileName, activeBlockName) {
-    var fileBase = stripExt(fileName) || "Новый документ"
-    var folderBase = currentFolderName || ""
-
-    var cleanFolder = ""
-    if (folderUrl) {
-        try {
-            cleanFolder = decodeURIComponent(folderUrl).replace(/^file:\/\/\/?/, "").replace(/\\/g, "/").replace(/\/+$/, "")
-        } catch(e) {
-            cleanFolder = folderUrl.replace(/^file:\/\/\/?/, "").replace(/\\/g, "/").replace(/\/+$/, "")
-        }
-        if (!folderBase) {
-            var folderParts = cleanFolder.split("/").filter(function(p) { return p.length > 0 })
-            if (folderParts.length > 0) {
-                folderBase = folderParts[folderParts.length - 1]
-            }
-        }
-    }
-
-    var subParts = []
-    if (folderUrl && fileUrl && cleanFolder) {
-        var cleanFile = ""
-        try {
-            cleanFile = decodeURIComponent(fileUrl).replace(/^file:\/\/\/?/, "").replace(/\\/g, "/")
-        } catch(e) {
-            cleanFile = fileUrl.replace(/^file:\/\/\/?/, "").replace(/\\/g, "/")
-        }
-        var fRoot = cleanFolder.toLowerCase()
-        var fFull = cleanFile.toLowerCase()
-        if (fFull.indexOf(fRoot) === 0) {
-            var rel = cleanFile.substring(cleanFolder.length).replace(/^\/+/, "")
-            var relParts = rel.split("/").filter(function(p) { return p.length > 0 })
-            if (relParts.length > 1) {
-                for (var i = 0; i < relParts.length - 1; i++) {
-                    subParts.push(relParts[i])
-                }
-            }
-        }
-    }
-
-    var parts = []
-    if (folderBase) parts.push(folderBase)
-    for (var s = 0; s < subParts.length; s++) {
-        parts.push(subParts[s])
-    }
-    parts.push(fileBase)
     if (activeBlockName && activeBlockName.trim().length > 0) {
-        parts.push(activeBlockName.trim())
+        return activeBlockName.trim()
     }
-
-    return parts.join(".")
+    return stripExt(fileName) || "Новый документ"
 }
+
 
 function updateConfigParameterInText(fileName, text, key, value) {
     return Frontmatter.updateConfigParameterInText(fileName, text, key, value)
