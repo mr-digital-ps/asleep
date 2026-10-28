@@ -196,7 +196,7 @@ Rectangle {
 
         onWheel: (wheel) => {
             var factor = Math.exp(wheel.angleDelta.y * 0.001)
-            var newScale = Math.max(0.2, Math.min(3.0, metroRoot.zoomScale * factor))
+            var newScale = Math.max(0.04, Math.min(3.0, metroRoot.zoomScale * factor))
             if (newScale !== metroRoot.zoomScale) {
                 var mouseX = wheel.x
                 var mouseY = wheel.y

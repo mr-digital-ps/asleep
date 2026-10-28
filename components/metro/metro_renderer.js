@@ -762,7 +762,7 @@ function fitToBounds(bounds, viewWidth, viewHeight) {
 
     var scaleX = availW / bounds.width
     var scaleY = availH / bounds.height
-    var scale = Math.min(1.1, Math.max(0.28, Math.min(scaleX, scaleY)))
+    var scale = Math.min(1.1, Math.max(0.04, Math.min(scaleX, scaleY)))
 
     var centerX = bounds.min_x + bounds.width / 2
     var centerY = bounds.min_y + bounds.height / 2
