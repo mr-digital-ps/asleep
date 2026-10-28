@@ -19,6 +19,10 @@
     "labelOffset": 16,
     "labelColor": "#E2E8F0",
     "labelSubColor": "#94A3B8",
+    "lineRestingAlpha": 0.26,
+    "lineHighlightAlpha": 1.0,
+    "lineTributaryAlpha": 0.55,
+    "lineDimmedAlpha": 0.10,
     "showGrid": true,
     "gridColor": "rgba(255, 255, 255, 0.03)",
     "gridStep": 40

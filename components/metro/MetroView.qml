@@ -20,6 +20,15 @@ Rectangle {
     property real zoomScale: 1.0
 
     property var hoveredStation: null
+    property string hoveredTrackId: ""
+    readonly property var hoveredTrackObj: {
+        if (!hoveredTrackId || !metroData || !metroData.tracks) return null
+        for (var i = 0; i < metroData.tracks.length; i++) {
+            if (metroData.tracks[i].id === hoveredTrackId) return metroData.tracks[i]
+        }
+        return null
+    }
+
     property bool _isDragging: false
     property real _lastMouseX: 0
     property real _lastMouseY: 0
@@ -102,7 +111,8 @@ Rectangle {
                 metroRoot.panY,
                 metroRoot.zoomScale,
                 metroRoot.hoveredStation ? metroRoot.hoveredStation.id : "",
-                metroRoot.activeFileUrl
+                metroRoot.activeFileUrl,
+                metroRoot.hoveredTrackId
             )
         }
     }
@@ -113,7 +123,9 @@ Rectangle {
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
 
-        cursorShape: metroRoot.hoveredStation ? Qt.PointingHandCursor : (metroRoot._isDragging ? Qt.ClosedHandCursor : Qt.ArrowCursor)
+        cursorShape: (metroRoot.hoveredStation || metroRoot.hoveredTrackId)
+            ? Qt.PointingHandCursor
+            : (metroRoot._isDragging ? Qt.ClosedHandCursor : Qt.ArrowCursor)
 
         onPressed: (mouse) => {
             metroRoot.forceActiveFocus()
@@ -150,6 +162,7 @@ Rectangle {
                 return
             }
 
+            // 1. Проверяем попадание в станцию
             var st = Renderer.findStationAt(
                 metroRoot.metroData ? metroRoot.metroData.stations : [],
                 mouse.x,
@@ -159,8 +172,35 @@ Rectangle {
                 metroRoot.zoomScale
             )
 
-            if (st !== metroRoot.hoveredStation) {
+            var trId = ""
+            if (!st) {
+                // 2. Если курсор не над станцией, проверяем ветки (бейджи или сплайн)
+                trId = Renderer.findTrackAt(
+                    metroRoot.metroData ? metroRoot.metroData.tracks : [],
+                    metroRoot.metroData ? metroRoot.metroData.segments : [],
+                    metroRoot.metroData ? metroRoot.metroData.stations : [],
+                    mouse.x,
+                    mouse.y,
+                    metroRoot.panX,
+                    metroRoot.panY,
+                    metroRoot.zoomScale
+                ) || ""
+            }
+
+            var stationChanged = (st !== metroRoot.hoveredStation)
+            var trackChanged = (trId !== metroRoot.hoveredTrackId)
+
+            if (stationChanged || trackChanged) {
                 metroRoot.hoveredStation = st
+                metroRoot.hoveredTrackId = trId
+                canvas.requestPaint()
+            }
+        }
+
+        onExited: {
+            if (metroRoot.hoveredStation !== null || metroRoot.hoveredTrackId !== "") {
+                metroRoot.hoveredStation = null
+                metroRoot.hoveredTrackId = ""
                 canvas.requestPaint()
             }
         }
@@ -309,6 +349,55 @@ Rectangle {
                 ToolTip.visible: closeMouse.containsMouse
                 ToolTip.text: "Закрыть схему метро (Esc)"
                 ToolTip.delay: 300
+            }
+        }
+    }
+
+    // Всплывающая плашка наведенной линии (Track Pill)
+    Rectangle {
+        id: trackInfoPill
+        visible: metroRoot.hoveredStation === null && metroRoot.hoveredTrackObj !== null
+        anchors.right: parent.right
+        anchors.rightMargin: 16
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 16
+        height: 38
+        implicitWidth: trackPillLayout.implicitWidth + 24
+        radius: 19
+        color: Theme.bgDialog
+        border.color: Theme.borderColor
+        border.width: 1
+        z: 10
+        opacity: visible ? 1.0 : 0.0
+        Behavior on opacity { NumberAnimation { duration: 150 } }
+
+        RowLayout {
+            id: trackPillLayout
+            anchors.fill: parent
+            anchors.leftMargin: 12
+            anchors.rightMargin: 14
+            spacing: 8
+
+            Rectangle {
+                width: 10
+                height: 10
+                radius: 5
+                color: metroRoot.hoveredTrackObj ? (metroRoot.hoveredTrackObj.color || Theme.accentColor) : "transparent"
+            }
+
+            Text {
+                text: metroRoot.hoveredTrackObj ? (metroRoot.hoveredTrackObj.title || metroRoot.hoveredTrackObj.id) : ""
+                font.family: Theme.fontFamily
+                font.pixelSize: 12
+                font.bold: true
+                color: Theme.textPrimary
+            }
+
+            Text {
+                text: "• " + (metroRoot.hoveredTrackObj && metroRoot.hoveredTrackObj.station_ids ? metroRoot.hoveredTrackObj.station_ids.length : 0) + " сцен"
+                font.family: Theme.fontFamily
+                font.pixelSize: 11
+                color: Theme.textMuted
             }
         }
     }

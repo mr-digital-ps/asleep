@@ -4,16 +4,20 @@
 /**
  * Отрисовка схемы линий метро на HTML5 Canvas
  */
-function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScale, hoveredStationId, activeFileUrl) {
+function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScale, hoveredStationId, activeFileUrl, hoveredTrackId) {
     if (!ctx) return
 
     ctx.save()
     ctx.clearRect(0, 0, width, height)
 
     var visual = (config && config.visual) ? config.visual : {}
-    var lineWidth = visual.lineWidth || 4.5
+    var lineWidth = visual.lineWidth || 4.0
+    var lineRestingAlpha = (visual.lineRestingAlpha !== undefined) ? visual.lineRestingAlpha : 0.26
+    var lineHighlightAlpha = (visual.lineHighlightAlpha !== undefined) ? visual.lineHighlightAlpha : 1.0
+    var lineTributaryAlpha = (visual.lineTributaryAlpha !== undefined) ? visual.lineTributaryAlpha : 0.55
+    var lineDimmedAlpha = (visual.lineDimmedAlpha !== undefined) ? visual.lineDimmedAlpha : 0.10
     var stationRadius = visual.stationRadius || 6.5
-    var interchangeRadius = visual.interchangeRadius || 9.0
+    var interchangeRadius = visual.interchangeRadius || 9.5
     var stBorderWidth = visual.stationBorderWidth || 2.5
     var stBorderColor = visual.stationBorderColor || "#18181B"
     var stFillColor = visual.stationFillColor || "#FFFFFF"
@@ -22,7 +26,7 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
     var labelColor = visual.labelColor || "#E2E8F0"
     var labelSubColor = visual.labelSubColor || "#94A3B8"
     var showGrid = visual.showGrid !== false
-    var gridColor = visual.gridColor || "rgba(255, 255, 255, 0.04)"
+    var gridColor = visual.gridColor || "rgba(255, 255, 255, 0.03)"
     var gridStep = visual.gridStep || 40
 
     // 1. Отрисовка фоновой сетки (в экранных координатах)
@@ -75,32 +79,100 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
     // 2.5 Отрисовка группирующих скобок этапов/актов
     renderGroups(ctx, groups, labelFontFamily)
 
-    // Определяем активные ветки при наведении на станцию для умной подсветки линий
-    var hoveredTracks = {}
+    // 3. Вычисление причинно-следственного конуса предыстории (Causal Upstream Cone)
+    var targetStation = null
+    var directTracks = {}
+    var predecessorStationIds = {}
+    var indirectTrackCutoffs = {} // trackId -> maxX where it entered predecessor station
+
     if (hoveredStationId) {
         for (var hs = 0; hs < stations.length; hs++) {
             if (stations[hs].id === hoveredStationId) {
-                var hst = stations[hs]
-                if (hst.tracks) {
-                    for (var ht = 0; ht < hst.tracks.length; ht++) {
-                        hoveredTracks[hst.tracks[ht]] = true
-                    }
-                }
+                targetStation = stations[hs]
                 break
             }
         }
-    }
-    var hasHoverFilter = (hoveredStationId && Object.keys(hoveredTracks).length > 0)
+        if (targetStation && targetStation.tracks) {
+            for (var ht = 0; ht < targetStation.tracks.length; ht++) {
+                directTracks[targetStation.tracks[ht]] = true
+            }
 
-    // 3. Отрисовка соединительных линий (Segments) плавными кривыми Безье
+            // Находим все станции-предшественники, расположенные левее (в прошлом),
+            // через которые проходили прямые ветки целевой станции
+            for (var bs = 0; bs < stations.length; bs++) {
+                var bSt = stations[bs]
+                if (bSt.x < targetStation.x - 4 && bSt.tracks) {
+                    var connectsToDirect = false
+                    for (var bt = 0; bt < bSt.tracks.length; bt++) {
+                        if (directTracks[bSt.tracks[bt]]) {
+                            connectsToDirect = true
+                            break
+                        }
+                    }
+                    if (connectsToDirect) {
+                        predecessorStationIds[bSt.id] = true
+                        // Любая другая ветка, участвовавшая в этой предшествующей сцене,
+                        // является притоком (tributary) предыстории до момента этой сцены!
+                        for (var ot = 0; ot < bSt.tracks.length; ot++) {
+                            var oTrack = bSt.tracks[ot]
+                            if (!directTracks[oTrack]) {
+                                var prevCut = indirectTrackCutoffs[oTrack] || 0
+                                if (bSt.x > prevCut) {
+                                    indirectTrackCutoffs[oTrack] = bSt.x
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 4. Отрисовка соединительных линий (Segments) плавными кривыми Безье
     ctx.lineCap = "round"
     ctx.lineJoin = "round"
 
     for (var i = 0; i < segments.length; i++) {
         var seg = segments[i]
-        var isSegHighlighted = !hasHoverFilter || hoveredTracks[seg.track_id]
-        ctx.globalAlpha = isSegHighlighted ? 1.0 : 0.2
-        ctx.lineWidth = isSegHighlighted ? (lineWidth + 0.8) : lineWidth
+        var segAlpha = lineRestingAlpha
+        var segLineWidth = lineWidth
+
+        if (targetStation) {
+            // Режим фокуса на станции: конус предыстории
+            if (directTracks[seg.track_id]) {
+                if (seg.to_x <= targetStation.x + 8) {
+                    segAlpha = lineHighlightAlpha // Входящая ветка к станции — яркость 100%
+                    segLineWidth = lineWidth + 1.6
+                } else {
+                    segAlpha = lineDimmedAlpha // Выходящая ветка (будущее после сцены) — затемнено
+                    segLineWidth = lineWidth * 0.85
+                }
+            } else if (indirectTrackCutoffs[seg.track_id]) {
+                var cutoffX = indirectTrackCutoffs[seg.track_id]
+                if (seg.to_x <= cutoffX + 8) {
+                    segAlpha = lineTributaryAlpha // Косвенный приток-предшественник — средняя яркость
+                    segLineWidth = lineWidth + 0.4
+                } else {
+                    segAlpha = lineDimmedAlpha
+                    segLineWidth = lineWidth * 0.85
+                }
+            } else {
+                segAlpha = lineDimmedAlpha
+                segLineWidth = lineWidth * 0.85
+            }
+        } else if (hoveredTrackId) {
+            // Режим фокуса на ветке: подсветка всей линии
+            if (seg.track_id === hoveredTrackId) {
+                segAlpha = lineHighlightAlpha
+                segLineWidth = lineWidth + 1.8
+            } else {
+                segAlpha = lineDimmedAlpha
+                segLineWidth = lineWidth * 0.85
+            }
+        }
+
+        ctx.globalAlpha = segAlpha
+        ctx.lineWidth = segLineWidth
         ctx.strokeStyle = seg.color || "#A1A1AA"
         ctx.beginPath()
         drawSmoothTransitLine(ctx, seg.from_x, seg.from_y, seg.to_x, seg.to_y)
@@ -134,27 +206,45 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
     }
     ctx.globalAlpha = 1.0
 
-    // 4. Отрисовка плашек названий линий (Track Badges) слева
-    renderTrackBadges(ctx, tracks, stations, labelFontFamily)
+    // 5. Отрисовка плашек названий линий (Track Badges) слева
+    renderTrackBadges(ctx, tracks, stations, labelFontFamily, hoveredTrackId, directTracks, indirectTrackCutoffs)
 
-    // 5. Отрисовка станций в форме ромба (Rhombus / Diamond)
+    // 6. Отрисовка станций в форме ромба (Rhombus / Diamond)
     var fontMain = "600 " + labelFontSize + "px " + labelFontFamily
 
     for (var s = 0; s < stations.length; s++) {
         var st = stations[s]
         var isHov = (st.id === hoveredStationId)
         var isCurrent = (activeFileUrl && st.file_url === activeFileUrl)
-        var isConnectedToHover = hasHoverFilter && st.tracks && st.tracks.some(function(t) { return hoveredTracks[t] })
-        ctx.globalAlpha = (!hasHoverFilter || isHov || isConnectedToHover) ? 1.0 : 0.35
+        var isPredecessor = !!predecessorStationIds[st.id]
+        var isOnHoveredTrack = (hoveredTrackId && st.tracks && st.tracks.indexOf(hoveredTrackId) !== -1)
+
+        var stAlpha = 0.85
+        if (targetStation) {
+            if (isHov) stAlpha = 1.0
+            else if (isPredecessor) stAlpha = 0.95
+            else stAlpha = 0.16
+        } else if (hoveredTrackId) {
+            stAlpha = isOnHoveredTrack ? 1.0 : 0.16
+        } else {
+            stAlpha = isCurrent ? 1.0 : 0.85
+        }
+
+        ctx.globalAlpha = stAlpha
 
         var rad = st.is_interchange ? interchangeRadius : stationRadius
         var rSize = rad * 1.25
 
         // Внешнее свечение при наведении или активном файле
-        if (isHov || isCurrent) {
+        if (isHov || isCurrent || isOnHoveredTrack) {
             ctx.beginPath()
             drawRhombus(ctx, st.x, st.y, rSize + 6, rSize + 6)
             ctx.fillStyle = isCurrent ? "rgba(228, 228, 231, 0.35)" : "rgba(255, 255, 255, 0.22)"
+            ctx.fill()
+        } else if (isPredecessor) {
+            ctx.beginPath()
+            drawRhombus(ctx, st.x, st.y, rSize + 4, rSize + 4)
+            ctx.fillStyle = "rgba(228, 228, 231, 0.18)"
             ctx.fill()
         }
 
@@ -164,7 +254,7 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
         ctx.fillStyle = stFillColor
         ctx.fill()
         ctx.lineWidth = stBorderWidth
-        ctx.strokeStyle = (isHov || isCurrent) ? "#FFFFFF" : stBorderColor
+        ctx.strokeStyle = (isHov || isCurrent || isOnHoveredTrack) ? "#FFFFFF" : (isPredecessor ? "#E4E4E7" : stBorderColor)
         ctx.stroke()
 
         // Внутренний акцент для пересадочных станций (Interchange)
@@ -175,18 +265,17 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
             ctx.fill()
         }
 
-        // 6. Подписи к станциям
-        // Level of Detail: при мелком масштабе (<0.58) скрываем общие подписи, чтобы не было каши
-        var showText = (zoomScale >= 0.58) || isHov || isCurrent
+        // 7. Подписи к станциям (Level of Detail)
+        var showText = (zoomScale >= 0.58) || isHov || isCurrent || isPredecessor || isOnHoveredTrack
 
-        if (showText) {
+        if (showText && stAlpha > 0.3) {
             ctx.textAlign = "center"
 
             // Годы над станцией (если есть)
             if (st.date_str) {
                 ctx.font = "bold 10px " + labelFontFamily
                 ctx.textBaseline = "bottom"
-                ctx.fillStyle = isHov ? "#FFFFFF" : labelSubColor
+                ctx.fillStyle = (isHov || isPredecessor) ? "#FFFFFF" : labelSubColor
                 ctx.fillText(st.date_str, st.x, st.y - rSize - 4)
             }
 
@@ -202,7 +291,7 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
             roundRect(ctx, st.x - textW / 2 - 5, titleY - 2, textW + 10, labelFontSize + 4, 3)
             ctx.fill()
 
-            ctx.fillStyle = (isHov || isCurrent) ? "#FFFFFF" : labelColor
+            ctx.fillStyle = (isHov || isCurrent || isPredecessor || isOnHoveredTrack) ? "#FFFFFF" : labelColor
             ctx.fillText(titleText, st.x, titleY)
         }
     }
@@ -263,11 +352,13 @@ function drawBeveledMetroLine(ctx, x1, y1, x2, y2, radius) {
 /**
  * Отрисовка бейджей линий (Track Badges) в начале веток
  */
-function renderTrackBadges(ctx, tracks, stations, fontFamily) {
+function renderTrackBadges(ctx, tracks, stations, fontFamily, hoveredTrackId, directTracks, indirectTracks) {
     if (!tracks || tracks.length === 0 || !stations || stations.length === 0) return
 
     ctx.font = "bold 11px " + fontFamily
     ctx.textBaseline = "middle"
+
+    var hasDirect = directTracks && Object.keys(directTracks).length > 0
 
     for (var i = 0; i < tracks.length; i++) {
         var tr = tracks[i]
@@ -281,6 +372,8 @@ function renderTrackBadges(ctx, tracks, stations, fontFamily) {
                 break
             }
         }
+        if (!firstSt) continue
+
         var badgeX = (tr.badge_x !== undefined) ? tr.badge_x : (firstSt.x - 45)
         var badgeY = (tr.badge_y !== undefined) ? tr.badge_y : firstSt.y
         var text = tr.title || tr.id
@@ -288,19 +381,36 @@ function renderTrackBadges(ctx, tracks, stations, fontFamily) {
         var badgeW = Math.max(40, textW + 16)
         var badgeH = 20
 
+        var isTrHov = (hoveredTrackId === tr.id)
+        var isDirect = directTracks && directTracks[tr.id]
+        var isIndirect = indirectTracks && indirectTracks[tr.id]
+
+        var badgeAlpha = 0.70
+        if (hoveredTrackId) {
+            badgeAlpha = isTrHov ? 1.0 : 0.20
+        } else if (hasDirect) {
+            if (isDirect) badgeAlpha = 1.0
+            else if (isIndirect) badgeAlpha = 0.65
+            else badgeAlpha = 0.18
+        }
+
+        ctx.save()
+        ctx.globalAlpha = badgeAlpha
+
         // Фон плашки ветки: темная монохромная плашка с аккуратной рамкой цвета ветки
         ctx.beginPath()
         roundRect(ctx, badgeX - badgeW, badgeY - badgeH / 2, badgeW, badgeH, 10)
-        ctx.fillStyle = "#18181B"
+        ctx.fillStyle = (isTrHov || isDirect) ? "#27272A" : "#18181B"
         ctx.fill()
-        ctx.lineWidth = 1.5
-        ctx.strokeStyle = tr.color || "#71717A"
+        ctx.lineWidth = (isTrHov || isDirect) ? 2.0 : 1.5
+        ctx.strokeStyle = (isTrHov || isDirect) ? "#FFFFFF" : (tr.color || "#71717A")
         ctx.stroke()
 
         // Текст названия ветки
-        ctx.fillStyle = "#FAFAFA"
+        ctx.fillStyle = (isTrHov || isDirect) ? "#FFFFFF" : "#FAFAFA"
         ctx.textAlign = "center"
         ctx.fillText(text, badgeX - badgeW / 2, badgeY)
+        ctx.restore()
     }
 }
 
@@ -408,6 +518,104 @@ function findStationAt(stations, screenX, screenY, panX, panY, zoomScale) {
         }
     }
     return null
+}
+
+/**
+ * Поиск бейджа линии под курсором
+ */
+function findTrackBadgeAt(tracks, stations, worldX, worldY) {
+    if (!tracks || tracks.length === 0 || !stations || stations.length === 0) return null
+
+    for (var i = 0; i < tracks.length; i++) {
+        var tr = tracks[i]
+        if (!tr.station_ids || tr.station_ids.length === 0) continue
+
+        var firstSt = null
+        for (var s = 0; s < stations.length; s++) {
+            if (stations[s].id === tr.station_ids[0]) {
+                firstSt = stations[s]
+                break
+            }
+        }
+        if (!firstSt) continue
+
+        var badgeX = (tr.badge_x !== undefined) ? tr.badge_x : (firstSt.x - 45)
+        var badgeY = (tr.badge_y !== undefined) ? tr.badge_y : firstSt.y
+        var text = tr.title || tr.id
+        var approxW = Math.max(40, text.length * 8 + 16)
+        var badgeH = 22
+
+        if (worldX >= badgeX - approxW - 6 && worldX <= badgeX + 6 &&
+            worldY >= badgeY - badgeH / 2 - 4 && worldY <= badgeY + badgeH / 2 + 4) {
+            return tr.id
+        }
+    }
+    return null
+}
+
+/**
+ * Поиск сегмента линии под курсором с расчетом дистанции до кубической кривой Безье
+ */
+function findSegmentTrackAt(segments, worldX, worldY, hitDist) {
+    if (!segments || segments.length === 0) return null
+    var bestTrackId = null
+    var bestDist = hitDist || 10
+
+    for (var i = 0; i < segments.length; i++) {
+        var seg = segments[i]
+        var x1 = seg.from_x
+        var y1 = seg.from_y
+        var x2 = seg.to_x
+        var y2 = seg.to_y
+
+        var minX = Math.min(x1, x2) - bestDist
+        var maxX = Math.max(x1, x2) + bestDist
+        var minY = Math.min(y1, y2) - bestDist
+        var maxY = Math.max(y1, y2) + bestDist
+
+        if (worldX < minX || worldX > maxX || worldY < minY || worldY > maxY) {
+            continue
+        }
+
+        var dx = x2 - x1
+        if (Math.abs(y1 - y2) < 1.0 || Math.abs(dx) < 1.0) {
+            var distStraight = Math.abs(worldY - y1)
+            if (distStraight < bestDist) {
+                bestDist = distStraight
+                bestTrackId = seg.track_id
+            }
+            continue
+        }
+
+        // Аналитический расчет высоты на кубической кривой Безье (Smoothstep)
+        var t = (worldX - x1) / dx
+        if (t < 0) t = 0
+        if (t > 1) t = 1
+        var s = t * t * (3 - 2 * t)
+        var yCurve = y1 + (y2 - y1) * s
+        var distCurve = Math.abs(worldY - yCurve)
+        if (distCurve < bestDist) {
+            bestDist = distCurve
+            bestTrackId = seg.track_id
+        }
+    }
+    return bestTrackId
+}
+
+/**
+ * Единый поиск линии (бейдж или сплайн) под курсором
+ */
+function findTrackAt(tracks, segments, stations, screenX, screenY, panX, panY, zoomScale) {
+    var worldX = (screenX - panX) / zoomScale
+    var worldY = (screenY - panY) / zoomScale
+
+    // 1. Проверяем бейджи линий
+    var badgeId = findTrackBadgeAt(tracks, stations, worldX, worldY)
+    if (badgeId) return badgeId
+
+    // 2. Проверяем сегменты с динамическим порогом
+    var hitDist = Math.max(9, 13 / zoomScale)
+    return findSegmentTrackAt(segments, worldX, worldY, hitDist)
 }
 
 /**
