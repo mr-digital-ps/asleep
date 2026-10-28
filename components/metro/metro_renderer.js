@@ -167,18 +167,20 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
         }
 
         var baseW = lineWidth || 3.6
+        var bundleW = (cCount > 1) ? Math.min(6.0, baseW + (cCount - 1) * 1.2) : baseW
+        var subW = (cCount > 1) ? (bundleW / cCount) : baseW
         var trackWidth = baseW
         var offset = 0
 
         if (cCount > 1 && isCorridorActive) {
-            // ИНТЕРАКТИВНЫЙ РЕЖИМ: элегантно раскрываемся на аккуратные параллельные нити
-            var trackGap = (cCount === 2) ? 4.5 : (cCount === 3 ? 4.0 : 3.5)
-            trackWidth = (cCount === 2) ? 2.8 : (cCount === 3 ? 2.4 : 2.0)
-            offset = (k - (cCount - 1) / 2.0) * trackGap
+            // ИНТЕРАКТИВНЫЙ РЕЖИМ: нити плотно прилегают друг к другу без пустого пространства (щелей),
+            // а общая толщина коридора остается неизменной (subW * cCount === bundleW)
+            trackWidth = subW
+            offset = (k - (cCount - 1) / 2.0) * subW
         } else if (cCount > 1) {
-            // РЕЖИМ ПОКОЯ: единая монолитная спокойная толстая магистраль (без ряби)
+            // РЕЖИМ ПОКОЯ: единая монолитная магистраль без разрывов
             offset = 0
-            trackWidth = Math.min(6.2, baseW + (cCount - 1) * 1.4)
+            trackWidth = bundleW
         }
 
         seg.offsetY = offset
@@ -189,7 +191,7 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
             if (directTracks[seg.track_id]) {
                 if (seg.to_x <= targetStation.x + 8) {
                     segColor = COLOR_ACTIVE
-                    segLineWidth = trackWidth + 1.2
+                    segLineWidth = trackWidth
                     isPass2 = true
                 } else {
                     segColor = COLOR_DIMMED
@@ -213,7 +215,7 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
             // Режим фокуса на линии
             if (seg.track_id === hoveredTrackId) {
                 segColor = COLOR_ACTIVE
-                segLineWidth = trackWidth + 1.4
+                segLineWidth = trackWidth
                 isPass2 = true
             } else if (isCorridorActive) {
                 // Нити-спутники в активном коридоре видны рядом в сдержанном тоне
@@ -240,7 +242,11 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
         ctx.lineWidth = it1.width
         ctx.strokeStyle = it1.color
         ctx.beginPath()
-        drawSmoothTransitLine(ctx, it1.seg.from_x, it1.seg.from_y + off1, it1.seg.to_x, it1.seg.to_y + off1)
+        if (it1.seg.is_entry) {
+            drawBeveledMetroLine(ctx, it1.seg.from_x, it1.seg.from_y + off1, it1.seg.to_x, it1.seg.to_y + off1, 12)
+        } else {
+            drawSmoothTransitLine(ctx, it1.seg.from_x, it1.seg.from_y + off1, it1.seg.to_x, it1.seg.to_y + off1)
+        }
         ctx.stroke()
     }
 
@@ -251,7 +257,11 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
         ctx.lineWidth = it2.width
         ctx.strokeStyle = it2.color
         ctx.beginPath()
-        drawSmoothTransitLine(ctx, it2.seg.from_x, it2.seg.from_y + off2, it2.seg.to_x, it2.seg.to_y + off2)
+        if (it2.seg.is_entry) {
+            drawBeveledMetroLine(ctx, it2.seg.from_x, it2.seg.from_y + off2, it2.seg.to_x, it2.seg.to_y + off2, 12)
+        } else {
+            drawSmoothTransitLine(ctx, it2.seg.from_x, it2.seg.from_y + off2, it2.seg.to_x, it2.seg.to_y + off2)
+        }
         ctx.stroke()
     }
 
@@ -323,15 +333,6 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
         var showText = (zoomScale >= 0.28) || isHov || isCurrent || isPredecessor || isOnHoveredTrack
 
         if (showText && stAlpha > 0.3) {
-            // Год/период над станцией
-            if (st.date_str) {
-                ctx.font = "bold 10px " + labelFontFamily
-                ctx.textAlign = "center"
-                ctx.textBaseline = "bottom"
-                ctx.fillStyle = (isHov || isPredecessor) ? "#FFFFFF" : labelSubColor
-                ctx.fillText(st.date_str, st.x, st.y - rSize - 5)
-            }
-
             // Название под станцией с элегантной темной защитной плашкой
             ctx.font = fontMain
             ctx.textAlign = "center"
@@ -401,21 +402,30 @@ function drawBeveledMetroLine(ctx, x1, y1, x2, y2, radius) {
     var dx = x2 - x1
     var dy = y2 - y1
     var absDy = Math.abs(dy)
-    var r = Math.min(radius, absDy / 2, dx / 4)
 
-    // Точка начала 45° диагонали
-    // Диагональ имеет ширину absDy по горизонтали, чтобы угол был ровно 45°
-    var midX1 = x1 + Math.max(20, (dx - absDy) * 0.4)
+    if (dx < absDy) {
+        drawSmoothTransitLine(ctx, x1, y1, x2, y2)
+        return
+    }
+
+    var shelfX = dx - absDy
+    var leadShelf = shelfX * 0.45
+    var midX1 = x1 + leadShelf
     var midX2 = midX1 + absDy
     var signY = dy > 0 ? 1 : -1
 
+    var r = Math.min(radius || 12, absDy * 0.45, leadShelf * 0.45, (x2 - midX2) * 0.45)
+
     ctx.moveTo(x1, y1)
-    ctx.lineTo(midX1 - r, y1)
-    // Плавный поворот в 45° скос
-    ctx.quadraticCurveTo(midX1, y1, midX1 + r * 0.7, y1 + signY * r * 0.7)
-    ctx.lineTo(midX2 - r * 0.7, y2 - signY * r * 0.7)
-    // Плавный выход из скоса в горизонталь
-    ctx.quadraticCurveTo(midX2, y2, midX2 + r, y2)
+    if (r > 1.0) {
+        ctx.lineTo(midX1 - r, y1)
+        ctx.quadraticCurveTo(midX1, y1, midX1 + r * 0.707, y1 + signY * r * 0.707)
+        ctx.lineTo(midX2 - r * 0.707, y2 - signY * r * 0.707)
+        ctx.quadraticCurveTo(midX2, y2, midX2 + r, y2)
+    } else {
+        ctx.lineTo(midX1, y1)
+        ctx.lineTo(midX2, y2)
+    }
     ctx.lineTo(x2, y2)
 }
 
@@ -676,8 +686,10 @@ function findSegmentTrackAt(segments, worldX, worldY, hitDist) {
             var k = cList.indexOf(seg)
             if (k === -1) k = 0
             if (cCount > 1) {
-                var trackGap = (cCount === 2) ? 4.5 : (cCount === 3 ? 4.0 : 3.5)
-                offY = (k - (cCount - 1) / 2.0) * trackGap
+                var baseW = 3.6
+                var bundleW = Math.min(6.0, baseW + (cCount - 1) * 1.2)
+                var subW = bundleW / cCount
+                offY = (k - (cCount - 1) / 2.0) * subW
             }
         }
 

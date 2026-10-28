@@ -88,10 +88,10 @@ class MetroService:
 
         layout_cfg = cfg.get("layout", {})
         palette = cfg.get("palette", DEFAULT_METRO_PALETTE) or DEFAULT_METRO_PALETTE
-        step_x = layout_cfg.get("stepX", 380)
+        step_x = layout_cfg.get("stepX", 300)
         lane_step = layout_cfg.get("stepY", 48)
-        margin_x = layout_cfg.get("margin", 260)
-        top_margin = 120
+        margin_x = max(240, layout_cfg.get("margin", 240))
+        top_margin = 130
 
         try:
             txt = target_file.read_text(encoding="utf-8")
@@ -336,56 +336,34 @@ class MetroService:
         segments = []
         for first_sid, tr_list in starting_tracks_by_station.items():
             first_st = station_dict[first_sid]
-            is_initial_col = (first_st.get("col", 0) == 0)
             n_start = len(tr_list)
 
-            if is_initial_col:
-                # Стартовая колонка (col == 0): симметричный веер слева с безопасным отступом
-                for sub_idx, tr in enumerate(tr_list):
-                    offset_y = (sub_idx - (n_start - 1) / 2.0) * 18
-                    lead_len = 95 + (sub_idx % 4) * 18
-                    entry_x = first_st["x"] - lead_len
-                    entry_y = first_st["y"] + offset_y
+            # Для ВСЕХ станций (включая самые начальные):
+            # Линии появляются сверху под элегантным углом 45 градусов
+            for sub_idx, tr in enumerate(tr_list):
+                h = 24 + sub_idx * 18
+                shelf = 45 + (sub_idx % 3) * 16
+                lead_len = h + shelf
 
-                    tr["badge_x"] = entry_x
-                    tr["badge_y"] = entry_y
-                    tr["badge_title"] = tr["title"]
+                entry_x = first_st["x"] - lead_len
+                entry_y = first_st["y"] - h
 
-                    segments.append({
-                        "track_id": tr["id"],
-                        "track_title": tr["title"],
-                        "color": tr["color"],
-                        "from_id": f"entry_{tr['id']}",
-                        "to_id": first_st["id"],
-                        "from_x": entry_x,
-                        "from_y": entry_y,
-                        "to_x": first_st["x"],
-                        "to_y": first_st["y"],
-                        "is_entry": True
-                    })
-            else:
-                # Промежуточные сцены (col > 0): плавный заход с северо-запада в чистом коридоре
-                # Исключает пересечение с названием станции снизу и обеспечивает читаемость бейджей
-                for sub_idx, tr in enumerate(tr_list):
-                    entry_y = first_st["y"] - (24 + sub_idx * 18)
-                    entry_x = first_st["x"] - (105 + (sub_idx % 3) * 20)
+                tr["badge_x"] = entry_x
+                tr["badge_y"] = entry_y
+                tr["badge_title"] = tr["title"]
 
-                    tr["badge_x"] = entry_x
-                    tr["badge_y"] = entry_y
-                    tr["badge_title"] = tr["title"]
-
-                    segments.append({
-                        "track_id": tr["id"],
-                        "track_title": tr["title"],
-                        "color": tr["color"],
-                        "from_id": f"entry_{tr['id']}",
-                        "to_id": first_st["id"],
-                        "from_x": entry_x,
-                        "from_y": entry_y,
-                        "to_x": first_st["x"],
-                        "to_y": first_st["y"],
-                        "is_entry": True
-                    })
+                segments.append({
+                    "track_id": tr["id"],
+                    "track_title": tr["title"],
+                    "color": tr["color"],
+                    "from_id": f"entry_{tr['id']}",
+                    "to_id": first_st["id"],
+                    "from_x": entry_x,
+                    "from_y": entry_y,
+                    "to_x": first_st["x"],
+                    "to_y": first_st["y"],
+                    "is_entry": True
+                })
 
         for tr in tracks:
             st_ids = tr["station_ids"]
@@ -414,14 +392,17 @@ class MetroService:
         ys = [st["y"] for st in raw_stations]
         for tr in tracks:
             if "badge_x" in tr:
-                xs.append(tr["badge_x"] - 100)
+                xs.append(tr["badge_x"] - 90)
             if "badge_y" in tr:
                 ys.append(tr["badge_y"])
+        for seg in segments:
+            xs.extend([seg["from_x"], seg["to_x"]])
+            ys.extend([seg["from_y"], seg["to_y"]])
 
-        min_x = max(0, min(xs) - margin_x) if xs else 0
-        max_x = max(xs) + margin_x + 80 if xs else 1200
-        min_y = max(0, min(ys) - 60) if ys else 0
-        max_y = max(ys) + 120 if ys else 800
+        min_x = max(0, min(xs) - 40) if xs else 0
+        max_x = max(xs) + 120 if xs else 1200
+        min_y = max(0, min(ys) - 40) if ys else 0
+        max_y = max(ys) + 90 if ys else 800
 
         return {
             "stations": raw_stations,

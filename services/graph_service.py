@@ -203,13 +203,6 @@ class GraphService:
             stem_norm = p.relative_to(folder_path).as_posix().lower()
             file_url = QUrl.fromLocalFile(str(p.resolve())).toString()
             clean_name = p.stem.strip()
-            # Полный путь от корня проекта (Папка.Подпапка.Файл без .txt)
-            try:
-                rel_parts = p.relative_to(folder_path).with_suffix("").parts
-                full_label = ".".join([folder_path.name] + list(rel_parts))
-            except Exception:
-                full_label = f"{folder_path.name}.{clean_name}"
-
             mtime = 0.0
             try:
                 mtime = float(p.stat().st_mtime)
@@ -219,13 +212,13 @@ class GraphService:
             files_data[stem_norm] = {
                 "path": p,
                 "fileUrl": file_url,
-                "name": full_label,
+                "name": clean_name,
                 "mtime": mtime
             }
 
             nodes_map[file_url] = {
                 "id": file_url,
-                "label": full_label,
+                "label": clean_name,
                 "fileUrl": file_url,
                 "type": "file",
                 "color": "#383838",
