@@ -333,7 +333,7 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
         var showText = (zoomScale >= 0.28) || isHov || isCurrent || isPredecessor || isOnHoveredTrack
 
         if (showText && stAlpha > 0.3) {
-            // Название под станцией с элегантной темной защитной плашкой
+            // Название под станцией без карточки/плашки
             ctx.font = fontMain
             ctx.textAlign = "center"
             ctx.textBaseline = "top"
@@ -341,24 +341,6 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
 
             var titleLines = wrapText(ctx, st.title, 160)
             var lineH = labelFontSize + 3
-            var totalH = titleLines.length * lineH
-            var maxLineW = 0
-            for (var tl = 0; tl < titleLines.length; tl++) {
-                var lw = ctx.measureText(titleLines[tl]).width
-                if (lw > maxLineW) maxLineW = lw
-            }
-            var plateW = maxLineW + 14
-            var plateH = totalH + 6
-            var plateX = st.x - plateW / 2
-            var plateY = startTitleY - 3
-
-            ctx.fillStyle = "rgba(18, 18, 18, 0.88)"
-            ctx.beginPath()
-            roundRect(ctx, plateX, plateY, plateW, plateH, 4)
-            ctx.fill()
-            ctx.strokeStyle = (isHov || isCurrent) ? "rgba(255, 255, 255, 0.25)" : "rgba(255, 255, 255, 0.08)"
-            ctx.lineWidth = 1
-            ctx.stroke()
 
             ctx.fillStyle = (isHov || isCurrent || isPredecessor || isOnHoveredTrack) ? "#FFFFFF" : labelColor
             for (var tl2 = 0; tl2 < titleLines.length; tl2++) {
@@ -402,19 +384,29 @@ function drawBeveledMetroLine(ctx, x1, y1, x2, y2, radius) {
     var dx = x2 - x1
     var dy = y2 - y1
     var absDy = Math.abs(dy)
-
-    if (dx < absDy) {
-        drawSmoothTransitLine(ctx, x1, y1, x2, y2)
-        return
-    }
-
-    var shelfX = dx - absDy
-    var leadShelf = shelfX * 0.45
-    var midX1 = x1 + leadShelf
-    var midX2 = midX1 + absDy
     var signY = dy > 0 ? 1 : -1
 
-    var r = Math.min(radius || 12, absDy * 0.45, leadShelf * 0.45, (x2 - midX2) * 0.45)
+    // Полка перед станцией
+    var endShelf = 16
+    var midX2 = x2 - endShelf
+    // Диагональ имеет ровно 45 градусов: DeltaX = absDy
+    var midX1 = midX2 - absDy
+
+    // Защита, если горизонтальный отрезок слишком короткий
+    if (midX1 < x1 + 4) {
+        var availDx = dx - absDy
+        if (availDx > 0) {
+            midX1 = x1 + availDx * 0.4
+            midX2 = midX1 + absDy
+        } else {
+            drawSmoothTransitLine(ctx, x1, y1, x2, y2)
+            return
+        }
+    }
+
+    var leadLen = midX1 - x1
+    var tailLen = x2 - midX2
+    var r = Math.min(radius || 10, absDy * 0.45, leadLen * 0.45, tailLen * 0.45)
 
     ctx.moveTo(x1, y1)
     if (r > 1.0) {

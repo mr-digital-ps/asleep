@@ -338,14 +338,19 @@ class MetroService:
             first_st = station_dict[first_sid]
             n_start = len(tr_list)
 
-            # Для ВСЕХ станций (включая самые начальные):
-            # Линии появляются сверху под элегантным углом 45 градусов
-            for sub_idx, tr in enumerate(tr_list):
-                h = 24 + sub_idx * 18
-                shelf = 45 + (sub_idx % 3) * 16
-                lead_len = h + shelf
+            # Все стартовые линии станции создаются друг над другом слева
+            # и сливаются в одну общую 45-градусную диагональ, входящую в станцию
+            base_h = 28
+            step_h = 22
+            max_h = base_h + (n_start - 1) * step_h
+            shelf = 45
+            end_shelf = 16
+            lead_len = max_h + end_shelf + shelf
 
-                entry_x = first_st["x"] - lead_len
+            entry_x = first_st["x"] - lead_len
+
+            for sub_idx, tr in enumerate(tr_list):
+                h = base_h + (n_start - 1 - sub_idx) * step_h
                 entry_y = first_st["y"] - h
 
                 tr["badge_x"] = entry_x
@@ -356,7 +361,7 @@ class MetroService:
                     "track_id": tr["id"],
                     "track_title": tr["title"],
                     "color": tr["color"],
-                    "from_id": f"entry_{tr['id']}",
+                    "from_id": f"entry_{first_st['id']}",
                     "to_id": first_st["id"],
                     "from_x": entry_x,
                     "from_y": entry_y,
