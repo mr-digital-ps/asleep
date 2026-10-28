@@ -19,8 +19,8 @@
 | **Холст документов** | `components/workspace/CanvasWorkspace.qml`, `document_controller.js` | 🟢 Проверен | Динамические независимые панели файлов; split mode удалён |
 | **Хоткеи** | `components/hotkeys/`, `services/system/hotkey_service.py` | 🟢 Работает | Аппаратный GlobalHotkeyFilter, русская раскладка, Ctrl+S/N/O/W, Alt+W, Alt+P, Alt+T, Alt+H, Alt+M |
 | **Граф знаний** | `components/graph/GraphView.qml` | 🟢 Работает | Интерактивный Canvas-граф (Ctrl+G, Alt+G), клик узла напрямую открывает заметку в бэкенде |
-| **Схема метро (Metro Map)** | `components/metro/MetroView.qml`, `services/metro_service.py` | 🟢 Работает | Хронологическая схема сюжета (Alt+M / Ctrl+M): ветки персонажей со скруглениями 45°, станции-сцены, монохромная палитра |
-| **Сюжетный ползунок (Story Timeline)** | `components/workspace/StoryTimelineBar.qml`, `PaneHeader.qml` | 🟢 Работает | Хронологический ползунок в шапке (Alt+T): скреббинг по времени, станции и участники `@`, прямой прыжок к сцене |
+| **Схема метро (Metro Transit Map)** | `components/metro/MetroView.qml`, `services/metro_service.py` | 🟢 Работает | Хронологическая схема сюжета (Alt+M / Ctrl+M): 26 сквозных династических рек Безье, 92 станции-пересадки, 11 эпох, плавающий топбар-скруббер, всплывающие карточки интриг и переход к заметке |
+| **Хедер панели (PaneHeader)** | `components/workspace/PaneHeader.qml` | 🟢 Чист | Сухой компактный заголовок: строго имя блока (внутри блока) или чистое имя файла без заборов, Alt+P переключение |
 | **Бэкенд Фасад** | `services/backend/` | 🟢 Чист (Аудит 100%) | Единый фасад: `open_wiki_link`, `noteOpened`, `get_story_timeline`, `replace_block_text`, аудит 100% |
 
 | **Аутлайнер и Диалект** | `services/content/document_outline.py` | 🟢 Чист (Аудит 100%) | Удалены мертвые обертки манипуляции деревом проекта (`reorder_project_tree`, `change_project_tree_level`, `add_project_tree_item`), оставлен чистый парсер диалекта |
