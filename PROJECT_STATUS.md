@@ -17,10 +17,12 @@
 | **История (History)** | `components/history/` | 🟢 Работает | Горизонтальный Git Graph таймлайн, моноширинный блок даты/времени, встроен в выдвижной ящик хедера |
 | **Сайдбар** | `components/sidebar/` | ❌ Удалён | Исключён из архитектуры проекта: упор на чистый минималистичный лист |
 | **Холст документов** | `components/workspace/CanvasWorkspace.qml`, `document_controller.js` | 🟢 Проверен | Динамические независимые панели файлов; split mode удалён |
-| **Хоткеи** | `components/hotkeys/`, `services/system/hotkey_service.py` | 🟢 Работает | Аппаратный GlobalHotkeyFilter, русская раскладка, Ctrl+S/N/O/W, Alt+W, Alt+P, Alt+M |
+| **Хоткеи** | `components/hotkeys/`, `services/system/hotkey_service.py` | 🟢 Работает | Аппаратный GlobalHotkeyFilter, русская раскладка, Ctrl+S/N/O/W, Alt+W, Alt+P, Alt+T, Alt+H, Alt+M |
 | **Граф знаний** | `components/graph/GraphView.qml` | 🟢 Работает | Интерактивный Canvas-граф (Ctrl+G, Alt+G), клик узла напрямую открывает заметку в бэкенде |
 | **Схема метро (Metro Map)** | `components/metro/MetroView.qml`, `services/metro_service.py` | 🟢 Работает | Хронологическая схема сюжета (Alt+M / Ctrl+M): ветки персонажей со скруглениями 45°, станции-сцены, монохромная палитра |
-| **Бэкенд Фасад** | `services/backend/` | 🟢 Чист (Аудит 100%) | Единый фасад: `open_wiki_link`, `noteOpened`, `replace_block_text`, вырезано 81 строк мертвых методов в `outline_handler.py`, удален дубликат `get_window_count` |
+| **Сюжетный ползунок (Story Timeline)** | `components/workspace/StoryTimelineBar.qml`, `PaneHeader.qml` | 🟢 Работает | Хронологический ползунок в шапке (Alt+T): скреббинг по времени, станции и участники `@`, прямой прыжок к сцене |
+| **Бэкенд Фасад** | `services/backend/` | 🟢 Чист (Аудит 100%) | Единый фасад: `open_wiki_link`, `noteOpened`, `get_story_timeline`, `replace_block_text`, аудит 100% |
+
 | **Аутлайнер и Диалект** | `services/content/document_outline.py` | 🟢 Чист (Аудит 100%) | Удалены мертвые обертки манипуляции деревом проекта (`reorder_project_tree`, `change_project_tree_level`, `add_project_tree_item`), оставлен чистый парсер диалекта |
 | **Views Контроллеры** | `views/web_lifecycle.js` | 🟢 Чист (Аудит 100%) | Вырезано 97 строк мертвого кода (`handleNodeSelected`, `replaceBlockInString`), синхронизация блоков через Python |
 
