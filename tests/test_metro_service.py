@@ -55,13 +55,13 @@ def test_metro_nested_blocks_and_interchange():
 """, encoding="utf-8")
 
         service = MetroService()
-        data = service.build_metro(tmp_path)
+        data1 = service.build_metro(tmp_path, active_file=note1)
 
-        stations = data["stations"]
-        tracks = data["tracks"]
-        segments = data["segments"]
+        stations = data1["stations"]
+        tracks = data1["tracks"]
+        segments = data1["segments"]
 
-        assert len(stations) == 3, f"Ожидалось 3 станции, получено: {len(stations)}"
+        assert len(stations) == 2, f"Ожидалось 2 станции для 1. Глава, получено: {len(stations)}"
         assert stations[0]["title"] == "Сцена 1 - План"
         assert stations[0]["is_interchange"] is True
         assert "Вайс" in stations[0]["tracks"]
@@ -71,22 +71,25 @@ def test_metro_nested_blocks_and_interchange():
         assert stations[1]["is_interchange"] is False
         assert stations[1]["tracks"] == ["Вайс"]
 
-        assert stations[2]["title"] == "Сцена 3 - Ограбление"
-        assert stations[2]["is_interchange"] is True
-
         track_ids = [t["id"] for t in tracks]
         assert "Вайс" in track_ids
         assert "Маркус" in track_ids
 
-        # Линия Вайс проходит через все 3 станции
+        # Линия Вайс проходит через обе станции главы 1
         weiss_track = next(t for t in tracks if t["id"] == "Вайс")
-        assert len(weiss_track["station_ids"]) == 3
+        assert len(weiss_track["station_ids"]) == 2
 
-        # Линия Маркус проходит через 2 станции (1 и 3)
+        # Линия Маркус проходит через станцию 1
         marcus_track = next(t for t in tracks if t["id"] == "Маркус")
-        assert len(marcus_track["station_ids"]) == 2
+        assert len(marcus_track["station_ids"]) == 1
 
-        assert len(segments) >= 3
+        assert len(segments) >= 2
+
+        # Проверка изоляции второй главы (Один файл — одно метро)
+        data2 = service.build_metro(tmp_path, active_file=note2)
+        assert len(data2["stations"]) == 1
+        assert data2["stations"][0]["title"] == "Сцена 3 - Ограбление"
+        assert data2["stations"][0]["is_interchange"] is True
 
 
 if __name__ == "__main__":

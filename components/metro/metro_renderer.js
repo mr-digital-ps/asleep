@@ -57,27 +57,10 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
     var stations = (metroData && metroData.stations) ? metroData.stations : []
     var tracks = (metroData && metroData.tracks) ? metroData.tracks : []
     var groups = (metroData && metroData.groups) ? metroData.groups : []
-    var stages = (metroData && metroData.stages) ? metroData.stages : []
-
-    // 2.3 Отрисовка вертикальных разделителей этапов (Stage Columns)
-    if (stages.length > 0) {
-        ctx.save()
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.04)"
-        ctx.lineWidth = 1
-        ctx.setLineDash([6, 8])
-        for (var sIdx = 0; sIdx < stages.length; sIdx++) {
-            var stgCol = stages[sIdx]
-            var leftX = stgCol.x - 550
-            ctx.beginPath()
-            ctx.moveTo(leftX, 20)
-            ctx.lineTo(leftX, 3500)
-            ctx.stroke()
-        }
-        ctx.restore()
-    }
-
     // 2.5 Отрисовка группирующих скобок этапов/актов
-    renderGroups(ctx, groups, labelFontFamily)
+    if (groups && groups.length > 0) {
+        renderGroups(ctx, groups, labelFontFamily)
+    }
 
     // 3. Вычисление причинно-следственного конуса предыстории (Causal Upstream Cone)
     var targetStation = null
@@ -128,86 +111,98 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
         }
     }
 
-    // 4. Отрисовка соединительных линий (Segments) плавными кривыми Безье
+    // 4. Отрисовка соединительных линий (Segments) в 2 прохода
+    // Исключает потемнение на пересечениях и выравнивает яркость веток
     ctx.lineCap = "round"
     ctx.lineJoin = "round"
+    ctx.globalAlpha = 1.0
+
+    var pass1Segments = []
+    var pass2Segments = []
+
+    var COLOR_ACTIVE    = "#FFFFFF"  // 100% чистый белый для активной ветки к сцене
+    var COLOR_TRIBUTARY = "#A1A1AA"  // Чистое серебро для предшествующих притоков
+    var COLOR_RESTING   = "#404044"  // Однородный темный графит для дефолтного состояния
+    var COLOR_DIMMED    = "#222226"  // Фоновый глубокий антрацит для неактивных линий
 
     for (var i = 0; i < segments.length; i++) {
         var seg = segments[i]
-        var segAlpha = lineRestingAlpha
+        var segColor = COLOR_RESTING
         var segLineWidth = lineWidth
+        var isPass2 = false
 
         if (targetStation) {
-            // Режим фокуса на станции: конус предыстории
+            // Режим фокуса на станции: конус причинно-следственной связи
             if (directTracks[seg.track_id]) {
                 if (seg.to_x <= targetStation.x + 8) {
-                    segAlpha = lineHighlightAlpha // Входящая ветка к станции — яркость 100%
-                    segLineWidth = lineWidth + 1.6
+                    segColor = COLOR_ACTIVE
+                    segLineWidth = lineWidth + 1.8
+                    isPass2 = true
                 } else {
-                    segAlpha = lineDimmedAlpha // Выходящая ветка (будущее после сцены) — затемнено
+                    segColor = COLOR_DIMMED
                     segLineWidth = lineWidth * 0.85
                 }
             } else if (indirectTrackCutoffs[seg.track_id]) {
                 var cutoffX = indirectTrackCutoffs[seg.track_id]
                 if (seg.to_x <= cutoffX + 8) {
-                    segAlpha = lineTributaryAlpha // Косвенный приток-предшественник — средняя яркость
-                    segLineWidth = lineWidth + 0.4
+                    segColor = COLOR_TRIBUTARY
+                    segLineWidth = lineWidth + 0.6
+                    isPass2 = true
                 } else {
-                    segAlpha = lineDimmedAlpha
+                    segColor = COLOR_DIMMED
                     segLineWidth = lineWidth * 0.85
                 }
             } else {
-                segAlpha = lineDimmedAlpha
+                segColor = COLOR_DIMMED
                 segLineWidth = lineWidth * 0.85
             }
         } else if (hoveredTrackId) {
-            // Режим фокуса на ветке: подсветка всей линии
+            // Режим фокуса на линии
             if (seg.track_id === hoveredTrackId) {
-                segAlpha = lineHighlightAlpha
+                segColor = COLOR_ACTIVE
                 segLineWidth = lineWidth + 1.8
+                isPass2 = true
             } else {
-                segAlpha = lineDimmedAlpha
+                segColor = COLOR_DIMMED
                 segLineWidth = lineWidth * 0.85
             }
         }
 
-        ctx.globalAlpha = segAlpha
-        ctx.lineWidth = segLineWidth
-        ctx.strokeStyle = seg.color || "#A1A1AA"
-        ctx.beginPath()
-        drawSmoothTransitLine(ctx, seg.from_x, seg.from_y, seg.to_x, seg.to_y)
-        ctx.stroke()
-
-        // Начальная точка линии — круг (Start Node)
-        if (seg.is_entry) {
-            var startRad = stationRadius + 1.0
-            ctx.beginPath()
-            ctx.arc(seg.from_x, seg.from_y, startRad, 0, Math.PI * 2)
-            ctx.fillStyle = stFillColor
-            ctx.fill()
-            ctx.lineWidth = stBorderWidth
-            ctx.strokeStyle = seg.color || stBorderColor
-            ctx.stroke()
-
-            // Внутреннее заполнение стартового круга (акцент цвета линии)
-            ctx.beginPath()
-            ctx.arc(seg.from_x, seg.from_y, startRad - 3.2, 0, Math.PI * 2)
-            ctx.fillStyle = seg.color || "#A1A1AA"
-            ctx.fill()
-        }
-
-        // Конечная точка тупика линии
-        if (seg.is_exit) {
-            ctx.beginPath()
-            ctx.arc(seg.to_x, seg.to_y, 4, 0, Math.PI * 2)
-            ctx.fillStyle = seg.color || "#A1A1AA"
-            ctx.fill()
+        var segItem = { seg: seg, color: segColor, width: segLineWidth }
+        if (isPass2) {
+            pass2Segments.push(segItem)
+        } else {
+            pass1Segments.push(segItem)
         }
     }
-    ctx.globalAlpha = 1.0
 
-    // 5. Отрисовка плашек названий линий (Track Badges) слева
-    renderTrackBadges(ctx, tracks, stations, labelFontFamily, hoveredTrackId, directTracks, indirectTrackCutoffs)
+    // Проход 1: фоновые и пассивные линии
+    for (var p1 = 0; p1 < pass1Segments.length; p1++) {
+        var it1 = pass1Segments[p1]
+        ctx.lineWidth = it1.width
+        ctx.strokeStyle = it1.color
+        ctx.beginPath()
+        drawSmoothTransitLine(ctx, it1.seg.from_x, it1.seg.from_y, it1.seg.to_x, it1.seg.to_y)
+        ctx.stroke()
+    }
+
+    // Проход 2: активные и притоковые линии строго ПОВЕРХ фоновых
+    for (var p2 = 0; p2 < pass2Segments.length; p2++) {
+        var it2 = pass2Segments[p2]
+        ctx.lineWidth = it2.width
+        ctx.strokeStyle = it2.color
+        ctx.beginPath()
+        drawSmoothTransitLine(ctx, it2.seg.from_x, it2.seg.from_y, it2.seg.to_x, it2.seg.to_y)
+        ctx.stroke()
+    }
+
+    // 5. Отрисовка начала линий и плашек сущностей (@Сущность)
+    var indirectTracks = {}
+    for (var indTr in indirectTrackCutoffs) {
+        indirectTracks[indTr] = true
+    }
+    renderTrackBadges(ctx, tracks, stations, labelFontFamily, hoveredTrackId, directTracks, indirectTracks)
+    ctx.globalAlpha = 1.0
 
     // 6. Отрисовка станций в форме ромба (Rhombus / Diamond)
     var fontMain = "600 " + labelFontSize + "px " + labelFontFamily
@@ -271,12 +266,23 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
         if (showText && stAlpha > 0.3) {
             ctx.textAlign = "center"
 
-            // Годы над станцией (если есть)
+            // Годы над станцией (если не отображены в фигурной скобке параллельной группы)
             if (st.date_str) {
-                ctx.font = "bold 10px " + labelFontFamily
-                ctx.textBaseline = "bottom"
-                ctx.fillStyle = (isHov || isPredecessor) ? "#FFFFFF" : labelSubColor
-                ctx.fillText(st.date_str, st.x, st.y - rSize - 4)
+                var isCoveredByGroup = false
+                if (groups) {
+                    for (var gi = 0; gi < groups.length; gi++) {
+                        if (groups[gi].col === st.col && groups[gi].title === st.date_str) {
+                            isCoveredByGroup = true
+                            break
+                        }
+                    }
+                }
+                if (!isCoveredByGroup) {
+                    ctx.font = "bold 10px " + labelFontFamily
+                    ctx.textBaseline = "bottom"
+                    ctx.fillStyle = (isHov || isPredecessor) ? "#FFFFFF" : labelSubColor
+                    ctx.fillText(st.date_str, st.x, st.y - rSize - 4)
+                }
             }
 
             // Название под станцией с полупрозрачной подложкой против перекрытия линий
@@ -352,6 +358,9 @@ function drawBeveledMetroLine(ctx, x1, y1, x2, y2, radius) {
 /**
  * Отрисовка бейджей линий (Track Badges) в начале веток
  */
+/**
+ * Отрисовка начала линий (Terminal Dot) и плашек сущностей (@Сущность)
+ */
 function renderTrackBadges(ctx, tracks, stations, fontFamily, hoveredTrackId, directTracks, indirectTracks) {
     if (!tracks || tracks.length === 0 || !stations || stations.length === 0) return
 
@@ -374,103 +383,136 @@ function renderTrackBadges(ctx, tracks, stations, fontFamily, hoveredTrackId, di
         }
         if (!firstSt) continue
 
-        var badgeX = (tr.badge_x !== undefined) ? tr.badge_x : (firstSt.x - 45)
+        var badgeX = (tr.badge_x !== undefined) ? tr.badge_x : (firstSt.x - 60)
         var badgeY = (tr.badge_y !== undefined) ? tr.badge_y : firstSt.y
-        var text = tr.title || tr.id
+        var text = tr.badge_title || ("@" + (tr.title || tr.id))
         var textW = ctx.measureText(text).width
-        var badgeW = Math.max(40, textW + 16)
-        var badgeH = 20
+        var badgeW = Math.max(36, textW + 16)
+        var badgeH = 18
 
         var isTrHov = (hoveredTrackId === tr.id)
         var isDirect = directTracks && directTracks[tr.id]
         var isIndirect = indirectTracks && indirectTracks[tr.id]
 
-        var badgeAlpha = 0.70
+        var strokeColor = "#404044"
+        var textColor = "#A1A1AA"
+        var bgColor = "#18181B"
+        var dotColor = "#52525B"
+
         if (hoveredTrackId) {
-            badgeAlpha = isTrHov ? 1.0 : 0.20
+            if (isTrHov) {
+                strokeColor = "#FFFFFF"
+                textColor = "#FFFFFF"
+                bgColor = "#27272A"
+                dotColor = "#FFFFFF"
+            } else {
+                strokeColor = "#222226"
+                textColor = "#3F3F46"
+                bgColor = "#141416"
+                dotColor = "#222226"
+            }
         } else if (hasDirect) {
-            if (isDirect) badgeAlpha = 1.0
-            else if (isIndirect) badgeAlpha = 0.65
-            else badgeAlpha = 0.18
+            if (isDirect) {
+                strokeColor = "#FFFFFF"
+                textColor = "#FFFFFF"
+                bgColor = "#27272A"
+                dotColor = "#FFFFFF"
+            } else if (isIndirect) {
+                strokeColor = "#A1A1AA"
+                textColor = "#E4E4E7"
+                bgColor = "#1E1E22"
+                dotColor = "#A1A1AA"
+            } else {
+                strokeColor = "#222226"
+                textColor = "#3F3F46"
+                bgColor = "#141416"
+                dotColor = "#222226"
+            }
         }
 
         ctx.save()
-        ctx.globalAlpha = badgeAlpha
+        ctx.globalAlpha = 1.0
 
-        // Фон плашки ветки: темная монохромная плашка с аккуратной рамкой цвета ветки
+        // Стартовая точка начала ветки
         ctx.beginPath()
-        roundRect(ctx, badgeX - badgeW, badgeY - badgeH / 2, badgeW, badgeH, 10)
-        ctx.fillStyle = (isTrHov || isDirect) ? "#27272A" : "#18181B"
+        ctx.arc(badgeX, badgeY, 3, 0, Math.PI * 2)
+        ctx.fillStyle = dotColor
         ctx.fill()
-        ctx.lineWidth = (isTrHov || isDirect) ? 2.0 : 1.5
-        ctx.strokeStyle = (isTrHov || isDirect) ? "#FFFFFF" : (tr.color || "#71717A")
+
+        // Плашка сущности слева от стартовой точки
+        var pillRight = badgeX - 6
+        var pillLeft = pillRight - badgeW
+        var pillTop = badgeY - badgeH / 2
+
+        ctx.beginPath()
+        roundRect(ctx, pillLeft, pillTop, badgeW, badgeH, 4)
+        ctx.fillStyle = bgColor
+        ctx.fill()
+        ctx.lineWidth = (isTrHov || isDirect) ? 1.5 : 1.0
+        ctx.strokeStyle = strokeColor
         ctx.stroke()
 
-        // Текст названия ветки
-        ctx.fillStyle = (isTrHov || isDirect) ? "#FFFFFF" : "#FAFAFA"
+        // Текст @Сущность
+        ctx.fillStyle = textColor
         ctx.textAlign = "center"
-        ctx.fillText(text, badgeX - badgeW / 2, badgeY)
+        ctx.textBaseline = "middle"
+        ctx.fillText(text, pillLeft + badgeW / 2, badgeY)
         ctx.restore()
     }
 }
 
 /**
- * Отрисовка группирующих скобок иерархии блоков (Том -> Акт -> Глава)
+ * Отрисовка группирующих фигурных скобок {} для параллельных станций
  */
 function renderGroups(ctx, groups, fontFamily) {
     if (!groups || groups.length === 0) return
 
     ctx.save()
+    ctx.lineCap = "round"
+    ctx.lineJoin = "round"
+    ctx.globalAlpha = 1.0
+
     for (var i = 0; i < groups.length; i++) {
         var g = groups[i]
-        var fromX = g.from_x
-        var toX = g.to_x
-        var y = g.y
-        var depth = g.depth || 0
-        var title = g.title || ""
+        if (g.top_y === undefined || g.bottom_y === undefined || g.station_count <= 1) continue
 
-        // Стилизация по уровню вложенности:
-        // Уровень 0 (Том) — чуть более заметный, уровни глубже (Акт, Глава) — деликатнее
-        var strokeCol = (depth === 0) ? "rgba(161, 161, 170, 0.45)" : "rgba(113, 113, 122, 0.3)"
-        var textCol = (depth === 0) ? "#E4E4E7" : "#A1A1AA"
-        var fontSize = (depth === 0) ? 11 : 10
-        ctx.font = (depth === 0 ? "600 " : "500 ") + fontSize + "px " + fontFamily
+        var topY = g.top_y
+        var bottomY = g.bottom_y
+        var midY = (topY + bottomY) / 2
+        var bx = g.x - 30
+        var braceW = 10
 
-        var textW = ctx.measureText(title).width
-        var centerX = (fromX + toX) / 2
-        var minW = textW + 24
-        if (toX - fromX < minW) {
-            fromX = centerX - minW / 2
-            toX = centerX + minW / 2
-        }
+        var q1Y = (topY + midY) / 2
+        var q2Y = (midY + bottomY) / 2
 
-        var pad = 6
-        var textLeft = centerX - textW / 2 - pad
-        var textRight = centerX + textW / 2 + pad
-        var tickH = 6
-
-        // Рисуем скобку: левый хвостик вниз, левая горизонталь, пропуск под текст, правая горизонталь, правый хвостик вниз
+        // Элегантная вертикальная фигурная скобка {
         ctx.beginPath()
-        ctx.strokeStyle = strokeCol
-        ctx.lineWidth = 1.2
-        ctx.lineCap = "round"
+        ctx.strokeStyle = "rgba(161, 161, 170, 0.45)"
+        ctx.lineWidth = 1.5
 
-        // Левая часть скобки
-        ctx.moveTo(fromX, y + tickH)
-        ctx.lineTo(fromX, y)
-        ctx.lineTo(textLeft, y)
-
-        // Правая часть скобки
-        ctx.moveTo(textRight, y)
-        ctx.lineTo(toX, y)
-        ctx.lineTo(toX, y + tickH)
+        // Верхнее полукрыло {
+        ctx.moveTo(bx + braceW, topY)
+        ctx.bezierCurveTo(bx + braceW * 0.2, topY, bx, q1Y, bx, midY)
+        // Нижнее полукрыло {
+        ctx.bezierCurveTo(bx, q2Y, bx + braceW * 0.2, bottomY, bx + braceW, bottomY)
         ctx.stroke()
 
-        // Текст заголовка группы
-        ctx.textAlign = "center"
-        ctx.textBaseline = "middle"
-        ctx.fillStyle = textCol
-        ctx.fillText(title, centerX, y)
+        // Подпись года группы { 1453 } слева от острия скобки
+        if (g.title) {
+            var text = "{ " + g.title + " }"
+            ctx.font = "bold 11px " + fontFamily
+            var tw = ctx.measureText(text).width
+
+            ctx.fillStyle = "rgba(18, 18, 20, 0.88)"
+            ctx.beginPath()
+            roundRect(ctx, bx - tw - 12, midY - 9, tw + 8, 18, 4)
+            ctx.fill()
+
+            ctx.fillStyle = "#E4E4E7"
+            ctx.textAlign = "right"
+            ctx.textBaseline = "middle"
+            ctx.fillText(text, bx - 8, midY)
+        }
     }
     ctx.restore()
 }
