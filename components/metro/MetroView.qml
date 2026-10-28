@@ -27,6 +27,7 @@ Rectangle {
     signal metroPressed()
 
     onFolderUrlChanged: reloadMetro()
+    onActiveFileUrlChanged: reloadMetro()
     onVisibleChanged: {
         if (visible) {
             reloadMetro()
@@ -44,7 +45,7 @@ Rectangle {
                 metroConfig = backend.get_metro_config(folderUrl)
             }
             if (typeof backend.get_metro_data === "function") {
-                metroData = backend.get_metro_data(folderUrl)
+                metroData = backend.get_metro_data(folderUrl, activeFileUrl)
                 // При первой загрузке центрируем схему
                 if (metroData && metroData.bounds) {
                     fitToView()

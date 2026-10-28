@@ -174,11 +174,13 @@ class GraphHistoryHandlerMixin:
 
     @pyqtSlot(result="QVariantMap")
     @pyqtSlot(str, result="QVariantMap")
-    def get_metro_data(self, folder_url: str = "") -> dict:
-        """Возвращает узлы станций и ветки схемы метро сюжета для указанной или текущей папки"""
+    @pyqtSlot(str, str, result="QVariantMap")
+    def get_metro_data(self, folder_url: str = "", active_file_url: str = "") -> dict:
+        """Возвращает узлы станций и ветки схемы метро сюжета для активного файла или указанной папки"""
         folder = self.file_service.to_path(folder_url) if folder_url else self._current_folder
+        active_file = self.file_service.to_path(active_file_url) if active_file_url else None
         if hasattr(self, "metro_service"):
-            return self.metro_service.build_metro(folder)
+            return self.metro_service.build_metro(folder, active_file=active_file)
         return {"stations": [], "tracks": [], "segments": [], "bounds": {"min_x": 0, "max_x": 800, "min_y": 0, "max_y": 600, "width": 800, "height": 600}}
 
     @pyqtSlot(result="QVariantMap")

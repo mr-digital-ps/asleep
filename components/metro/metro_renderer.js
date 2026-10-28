@@ -52,6 +52,10 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
     var segments = (metroData && metroData.segments) ? metroData.segments : []
     var stations = (metroData && metroData.stations) ? metroData.stations : []
     var tracks = (metroData && metroData.tracks) ? metroData.tracks : []
+    var groups = (metroData && metroData.groups) ? metroData.groups : []
+
+    // 2.5 Отрисовка группирующих скобок иерархии блоков (Том -> Акт -> Глава)
+    renderGroups(ctx, groups, labelFontFamily)
 
     // 3. Отрисовка соединительных линий (Segments) со скруглениями 45°
     ctx.lineCap = "round"
@@ -64,32 +68,58 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
         ctx.beginPath()
         drawBeveledMetroLine(ctx, seg.from_x, seg.from_y, seg.to_x, seg.to_y, 14)
         ctx.stroke()
+
+        // Начальная точка линии — круг (Start Node)
+        if (seg.is_entry) {
+            var startRad = stationRadius + 1.0
+            ctx.beginPath()
+            ctx.arc(seg.from_x, seg.from_y, startRad, 0, Math.PI * 2)
+            ctx.fillStyle = stFillColor
+            ctx.fill()
+            ctx.lineWidth = stBorderWidth
+            ctx.strokeStyle = seg.color || stBorderColor
+            ctx.stroke()
+
+            // Внутреннее заполнение стартового круга (акцент цвета линии)
+            ctx.beginPath()
+            ctx.arc(seg.from_x, seg.from_y, startRad - 3.2, 0, Math.PI * 2)
+            ctx.fillStyle = seg.color || "#A1A1AA"
+            ctx.fill()
+        }
+
+        // Конечная точка тупика линии
+        if (seg.is_exit) {
+            ctx.beginPath()
+            ctx.arc(seg.to_x, seg.to_y, 4, 0, Math.PI * 2)
+            ctx.fillStyle = seg.color || "#A1A1AA"
+            ctx.fill()
+        }
     }
 
     // 4. Отрисовка плашек названий линий (Track Badges) слева
     renderTrackBadges(ctx, tracks, stations, labelFontFamily)
 
-    // 5. Отрисовка станций (Stations)
+    // 5. Отрисовка станций в форме ромба (Rhombus / Diamond)
     var fontMain = "600 " + labelFontSize + "px " + labelFontFamily
-    var fontSub = "400 " + (labelFontSize - 2) + "px " + labelFontFamily
 
     for (var s = 0; s < stations.length; s++) {
         var st = stations[s]
         var isHov = (st.id === hoveredStationId)
         var isCurrent = (activeFileUrl && st.file_url === activeFileUrl)
         var rad = st.is_interchange ? interchangeRadius : stationRadius
+        var rSize = rad * 1.25
 
         // Внешнее свечение при наведении или активном файле
         if (isHov || isCurrent) {
             ctx.beginPath()
-            ctx.arc(st.x, st.y, rad + 6, 0, Math.PI * 2)
+            drawRhombus(ctx, st.x, st.y, rSize + 5.5, rSize + 5.5)
             ctx.fillStyle = isCurrent ? "rgba(228, 228, 231, 0.3)" : "rgba(255, 255, 255, 0.18)"
             ctx.fill()
         }
 
-        // Окружность станции
+        // Станция в форме ромба
         ctx.beginPath()
-        ctx.arc(st.x, st.y, rad, 0, Math.PI * 2)
+        drawRhombus(ctx, st.x, st.y, rSize, rSize)
         ctx.fillStyle = stFillColor
         ctx.fill()
         ctx.lineWidth = stBorderWidth
@@ -99,29 +129,18 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
         // Внутренний акцент для пересадочных станций (Interchange)
         if (st.is_interchange) {
             ctx.beginPath()
-            ctx.arc(st.x, st.y, rad - 3.5, 0, Math.PI * 2)
+            drawRhombus(ctx, st.x, st.y, rSize - 4, rSize - 4)
             ctx.fillStyle = stBorderColor
             ctx.fill()
         }
 
-        // 6. Подписи к станциям
+        // 6. Подписи к станциям — строго только названия
         ctx.textAlign = "center"
         ctx.textBaseline = "top"
-
-        // Заголовок сцены / станции
         ctx.font = fontMain
         ctx.fillStyle = (isHov || isCurrent) ? "#FFFFFF" : labelColor
-        var titleY = st.y + rad + 8
+        var titleY = st.y + rSize + 8
         ctx.fillText(st.title, st.x, titleY)
-
-        // Дополнительная строка: краткое описание или персонажи
-        if (st.summary && zoomScale >= 0.7) {
-            ctx.font = fontSub
-            ctx.fillStyle = labelSubColor
-            var sumText = st.summary
-            if (sumText.length > 28) sumText = sumText.substring(0, 26) + "…"
-            ctx.fillText(sumText, st.x, titleY + labelFontSize + 3)
-        }
     }
 
     ctx.restore()
@@ -180,10 +199,8 @@ function renderTrackBadges(ctx, tracks, stations, fontFamily) {
                 break
             }
         }
-        if (!firstSt) continue
-
-        var badgeX = firstSt.x - 45
-        var badgeY = firstSt.y
+        var badgeX = (tr.badge_x !== undefined) ? tr.badge_x : (firstSt.x - 45)
+        var badgeY = (tr.badge_y !== undefined) ? tr.badge_y : firstSt.y
         var text = tr.title || tr.id
         var textW = ctx.measureText(text).width
         var badgeW = Math.max(40, textW + 16)
@@ -206,6 +223,67 @@ function renderTrackBadges(ctx, tracks, stations, fontFamily) {
 }
 
 /**
+ * Отрисовка группирующих скобок иерархии блоков (Том -> Акт -> Глава)
+ */
+function renderGroups(ctx, groups, fontFamily) {
+    if (!groups || groups.length === 0) return
+
+    ctx.save()
+    for (var i = 0; i < groups.length; i++) {
+        var g = groups[i]
+        var fromX = g.from_x
+        var toX = g.to_x
+        var y = g.y
+        var depth = g.depth || 0
+        var title = g.title || ""
+
+        // Стилизация по уровню вложенности:
+        // Уровень 0 (Том) — чуть более заметный, уровни глубже (Акт, Глава) — деликатнее
+        var strokeCol = (depth === 0) ? "rgba(161, 161, 170, 0.45)" : "rgba(113, 113, 122, 0.3)"
+        var textCol = (depth === 0) ? "#E4E4E7" : "#A1A1AA"
+        var fontSize = (depth === 0) ? 11 : 10
+        ctx.font = (depth === 0 ? "600 " : "500 ") + fontSize + "px " + fontFamily
+
+        var textW = ctx.measureText(title).width
+        var centerX = (fromX + toX) / 2
+        var minW = textW + 24
+        if (toX - fromX < minW) {
+            fromX = centerX - minW / 2
+            toX = centerX + minW / 2
+        }
+
+        var pad = 6
+        var textLeft = centerX - textW / 2 - pad
+        var textRight = centerX + textW / 2 + pad
+        var tickH = 6
+
+        // Рисуем скобку: левый хвостик вниз, левая горизонталь, пропуск под текст, правая горизонталь, правый хвостик вниз
+        ctx.beginPath()
+        ctx.strokeStyle = strokeCol
+        ctx.lineWidth = 1.2
+        ctx.lineCap = "round"
+
+        // Левая часть скобки
+        ctx.moveTo(fromX, y + tickH)
+        ctx.lineTo(fromX, y)
+        ctx.lineTo(textLeft, y)
+
+        // Правая часть скобки
+        ctx.moveTo(textRight, y)
+        ctx.lineTo(toX, y)
+        ctx.lineTo(toX, y + tickH)
+        ctx.stroke()
+
+        // Текст заголовка группы
+        ctx.textAlign = "center"
+        ctx.textBaseline = "middle"
+        ctx.fillStyle = textCol
+        ctx.fillText(title, centerX, y)
+    }
+    ctx.restore()
+}
+
+/**
  * Вспомогательная функция рисования скругленного прямоугольника
  */
 function roundRect(ctx, x, y, w, h, r) {
@@ -214,6 +292,18 @@ function roundRect(ctx, x, y, w, h, r) {
     ctx.arcTo(x + w, y + h, x, y + h, r)
     ctx.arcTo(x, y + h, x, y, r)
     ctx.arcTo(x, y, x + w, y, r)
+    ctx.closePath()
+}
+
+/**
+ * Отрисовка ромба (Diamond / Rhombus) с центром в (cx, cy)
+ */
+function drawRhombus(ctx, cx, cy, rx, ry) {
+    if (ry === undefined) ry = rx
+    ctx.moveTo(cx, cy - ry)
+    ctx.lineTo(cx + rx, cy)
+    ctx.lineTo(cx, cy + ry)
+    ctx.lineTo(cx - rx, cy)
     ctx.closePath()
 }
 

@@ -68,15 +68,13 @@ class MetroService:
             cfg = {}
         return cfg
 
-    def build_metro(self, folder_path: Path | None = None) -> dict:
+    def build_metro(self, folder_path: Path | None = None, active_file: Path | str | None = None) -> dict:
         """
-        Сканирует заметки в папке и строит структуру схемы метро:
-        {
-            "stations": [...],
-            "tracks": [...],
-            "segments": [...],
-            "bounds": {"min_x", "max_x", "min_y", "max_y", "width", "height"}
-        }
+        Строит локальную схему метро для активного файла (или первого файла папки):
+        - Станции: неделимые листовые блоки любой глубины (Том -> Акт -> Глава -> Сцена)
+        - Линия файла: базовый рельс произведения (магистраль)
+        - Ветки участников: персонажи/сущности, упомянутые внутри листовых блоков
+        - Группы (Groups): родительские блоки глав/актов из хлебных крошек
         """
         folder = folder_path or self.project_root
         if isinstance(folder, str):
@@ -86,6 +84,7 @@ class MetroService:
                 "stations": [],
                 "tracks": [],
                 "segments": [],
+                "groups": [],
                 "bounds": {"min_x": 0, "max_x": 800, "min_y": 0, "max_y": 600, "width": 800, "height": 600}
             }
 
@@ -98,139 +97,158 @@ class MetroService:
         if not palette:
             palette = DEFAULT_METRO_PALETTE
 
-        # 1. Получаем заметки и сортируем в естественном порядке
-        files = list_project_notes(folder, config_service=self.config_service)
-        files.sort(key=_natural_note_sort_key)
+        # 1. Разрешаем целевой файл (активный документ или первая заметка проекта)
+        target_file = None
+        if active_file:
+            if isinstance(active_file, str):
+                if active_file.startswith("file://"):
+                    target_file = Path(QUrl(active_file).toLocalFile())
+                else:
+                    target_file = Path(active_file)
+            else:
+                target_file = active_file
+            if not target_file or not target_file.exists() or not target_file.is_file():
+                target_file = None
 
-        # Предварительный анализ: есть ли в папке файлы со сценами/блоками
-        parsed_files = []
-        has_any_blocks = False
-        for f in files:
-            try:
-                text = f.read_text(encoding="utf-8")
-                parsed = parse_user_dialect(text)
-                l1 = [b for b in parsed.get("blocks", []) if b.get("level", 1) == 1]
-                if l1:
-                    has_any_blocks = True
-                parsed_files.append((f, text, parsed, l1))
-            except Exception:
-                continue
+        project_files = list_project_notes(folder, config_service=self.config_service)
+        project_files.sort(key=_natural_note_sort_key)
 
+        if not target_file and project_files:
+            target_file = project_files[0]
+
+        if not target_file or not target_file.exists() or not target_file.is_file():
+            return {
+                "stations": [],
+                "tracks": [],
+                "segments": [],
+                "groups": [],
+                "bounds": {"min_x": 0, "max_x": 800, "min_y": 0, "max_y": 600, "width": 800, "height": 600}
+            }
+
+        # Словарь известных сущностей/персонажей проекта по именам файлов
+        known_notes = {f.stem.lower(): f.stem for f in project_files}
+
+        # 2. Парсим блоки активного файла
         raw_stations = []
         track_names_set = set()
         station_counter = 0
 
-        # 2. Извлекаем станции из файлов
-        for f, text, parsed, level_1_blocks in parsed_files:
-            file_url = QUrl.fromLocalFile(str(f.resolve())).toString()
-            file_name = f.name
-            file_stem = f.stem
+        try:
+            text = target_file.read_text(encoding="utf-8")
+            parsed = parse_user_dialect(text)
+            blocks = parsed.get("blocks", [])
+        except Exception:
+            blocks = []
 
-            if level_1_blocks:
-                # В файле есть именованные сцены/блоки верхнего уровня
-                for b1 in level_1_blocks:
+        target_file_url = QUrl.fromLocalFile(str(target_file.resolve())).toString()
+        target_file_stem = target_file.stem
+
+        if blocks:
+            children_map = {b["name"]: b.get("children", []) for b in blocks}
+            parent_map = {b["name"]: b.get("parent_name", "") for b in blocks if b.get("parent_name")}
+
+            for b in blocks:
+                children = b.get("children", [])
+                # Если блок является персонажем внутри родительского блока-сцены, он не отдельная станция, а участник сцены
+                if b.get("parent_name") and b["name"].lower() in known_notes:
+                    continue
+
+                # Блок считается станцией, если у него нет детей, либо все его дети — персонажи
+                is_character_container = bool(children) and all(ch.lower() in known_notes for ch in children)
+                is_leaf = len(children) == 0
+
+                if is_leaf or is_character_container:
+                    b_content = b.get("content", "")
+
+                    # Проверяем, не является ли блок списком вызовов внешних сцен (например, в файле персонажа: Сцены { Сюжет.Встреча() })
+                    valid_ext_calls = []
+                    for line_c in b_content.splitlines():
+                        m_call = re.match(r'^\s*([a-zA-Zа-яА-ЯёЁ0-9_\-]+)\.([a-zA-Zа-яА-ЯёЁ0-9_\-\s]+)\(\)', line_c)
+                        if m_call:
+                            valid_ext_calls.append((m_call.group(1).strip(), m_call.group(2).strip()))
+
+                    if len(valid_ext_calls) >= 1 and (b["name"].lower() in ("сцены", "хронология", "линия", "timeline", "scenes") or len(valid_ext_calls) >= 2):
+                        for f_stem, scene_name in valid_ext_calls:
+                            st_id = f"st_{station_counter}"
+                            station_counter += 1
+                            st_tracks = [target_file_stem]
+                            track_names_set.add(target_file_stem)
+                            raw_stations.append({
+                                "id": st_id,
+                                "title": scene_name,
+                                "file_url": target_file_url,
+                                "file_name": target_file.name,
+                                "file_path": str(target_file.resolve()),
+                                "block_name": scene_name,
+                                "start_line": b.get("start_line", 1),
+                                "tracks": st_tracks,
+                                "is_interchange": False,
+                                "breadcrumbs": [b["name"]],
+                                "summary": f"{f_stem}.{scene_name}()"
+                            })
+                        continue
+
+                    # Стандартный листовой блок сцены
                     st_id = f"st_{station_counter}"
                     station_counter += 1
-                    b1_name = b1["name"]
-                    children = b1.get("children", [])
 
-                    # Линии персонажей: вложенные блоки
-                    st_tracks = list(children)
+                    # Хлебные крошки родителей произвольной глубины
+                    crumbs = []
+                    p = b.get("parent_name")
+                    while p:
+                        crumbs.append(p)
+                        p = parent_map.get(p)
+                    crumbs.reverse()
 
-                    # Вики-ссылки внутри контента этого блока
-                    b1_content = b1.get("content", "")
-                    wikilinks_in_block = re.findall(r'\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]', b1_content)
-                    for wl in wikilinks_in_block:
-                        wl_clean = wl.strip()
-                        if wl_clean and wl_clean not in st_tracks:
-                            st_tracks.append(wl_clean)
+                    # В локальном метро ровно одна линия — сам текущий файл
+                    st_tracks = [target_file_stem]
+                    track_names_set.add(target_file_stem)
 
-                    # Теги внутри контента блока
-                    tags_in_block = re.findall(r'(?<!\S)#([a-zA-Zа-яА-ЯёЁ0-9_\-]+)(?!\S)', b1_content)
-                    for tg in tags_in_block:
-                        tg_clean = tg.strip()
-                        if tg_clean and tg_clean not in st_tracks:
-                            st_tracks.append(tg_clean)
-
-                    # Если персонажи не указаны, ветка по умолчанию — имя файла
-                    if not st_tracks:
-                        st_tracks = [file_stem]
-
-                    for tr in st_tracks:
-                        track_names_set.add(tr)
-
-                    summary_lines = [l.strip() for l in b1_content.splitlines() if l.strip() and not l.strip().endswith("{") and not l.strip().startswith("}")]
+                    summary_lines = [l.strip() for l in b_content.splitlines() if l.strip() and not l.strip().endswith("{") and not l.strip().startswith("}")]
                     summary = summary_lines[0] if summary_lines else ""
 
                     raw_stations.append({
                         "id": st_id,
-                        "title": b1_name,
-                        "file_url": file_url,
-                        "file_name": file_name,
-                        "file_path": str(f.resolve()),
-                        "block_name": b1_name,
-                        "start_line": b1.get("start_line", 1),
+                        "title": b["name"],
+                        "file_url": target_file_url,
+                        "file_name": target_file.name,
+                        "file_path": str(target_file.resolve()),
+                        "block_name": b["name"],
+                        "start_line": b.get("start_line", 1),
                         "tracks": st_tracks,
                         "is_interchange": len(st_tracks) > 1,
+                        "breadcrumbs": crumbs,
                         "summary": summary
                     })
-            elif not has_any_blocks:
-                # В папке вообще ни в одном файле нет блоков: каждый файл является станцией
+        elif project_files:
+            # Если в файле вообще нет блоков: фоллбэк на список заметок
+            for note_f in project_files:
                 st_id = f"st_{station_counter}"
                 station_counter += 1
-                wikilinks = parsed.get("wikilinks", [])
-                st_tracks = list(wikilinks)
-
-                tags = re.findall(r'(?<!\S)#([a-zA-Zа-яА-ЯёЁ0-9_\-]+)(?!\S)', text)
-                for tg in tags:
-                    tg_clean = tg.strip()
-                    if tg_clean and tg_clean not in st_tracks:
-                        st_tracks.append(tg_clean)
-
-                if not st_tracks:
-                    st_tracks = [file_stem]
-
-                for tr in st_tracks:
-                    track_names_set.add(tr)
-
-                summary_lines = [l.strip() for l in text.splitlines() if l.strip()]
-                summary = summary_lines[0] if summary_lines else ""
-
+                n_url = QUrl.fromLocalFile(str(note_f.resolve())).toString()
                 raw_stations.append({
                     "id": st_id,
-                    "title": file_stem,
-                    "file_url": file_url,
-                    "file_name": file_name,
-                    "file_path": str(f.resolve()),
+                    "title": note_f.stem,
+                    "file_url": n_url,
+                    "file_name": note_f.name,
+                    "file_path": str(note_f.resolve()),
                     "block_name": "",
                     "start_line": 1,
-                    "tracks": st_tracks,
-                    "is_interchange": len(st_tracks) > 1,
-                    "summary": summary
+                    "tracks": [note_f.stem],
+                    "is_interchange": False,
+                    "breadcrumbs": [],
+                    "summary": ""
                 })
+                track_names_set.add(note_f.stem)
 
         if not raw_stations:
             return {
                 "stations": [],
                 "tracks": [],
                 "segments": [],
+                "groups": [],
                 "bounds": {"min_x": 0, "max_x": 800, "min_y": 0, "max_y": 600, "width": 800, "height": 600}
             }
-
-        # Если в папке есть файл-хронология с вызовами сцен Файл.Сцена(), упорядочиваем станции по нему
-        chronology_order = []
-        for f, text, parsed, level_1_blocks in parsed_files:
-            ext_calls = parsed.get("external_calls", [])
-            if len(ext_calls) >= 2:
-                for c in ext_calls:
-                    chronology_order.append((c.get("target_file", "").strip(), c.get("target_block", "").strip()))
-                break
-
-        if chronology_order:
-            order_map = {(f_stem, b_name): idx for idx, (f_stem, b_name) in enumerate(chronology_order)}
-            raw_stations.sort(key=lambda st: order_map.get((Path(st["file_path"]).stem, st["block_name"]), 9999))
-            for s_idx, st in enumerate(raw_stations):
-                st["id"] = f"st_{s_idx}"
 
         # 3. Формируем упорядоченный список веток (Tracks)
         track_names = sorted(list(track_names_set))
@@ -257,9 +275,12 @@ class MetroService:
                         tr["station_ids"].append(st["id"])
                         break
 
-        # 4. Расчет координат станций
-        # По горизонтали: col = индекс станции по хронологии
-        # По вертикали: y = среднее значение lane всех веток, проходящих через станцию
+        # 4. Расчет координат станций и группировка по иерархии хлебных крошек (Том -> Акт -> Глава)
+        max_depth = max((len(st.get("breadcrumbs", [])) for st in raw_stations), default=0)
+        group_header_height = 26
+        base_top_offset = 35 + max_depth * group_header_height if max_depth > 0 else 0
+        effective_margin_y = margin + base_top_offset
+
         for col_idx, st in enumerate(raw_stations):
             lanes = [track_lane_map[tr] for tr in st["tracks"] if tr in track_lane_map]
             if not lanes:
@@ -270,14 +291,85 @@ class MetroService:
             st["col"] = col_idx
             st["lane"] = lane_avg
             st["x"] = margin + col_idx * step_x
-            st["y"] = margin + lane_avg * step_y
+            st["y"] = effective_margin_y + lane_avg * step_y
+
+        # Извлечение групп (группирующих скобок) для каждого уровня глубины
+        groups = []
+        group_pad = min(50, step_x * 0.25)
+        for d in range(max_depth):
+            current_path = None
+            current_stations = []
+
+            for st in raw_stations:
+                crumbs = st.get("breadcrumbs", [])
+                st_path = tuple(crumbs[:d+1]) if len(crumbs) > d else None
+
+                if st_path == current_path and current_path is not None:
+                    current_stations.append(st)
+                else:
+                    if current_path is not None and current_stations:
+                        title = current_stations[0]["breadcrumbs"][d]
+                        from_x = current_stations[0]["x"] - group_pad
+                        to_x = current_stations[-1]["x"] + group_pad
+                        g_y = margin + 15 + d * group_header_height
+                        groups.append({
+                            "id": f"group_{d}_{len(groups)}",
+                            "depth": d,
+                            "title": title,
+                            "from_x": from_x,
+                            "to_x": to_x,
+                            "y": g_y,
+                            "station_count": len(current_stations)
+                        })
+                    current_path = st_path
+                    current_stations = [st] if st_path is not None else []
+
+            if current_path is not None and current_stations:
+                title = current_stations[0]["breadcrumbs"][d]
+                from_x = current_stations[0]["x"] - group_pad
+                to_x = current_stations[-1]["x"] + group_pad
+                g_y = margin + 15 + d * group_header_height
+                groups.append({
+                    "id": f"group_{d}_{len(groups)}",
+                    "depth": d,
+                    "title": title,
+                    "from_x": from_x,
+                    "to_x": to_x,
+                    "y": g_y,
+                    "station_count": len(current_stations)
+                })
 
         # 5. Генерация соединительных сегментов линий метро (Segments)
         segments = []
         for tr in tracks:
             st_ids = tr["station_ids"]
-            if len(st_ids) < 2:
+            if not st_ids:
                 continue
+
+            lane_y = effective_margin_y + tr["lane"] * step_y
+            first_st = station_dict.get(st_ids[0])
+            last_st = station_dict.get(st_ids[-1])
+
+            # 5a. Входная ветка: начинается раньше первой станции со смещением по X и Y
+            if first_st:
+                entry_x = first_st["x"] - 65 - (tr["lane"] % 3) * 20
+                entry_y = lane_y
+                tr["badge_x"] = entry_x - 16
+                tr["badge_y"] = entry_y
+                segments.append({
+                    "track_id": tr["id"],
+                    "track_title": tr["title"],
+                    "color": tr["color"],
+                    "from_id": f"entry_{tr['id']}",
+                    "to_id": first_st["id"],
+                    "from_x": entry_x,
+                    "from_y": entry_y,
+                    "to_x": first_st["x"],
+                    "to_y": first_st["y"],
+                    "is_entry": True
+                })
+
+            # 5b. Межстанционные сегменты
             for i in range(len(st_ids) - 1):
                 from_st = station_dict.get(st_ids[i])
                 to_st = station_dict.get(st_ids[i + 1])
@@ -296,9 +388,40 @@ class MetroService:
                     "to_y": to_st["y"]
                 })
 
+            # 5c. Выходная ветка: выходит из последней станции и завершается тупиком
+            if last_st:
+                exit_x = last_st["x"] + 65 + (tr["lane"] % 3) * 20
+                exit_y = lane_y
+                tr["exit_x"] = exit_x
+                tr["exit_y"] = exit_y
+                segments.append({
+                    "track_id": tr["id"],
+                    "track_title": tr["title"],
+                    "color": tr["color"],
+                    "from_id": last_st["id"],
+                    "to_id": f"exit_{tr['id']}",
+                    "from_x": last_st["x"],
+                    "from_y": last_st["y"],
+                    "to_x": exit_x,
+                    "to_y": exit_y,
+                    "is_exit": True
+                })
+
         # 6. Расчет габаритов схемы (bounds)
         xs = [st["x"] for st in raw_stations]
         ys = [st["y"] for st in raw_stations]
+        for tr in tracks:
+            if "badge_x" in tr:
+                xs.append(tr["badge_x"] - 60)
+            if "exit_x" in tr:
+                xs.append(tr["exit_x"] + 30)
+            if "badge_y" in tr:
+                ys.append(tr["badge_y"])
+        for g in groups:
+            xs.append(g["from_x"])
+            xs.append(g["to_x"])
+            ys.append(g["y"] - 15)
+
         min_x = max(0, min(xs) - margin) if xs else 0
         max_x = max(xs) + margin + 150 if xs else 800
         min_y = max(0, min(ys) - margin) if ys else 0
@@ -308,6 +431,7 @@ class MetroService:
             "stations": raw_stations,
             "tracks": tracks,
             "segments": segments,
+            "groups": groups,
             "bounds": {
                 "min_x": min_x,
                 "max_x": max_x,

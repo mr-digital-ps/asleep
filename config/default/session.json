@@ -1,6 +1,6 @@
 {
 	// Дефолтная рабочая папка (используется при первом запуске или если last_folder недоступна)
-	"default_folder": "C:/.personal/.development/asleep-pyqt/test_story",
+	"default_folder": "C:/.personal/.development/asleep-pyqt/Europe-history",
 
 	// Последняя открытая рабочая папка (переопределяется в config/user/session.json)
 	"last_folder": "",

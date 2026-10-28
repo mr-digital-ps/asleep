@@ -636,6 +636,7 @@ RowLayout {
             if (activeFocus) {
                 canvasRoot.paneActivated()
                 canvasRoot.cursorVisibilityRequested()
+                canvasRoot.reapplyLineHeight()
             }
             bracketHighlightOverlay.updateBracketHighlights()
         }
@@ -655,10 +656,18 @@ RowLayout {
         }
 
         Keys.onTabPressed: (event) => {
+            if (event.modifiers & Qt.AltModifier) {
+                event.accepted = false
+                return
+            }
             Shortcuts.handleTab(editorArea, false, canvasRoot.tabSize)
             event.accepted = true
         }
         Keys.onBacktabPressed: (event) => {
+            if (event.modifiers & Qt.AltModifier) {
+                event.accepted = false
+                return
+            }
             Shortcuts.handleTab(editorArea, true, canvasRoot.tabSize)
             event.accepted = true
         }

@@ -97,18 +97,50 @@ Item {
         switchMode("info")
     }
 
+    property bool showOnlyFileName: false
+
+    function effectiveTitle() {
+        var rawName = stripExt(fileName) || fileName || "Новый документ"
+        if (showOnlyFileName) {
+            return rawName
+        }
+        return breadcrumbTitle ? breadcrumbTitle : rawName
+    }
+
     function togglePathMode() {
-        // Alt+P: если уже в режиме полного пути (title), ничего не стираем и не переключаем
         if (headerMode !== "title") {
             switchMode("title")
+        } else {
+            showOnlyFileName = !showOnlyFileName
+            updateTitleFieldText()
         }
     }
 
     function showPathMode() {
+        showOnlyFileName = false
         if (headerMode !== "title") {
             switchMode("title")
+        } else {
+            updateTitleFieldText()
         }
     }
+
+    function showFileNameMode() {
+        showOnlyFileName = true
+        if (headerMode !== "title") {
+            switchMode("title")
+        } else {
+            updateTitleFieldText()
+        }
+    }
+
+    function updateTitleFieldText() {
+        if (!titleField.activeFocus) {
+            titleField.text = effectiveTitle()
+        }
+    }
+
+    onShowOnlyFileNameChanged: updateTitleFieldText()
 
     function stripExt(name) {
         if (!name) return ""
@@ -210,7 +242,7 @@ Item {
                 rightPadding: headerRoot.contentRightPadding
                 topPadding: 6
                 bottomPadding: 6
-                text: headerRoot.breadcrumbTitle ? headerRoot.breadcrumbTitle : (headerRoot.fileName || "Новый документ")
+                text: headerRoot.effectiveTitle()
                 font.pixelSize: Theme.headerTitleFontSize
                 font.bold: true
                 color: (!headerRoot.isActivePane) ? Theme.textSecondary : Theme.textPrimary
@@ -225,14 +257,10 @@ Item {
                 Connections {
                     target: headerRoot
                     function onBreadcrumbTitleChanged() {
-                        if (!titleField.activeFocus) {
-                            titleField.text = headerRoot.breadcrumbTitle ? headerRoot.breadcrumbTitle : (headerRoot.fileName || "Новый документ")
-                        }
+                        headerRoot.updateTitleFieldText()
                     }
                     function onFileNameChanged() {
-                        if (!titleField.activeFocus) {
-                            titleField.text = headerRoot.breadcrumbTitle ? headerRoot.breadcrumbTitle : (headerRoot.fileName || "Новый документ")
-                        }
+                        headerRoot.updateTitleFieldText()
                     }
                 }
 

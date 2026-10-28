@@ -56,7 +56,8 @@ function expandTransclusions(text, backend, activeMap) {
             var res = (typeof backend.get_external_block === "function") ? backend.get_external_block(fStem, bName) : null
             if (res && res.found && res.content && res.content.trim().length > 0) {
                 var headerLine = indent + extKey + " {"
-                var cleanContent = dedentText(res.content.replace(/^\r?\n+|\r?\n+$/g, ""))
+                var srcText = res.raw_content ? res.raw_content : res.content
+                var cleanContent = dedentText(srcText.replace(/^\r?\n+|\r?\n+$/g, ""))
                 var bodyLines = cleanContent.split("\n").map(function(s) {
                     return s.trim().length > 0 ? (indent + "    " + s) : ""
                 })
@@ -83,7 +84,8 @@ function expandTransclusions(text, backend, activeMap) {
             var resLoc = (typeof backend.get_block === "function") ? backend.get_block(lName) : null
             if (resLoc && resLoc.found && resLoc.content && resLoc.content.trim().length > 0) {
                 var headerLoc = indentLoc + locKey + " {"
-                var cleanContentLoc = dedentText(resLoc.content.replace(/^\r?\n+|\r?\n+$/g, ""))
+                var srcLoc = resLoc.raw_content ? resLoc.raw_content : resLoc.content
+                var cleanContentLoc = dedentText(srcLoc.replace(/^\r?\n+|\r?\n+$/g, ""))
                 var bodyLoc = cleanContentLoc.split("\n").map(function(s) {
                     return s.trim().length > 0 ? (indentLoc + "    " + s) : ""
                 })
