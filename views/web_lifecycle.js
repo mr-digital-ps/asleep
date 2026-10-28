@@ -43,8 +43,11 @@ function dispatchAction(root, backend, action) {
     case "show_text_mode": root.closeGraph(); break
     case "toggle_fullscreen":
         if (root.appWindow) {
-            if (root.appWindow.visibility === 5) root.appWindow.showNormal()
-            else root.appWindow.showMaximized()
+            if (root.appWindow.visibility === 4 || root.appWindow.visibility === 5) {
+                root.appWindow.showNormal()
+            } else {
+                root.appWindow.showMaximized()
+            }
         }
         break
     case "tile_left":

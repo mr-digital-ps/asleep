@@ -39,15 +39,15 @@ ApplicationWindow {
         }
     }
 
-    // Рамка приложения и интерактивное изменение размера окна (инлайновый монолит)
+    // Рамка приложения и визуальная граница окна (инлайновый монолит)
     Item {
         id: windowFrame
         anchors.fill: parent
         z: 9999
-        visible: root.visibility !== Window.Maximized
+        visible: root.visibility !== Window.Maximized && root.visibility !== Window.FullScreen
 
-        readonly property int resizeMargin: (typeof backend !== "undefined" && backend && backend.get_app_config().window_resize_margin) ? backend.get_app_config().window_resize_margin : 8
-        readonly property int cornerMargin: (typeof backend !== "undefined" && backend && backend.get_app_config().window_corner_margin) ? backend.get_app_config().window_corner_margin : 16
+        readonly property int resizeMargin: (typeof backend !== "undefined" && backend && backend.get_app_config().window_resize_margin) ? backend.get_app_config().window_resize_margin : 10
+        readonly property int cornerMargin: (typeof backend !== "undefined" && backend && backend.get_app_config().window_corner_margin) ? backend.get_app_config().window_corner_margin : 20
 
         // Визуальная граница
         Rectangle {
@@ -59,96 +59,6 @@ ApplicationWindow {
             Behavior on border.color {
                 ColorAnimation { duration: Theme.animDurationNormal }
             }
-        }
-
-        // Грани изменения размера
-        MouseArea {
-            anchors.top: parent.top
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.leftMargin: windowFrame.cornerMargin
-            anchors.rightMargin: windowFrame.cornerMargin
-            height: windowFrame.resizeMargin
-            cursorShape: Qt.SizeVerCursor
-            acceptedButtons: Qt.LeftButton
-            onPressed: root.startSystemResize(Qt.TopEdge)
-        }
-
-        MouseArea {
-            anchors.bottom: parent.bottom
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.leftMargin: windowFrame.cornerMargin
-            anchors.rightMargin: windowFrame.cornerMargin
-            height: windowFrame.resizeMargin
-            cursorShape: Qt.SizeVerCursor
-            acceptedButtons: Qt.LeftButton
-            onPressed: root.startSystemResize(Qt.BottomEdge)
-        }
-
-        MouseArea {
-            anchors.left: parent.left
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            anchors.topMargin: windowFrame.cornerMargin
-            anchors.bottomMargin: windowFrame.cornerMargin
-            width: windowFrame.resizeMargin
-            cursorShape: Qt.SizeHorCursor
-            acceptedButtons: Qt.LeftButton
-            onPressed: root.startSystemResize(Qt.LeftEdge)
-        }
-
-        MouseArea {
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            anchors.topMargin: windowFrame.cornerMargin
-            anchors.bottomMargin: windowFrame.cornerMargin
-            width: windowFrame.resizeMargin
-            cursorShape: Qt.SizeHorCursor
-            acceptedButtons: Qt.LeftButton
-            onPressed: root.startSystemResize(Qt.RightEdge)
-        }
-
-        // Углы изменения размера
-        MouseArea {
-            anchors.top: parent.top
-            anchors.left: parent.left
-            width: windowFrame.cornerMargin
-            height: windowFrame.cornerMargin
-            cursorShape: Qt.SizeFDiagCursor
-            acceptedButtons: Qt.LeftButton
-            onPressed: root.startSystemResize(Qt.TopEdge | Qt.LeftEdge)
-        }
-
-        MouseArea {
-            anchors.top: parent.top
-            anchors.right: parent.right
-            width: windowFrame.cornerMargin
-            height: windowFrame.cornerMargin
-            cursorShape: Qt.SizeBDiagCursor
-            acceptedButtons: Qt.LeftButton
-            onPressed: root.startSystemResize(Qt.TopEdge | Qt.RightEdge)
-        }
-
-        MouseArea {
-            anchors.bottom: parent.bottom
-            anchors.left: parent.left
-            width: windowFrame.cornerMargin
-            height: windowFrame.cornerMargin
-            cursorShape: Qt.SizeBDiagCursor
-            acceptedButtons: Qt.LeftButton
-            onPressed: root.startSystemResize(Qt.BottomEdge | Qt.LeftEdge)
-        }
-
-        MouseArea {
-            anchors.bottom: parent.bottom
-            anchors.right: parent.right
-            width: windowFrame.cornerMargin
-            height: windowFrame.cornerMargin
-            cursorShape: Qt.SizeFDiagCursor
-            acceptedButtons: Qt.LeftButton
-            onPressed: root.startSystemResize(Qt.BottomEdge | Qt.RightEdge)
         }
     }
 

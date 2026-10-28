@@ -2,8 +2,8 @@ import json
 import copy
 import math
 from pathlib import Path
-from PyQt6.QtCore import QObject, pyqtSignal, QFileSystemWatcher, QTimer, Qt, QEvent
-from PyQt6.QtGui import QKeyEvent, QGuiApplication, QMouseEvent
+from PyQt6.QtCore import QObject, pyqtSignal, QFileSystemWatcher, QTimer, Qt, QEvent, QPointF
+from PyQt6.QtGui import QKeyEvent, QGuiApplication, QMouseEvent, QCursor
 
 from services.storage.config_service import parse_json_with_comments
 from services.system.key_mapper import (
@@ -173,6 +173,14 @@ class GlobalHotkeyFilter(QObject):
         self._target_win = None
         self._press_pos = None
         self._last_pos = None
+        self._snap_target = None
+
+        self._is_window_resizing = False
+        self._resize_edges = []
+        self._resize_target_win = None
+        self._resize_press_pos = None
+        self._resize_init_geo = None
+        self._cursor_overridden = False
 
     def _find_window(self, obj, event):
         if hasattr(obj, "startSystemMove") and hasattr(obj, "setX"):
@@ -198,6 +206,88 @@ class GlobalHotkeyFilter(QObject):
                 pass
         return 3.0
 
+    def _get_resize_margin(self) -> int:
+        if self.backend and hasattr(self.backend, "get_app_config"):
+            try:
+                cfg = self.backend.get_app_config()
+                return int(cfg.get("window_resize_margin", 10))
+            except Exception:
+                pass
+        return 10
+
+    def _get_corner_margin(self) -> int:
+        if self.backend and hasattr(self.backend, "get_app_config"):
+            try:
+                cfg = self.backend.get_app_config()
+                return int(cfg.get("window_corner_margin", 20))
+            except Exception:
+                pass
+        return 20
+
+    def _get_resize_edges(self, win, global_pos: QPointF | None) -> list[str]:
+        if not win or global_pos is None:
+            return []
+        if hasattr(win, "visibility") and win.property("visibility") in (4, 5):
+            return []
+        rx = global_pos.x() - win.x()
+        ry = global_pos.y() - win.y()
+        w = win.width()
+        h = win.height()
+        if rx < 0 or rx > w or ry < 0 or ry > h:
+            return []
+
+        margin = self._get_resize_margin()
+        edges = []
+        on_top = 0 <= ry <= margin
+        on_bottom = (h - margin) <= ry <= h
+        on_left = 0 <= rx <= margin
+        on_right = (w - margin) <= rx <= w
+
+        if on_top:
+            edges.append("top")
+        elif on_bottom:
+            edges.append("bottom")
+        if on_left:
+            edges.append("left")
+        elif on_right:
+            edges.append("right")
+        return edges
+
+    def _update_cursor_for_edges(self, edges: list[str]):
+        if not edges:
+            self._restore_cursor()
+            return
+
+        cursor_shape = None
+        if edges in (["top", "left"], ["bottom", "right"]):
+            cursor_shape = Qt.CursorShape.SizeFDiagCursor
+        elif edges in (["top", "right"], ["bottom", "left"]):
+            cursor_shape = Qt.CursorShape.SizeBDiagCursor
+        elif "top" in edges or "bottom" in edges:
+            cursor_shape = Qt.CursorShape.SizeVerCursor
+        elif "left" in edges or "right" in edges:
+            cursor_shape = Qt.CursorShape.SizeHorCursor
+
+        if cursor_shape:
+            if not self._cursor_overridden:
+                QGuiApplication.setOverrideCursor(QCursor(cursor_shape))
+                self._cursor_overridden = True
+            else:
+                QGuiApplication.changeOverrideCursor(QCursor(cursor_shape))
+
+    def _restore_cursor(self):
+        if self._cursor_overridden:
+            QGuiApplication.restoreOverrideCursor()
+            self._cursor_overridden = False
+
+    def _get_screen_work_area(self, pt: QPointF, win=None):
+        screen = QGuiApplication.screenAt(pt.toPoint())
+        if not screen and win and hasattr(win, "screen") and win.screen():
+            screen = win.screen()
+        if not screen:
+            screen = QGuiApplication.primaryScreen()
+        return screen.availableGeometry() if screen else None
+
     def _on_hotkeys_changed(self, hotkeys: dict):
         self.matcher = HotkeyMatcher(hotkeys)
 
@@ -206,11 +296,8 @@ class GlobalHotkeyFilter(QObject):
             return super().eventFilter(a0, a1)
         evt_type = a1.type()
 
-        # 1. Перемещение окна приложения по экрану ОС (Alt + ЛКМ или ПКМ)
+        # 1. Перемещение и изменение размера окна приложения по экрану ОС
         if evt_type == QEvent.Type.MouseButtonPress and isinstance(a1, QMouseEvent):
-            if not self._is_drag_enabled():
-                return super().eventFilter(a0, a1)
-
             btn = a1.button()
             mods = a1.modifiers()
             is_alt = bool(mods & Qt.KeyboardModifier.AltModifier)
@@ -219,50 +306,178 @@ class GlobalHotkeyFilter(QObject):
             # Alt + ЛКМ: нативное перемещение окна в Windows через startSystemMove
             if btn == Qt.MouseButton.LeftButton and is_alt:
                 if win:
-                    if hasattr(win, "visibility") and win.property("visibility") == 4:
+                    if hasattr(win, "visibility") and win.property("visibility") in (4, 5):
                         win.showNormal()
                     if hasattr(win, "startSystemMove") and win.startSystemMove():
                         a1.accept()
                         return True
 
-            # ПКМ драг: перемещение окна приложения по рабочему столу ОС
-            elif btn == Qt.MouseButton.RightButton:
+            # ЛКМ по границе: интерактивное изменение размера окна курсором
+            elif btn == Qt.MouseButton.LeftButton and not is_alt:
                 if win:
+                    edges = self._get_resize_edges(win, a1.globalPosition())
+                    if edges:
+                        self._is_window_resizing = True
+                        self._resize_edges = edges
+                        self._resize_target_win = win
+                        self._resize_press_pos = a1.globalPosition()
+                        self._resize_init_geo = (win.x(), win.y(), win.width(), win.height())
+                        a1.accept()
+                        return True
+
+            # ПКМ драг: перемещение окна приложения по экрану ОС
+            elif btn == Qt.MouseButton.RightButton:
+                if win and self._is_drag_enabled():
                     self._is_window_dragging = True
                     self._window_drag_started = False
                     self._target_win = win
                     self._press_pos = a1.globalPosition()
                     self._last_pos = a1.globalPosition()
+                    self._snap_target = None
                     a1.accept()
                     return True
 
         elif evt_type == QEvent.Type.MouseMove and isinstance(a1, QMouseEvent):
+            # 1.1 Перемещение окна по рабочему столу ОС
             if self._is_window_dragging and self._target_win and self._last_pos is not None:
                 cur = a1.globalPosition()
                 if not self._window_drag_started and self._press_pos is not None:
                     dist = math.hypot(cur.x() - self._press_pos.x(), cur.y() - self._press_pos.y())
                     if dist >= self._get_drag_deadzone():
                         self._window_drag_started = True
+                        # Если окно было развернуто — плавно восстанавливаем его под курсором
+                        if hasattr(self._target_win, "visibility") and self._target_win.property("visibility") in (4, 5):
+                            self._target_win.showNormal()
+                            avail = self._get_screen_work_area(cur, self._target_win)
+                            new_w = self._target_win.width()
+                            new_x = int(cur.x() - new_w * 0.5)
+                            new_y = int(cur.y() - 15)
+                            if avail:
+                                new_x = max(avail.left(), min(avail.right() - new_w, new_x))
+                                new_y = max(avail.top(), new_y)
+                            self._target_win.setX(new_x)
+                            self._target_win.setY(new_y)
+                            self._last_pos = cur
 
                 if self._window_drag_started:
                     dx = int(cur.x() - self._last_pos.x())
                     dy = int(cur.y() - self._last_pos.y())
                     if dx != 0 or dy != 0:
-                        if hasattr(self._target_win, "visibility") and self._target_win.property("visibility") == 4:
-                            self._target_win.showNormal()
                         self._target_win.setX(self._target_win.x() + dx)
                         self._target_win.setY(self._target_win.y() + dy)
                         self._last_pos = cur
-                    a1.accept()
-                    return True
+
+                    # Определение достижения краев экрана для прилипания (Aero Snap)
+                    avail = self._get_screen_work_area(cur, self._target_win)
+                    if avail:
+                        snap_thresh = 10
+                        if cur.y() <= avail.top() + snap_thresh:
+                            self._snap_target = "maximize"
+                        elif cur.x() <= avail.left() + snap_thresh:
+                            self._snap_target = "left"
+                        elif cur.x() >= avail.right() - snap_thresh:
+                            self._snap_target = "right"
+                        else:
+                            self._snap_target = None
+                a1.accept()
+                return True
+
+            # 1.2 Изменение размера окна курсором
+            elif self._is_window_resizing and self._resize_target_win and self._resize_press_pos:
+                cur = a1.globalPosition()
+                dx = int(cur.x() - self._resize_press_pos.x())
+                dy = int(cur.y() - self._resize_press_pos.y())
+                ix, iy, iw, ih = self._resize_init_geo
+                min_w = self._resize_target_win.minimumWidth() if hasattr(self._resize_target_win, "minimumWidth") else 600
+                min_h = self._resize_target_win.minimumHeight() if hasattr(self._resize_target_win, "minimumHeight") else 400
+                if not min_w:
+                    min_w = 600
+                if not min_h:
+                    min_h = 400
+
+                nx, ny, nw, nh = ix, iy, iw, ih
+                if "right" in self._resize_edges:
+                    nw = max(min_w, iw + dx)
+                if "bottom" in self._resize_edges:
+                    nh = max(min_h, ih + dy)
+                if "left" in self._resize_edges:
+                    cand_w = iw - dx
+                    if cand_w >= min_w:
+                        nx = ix + dx
+                        nw = cand_w
+                    else:
+                        nx = ix + (iw - min_w)
+                        nw = min_w
+                if "top" in self._resize_edges:
+                    cand_h = ih - dy
+                    if cand_h >= min_h:
+                        ny = iy + dy
+                        nh = cand_h
+                    else:
+                        ny = iy + (ih - min_h)
+                        nh = min_h
+
+                self._resize_target_win.setGeometry(nx, ny, nw, nh)
+                a1.accept()
+                return True
+
+            # 1.3 Индикация формы курсора при наведении на границу окна
+            elif not self._is_window_dragging and not self._is_window_resizing and a1.buttons() == Qt.MouseButton.NoButton:
+                win = self._find_window(a0, a1)
+                if win:
+                    edges = self._get_resize_edges(win, a1.globalPosition())
+                    self._update_cursor_for_edges(edges)
+                else:
+                    self._restore_cursor()
 
         elif evt_type == QEvent.Type.MouseButtonRelease and isinstance(a1, QMouseEvent):
             if self._is_window_dragging:
+                target_win = self._target_win
+                drag_started = self._window_drag_started
+                snap = self._snap_target
+
                 self._is_window_dragging = False
                 self._window_drag_started = False
                 self._target_win = None
                 self._press_pos = None
                 self._last_pos = None
+                self._snap_target = None
+
+                if target_win:
+                    if drag_started:
+                        avail = self._get_screen_work_area(a1.globalPosition(), target_win)
+                        if snap == "maximize":
+                            target_win.showMaximized()
+                        elif snap == "left" and avail:
+                            target_win.showNormal()
+                            target_win.setGeometry(avail.left(), avail.top(), avail.width() // 2, avail.height())
+                        elif snap == "right" and avail:
+                            target_win.showNormal()
+                            target_win.setGeometry(avail.left() + avail.width() // 2, avail.top(), avail.width() // 2, avail.height())
+                        elif avail:
+                            # Ограничение границ экрана: окно не должно улететь за пределы видимости
+                            wx = target_win.x()
+                            wy = max(avail.top(), target_win.y())
+                            wx = max(avail.left() - target_win.width() + 100, min(avail.right() - 100, wx))
+                            wy = min(avail.bottom() - 60, wy)
+                            target_win.setX(wx)
+                            target_win.setY(wy)
+
+                    if hasattr(target_win, "requestActivate"):
+                        target_win.requestActivate()
+
+                a1.accept()
+                return True
+
+            elif self._is_window_resizing:
+                self._is_window_resizing = False
+                if self._resize_target_win and hasattr(self._resize_target_win, "requestActivate"):
+                    self._resize_target_win.requestActivate()
+                self._resize_target_win = None
+                self._resize_press_pos = None
+                self._resize_init_geo = None
+                self._resize_edges = []
+                self._restore_cursor()
                 a1.accept()
                 return True
 

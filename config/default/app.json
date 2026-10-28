@@ -27,8 +27,8 @@
   "window_default_height": 650,
   "window_min_width": 600,
   "window_min_height": 400,
-  "window_resize_margin": 8,
-  "window_corner_margin": 16,
+  "window_resize_margin": 10,
+  "window_corner_margin": 20,
   "window_save_geometry_delay_ms": 600,
 
   // Перемещение окна приложения по экрану ОС:
