@@ -9,18 +9,32 @@ from services.storage.file_service import FileService, list_project_notes
 from services.content.document_outline import parse_user_dialect
 
 DEFAULT_METRO_PALETTE = [
-    "#E5484D",  # Ruby
-    "#3B82F6",  # Blue
-    "#10B981",  # Emerald
-    "#F59E0B",  # Amber
-    "#8B5CF6",  # Violet
-    "#EC4899",  # Pink
-    "#06B6D4",  # Cyan
-    "#84CC16",  # Lime
-    "#F97316",  # Orange
-    "#6366F1",  # Indigo
-    "#14B8A6",  # Teal
-    "#E11D48"   # Rose
+    "#E5484D",  # Ruby / Османская империя
+    "#3B82F6",  # Sapphire / Франция
+    "#F59E0B",  # Imperial Gold / Габсбурги Империя
+    "#10B981",  # Emerald / Венеция
+    "#8B5CF6",  # Amethyst / Папский престол
+    "#EC4899",  # Rose / Англия
+    "#06B6D4",  # Cyan / Шотландия / Ирландия
+    "#84CC16",  # Lime / Нидерланды / Бургундия
+    "#F97316",  # Amber Orange / Кастилия и Арагон / Испания Габсбургов
+    "#6366F1",  # Indigo / Италия Сфорца / Милан
+    "#14B8A6",  # Teal / Флоренция Медичи
+    "#D946EF",  # Magenta / Польша и Литва
+    "#64748B",  # Slate / Тевтонский орден / Пруссия
+    "#A855F7",  # Purple / Ливония
+    "#E11D48",  # Crimson / Дания и Норвегия
+    "#0EA5E9",  # Sky / Швеция
+    "#F43F5E",  # Coral / Россия
+    "#EAB308",  # Yellow / Венгрия
+    "#22C55E",  # Green / Молдавия и Валахия
+    "#A1A1AA",  # Zinc / Швейцарский союз
+    "#78716C",  # Stone / Крым и казачество
+    "#059669",  # Dark Emerald / Португалия
+    "#D97706",  # Bronze / Богемия
+    "#4F46E5",  # Deep Indigo / Генуя
+    "#DC2626",  # Red / Персия
+    "#475569"   # Steel / Развязки
 ]
 
 RE_CHAPTER_NUM = re.compile(r"^(\d+)(?:[.\s_-]|$)", re.UNICODE)
@@ -28,7 +42,7 @@ RE_CHAPTER_NUM = re.compile(r"^(\d+)(?:[.\s_-]|$)", re.UNICODE)
 
 def _natural_note_sort_key(file_path: Path):
     """
-    Естественный порядок сортировки заметок (1. Глава, 2. Сцена, Глава 10).
+    Естественный порядок сортировки заметок (1. Глава, 2. Сцена, Глава 10, Эпоха 1... Эпоха 10).
     Если имя начинается с цифры, сортируем по числу.
     """
     stem = file_path.stem
@@ -38,8 +52,8 @@ def _natural_note_sort_key(file_path: Path):
             return (0, int(m.group(1)), stem.lower())
         except ValueError:
             pass
-    # Проверка "Глава X" или "Chapter X"
-    m_ch = re.search(r"(?:глава|сцена|серия|act|chapter)\s*(\d+)", stem, re.IGNORECASE)
+    # Проверка "Глава X", "Эпоха X", "Этап X", "Stage X", "Chapter X", "Том X"
+    m_ch = re.search(r"(?:глава|сцена|серия|эпоха|этап|stage|epoch|act|chapter|том|часть)\s*(\d+)", stem, re.IGNORECASE)
     if m_ch:
         try:
             return (1, int(m_ch.group(1)), stem.lower())
@@ -68,13 +82,288 @@ class MetroService:
             cfg = {}
         return cfg
 
+    def _build_multi_stage_metro(self, folder: Path, project_files: list[Path], cfg: dict) -> dict | None:
+        """
+        Строит сквозную многоэтапную схему метро для проектов с несколькими заметками (например, эпохи 1453-1648):
+        - Каждая заметка с блоками формирует этапную колонку (Stage Column) вдоль оси X.
+        - Станции — блоки внутри заметок с годами и аннотациями.
+        - Ветки (Tracks) — сквозные династические/сюжетные актеры (@Актер), непрерывно идущие через эпохи.
+        - Станции с 2+ актерами являются пересадочными узлами (Interchange).
+        """
+        re_block = re.compile(r"^([a-zA-Zа-яА-ЯёЁ0-9_]+)\s*\{([^}]*)\}", re.MULTILINE)
+        re_year = re.compile(r"^\s*(\d{4}(?:[-–]\d{4})?)(?:\s*//\s*(.*))?", re.MULTILINE)
+        re_actors = re.compile(r"@([a-zA-Zа-яА-ЯёЁ0-9_]+)")
+
+        stages = []
+        for pf in project_files:
+            try:
+                txt = pf.read_text(encoding="utf-8")
+                blks = list(re_block.finditer(txt))
+                if blks:
+                    stages.append((pf, txt, blks))
+            except Exception:
+                pass
+
+        # Если файлов с блоками меньше двух, проект не является многоэтапным
+        if len(stages) < 2:
+            return None
+
+        layout_cfg = cfg.get("layout", {})
+        palette = cfg.get("palette", DEFAULT_METRO_PALETTE) or DEFAULT_METRO_PALETTE
+        stage_step_x = layout_cfg.get("stageStepX", 420)
+        lane_step = layout_cfg.get("stepY", 44)
+        margin_x = 180
+        top_margin = 120
+
+        raw_stations = []
+        station_counter = 0
+        all_actors_order = []
+        actor_set = set()
+
+        for s_idx, (pf, txt, blks) in enumerate(stages):
+            pf_url = QUrl.fromLocalFile(str(pf.resolve())).toString()
+            stage_title = pf.stem
+            m_stg = re.match(r"^(.*?)(?:\s*-\s*(.*))?$", pf.stem)
+            short_stage_title = m_stg.group(1).strip() if m_stg else pf.stem
+
+            lines_offsets = [0]
+            for line_str in txt.splitlines(keepends=True):
+                lines_offsets.append(lines_offsets[-1] + len(line_str))
+
+            for m in blks:
+                b_name = m.group(1).strip()
+                body = m.group(2)
+                start_char = m.start()
+
+                line_no = 1
+                for idx_l, off in enumerate(lines_offsets):
+                    if off > start_char:
+                        line_no = max(1, idx_l)
+                        break
+
+                m_y = re_year.search(body)
+                date_str = m_y.group(1).replace("–", "-").strip() if m_y else ""
+                note = m_y.group(2).strip() if (m_y and m_y.group(2)) else ""
+                year_num = 0
+                if date_str:
+                    m_dig = re.search(r"\d{4}", date_str)
+                    if m_dig:
+                        year_num = int(m_dig.group(0))
+
+                actors = re_actors.findall(body)
+                for a in actors:
+                    if a not in actor_set:
+                        actor_set.add(a)
+                        all_actors_order.append(a)
+
+                body_lines = [l.strip() for l in body.splitlines() if l.strip()]
+                clean_lines = [
+                    l for l in body_lines
+                    if not l.startswith("@") and not re_year.match(l) and not l.startswith("Ключевые")
+                    and not l.startswith("-") and not l.startswith("Интрига") and not l.startswith(">")
+                ]
+                summary = clean_lines[0] if clean_lines else ""
+
+                st_tracks = actors if actors else [short_stage_title]
+                st_id = f"st_{station_counter}"
+                station_counter += 1
+
+                raw_stations.append({
+                    "id": st_id,
+                    "title": b_name.replace("_", " "),
+                    "name": b_name,
+                    "file_url": pf_url,
+                    "file_name": pf.name,
+                    "file_path": str(pf.resolve()),
+                    "block_name": b_name,
+                    "start_line": line_no,
+                    "tracks": st_tracks,
+                    "actors": actors,
+                    "is_interchange": len(st_tracks) > 1,
+                    "stage_idx": s_idx,
+                    "stage_title": short_stage_title,
+                    "full_stage_title": stage_title,
+                    "breadcrumbs": [short_stage_title],
+                    "date_str": date_str,
+                    "year": year_num,
+                    "note": note,
+                    "summary": summary
+                })
+
+        if not raw_stations:
+            return None
+
+        track_names = all_actors_order if all_actors_order else sorted(list(actor_set))
+        if not track_names:
+            track_names = [stg[0].stem for stg in stages]
+
+        tracks = []
+        track_lane_map = {}
+        for idx, t_name in enumerate(track_names):
+            color = palette[idx % len(palette)]
+            t_title = t_name.replace("_", " ")
+            tracks.append({
+                "id": t_name,
+                "title": t_title,
+                "color": color,
+                "lane": idx,
+                "station_ids": []
+            })
+            track_lane_map[t_name] = idx
+
+        # Расчет координат X и Y станций по этапам
+        stage_stations_map = {}
+        for st in raw_stations:
+            stage_stations_map.setdefault(st["stage_idx"], []).append(st)
+
+        for s_idx, s_stations in stage_stations_map.items():
+            stage_center_x = margin_x + s_idx * stage_step_x
+            for st in s_stations:
+                lanes = [track_lane_map[t] for t in st["tracks"] if t in track_lane_map]
+                lane_avg = sum(lanes) / len(lanes) if lanes else s_idx
+                st["lane"] = lane_avg
+                st["target_y"] = top_margin + lane_avg * lane_step
+
+            # Сортируем станции этапа по целевому Y для предотвращения самопересечений
+            s_stations.sort(key=lambda s: s["target_y"])
+
+            min_gap = 52
+            for i in range(len(s_stations)):
+                if i > 0 and (s_stations[i]["target_y"] - s_stations[i - 1]["y"] < min_gap):
+                    s_stations[i]["y"] = s_stations[i - 1]["y"] + min_gap
+                else:
+                    s_stations[i]["y"] = s_stations[i]["target_y"]
+
+                stagger = ((i % 2) * 50 - 25) if len(s_stations) > 1 else 0
+                s_stations[i]["x"] = stage_center_x + stagger
+                s_stations[i]["col"] = s_idx
+
+        # Привязка станций к веткам
+        station_dict = {st["id"]: st for st in raw_stations}
+        for st in raw_stations:
+            for t_name in st["tracks"]:
+                if t_name in track_lane_map:
+                    tracks[track_lane_map[t_name]]["station_ids"].append(st["id"])
+
+        # Генерация сквозных соединительных сегментов линий метро
+        segments = []
+        for tr in tracks:
+            st_ids = tr["station_ids"]
+            if not st_ids:
+                continue
+
+            first_st = station_dict[st_ids[0]]
+            last_st = station_dict[st_ids[-1]]
+            lane_y = top_margin + tr["lane"] * lane_step
+
+            entry_x = first_st["x"] - 75 - (tr["lane"] % 4) * 20
+            tr["badge_x"] = entry_x - 16
+            tr["badge_y"] = lane_y
+            segments.append({
+                "track_id": tr["id"],
+                "track_title": tr["title"],
+                "color": tr["color"],
+                "from_id": f"entry_{tr['id']}",
+                "to_id": first_st["id"],
+                "from_x": entry_x,
+                "from_y": lane_y,
+                "to_x": first_st["x"],
+                "to_y": first_st["y"],
+                "is_entry": True
+            })
+
+            for i in range(len(st_ids) - 1):
+                from_st = station_dict[st_ids[i]]
+                to_st = station_dict[st_ids[i + 1]]
+                segments.append({
+                    "track_id": tr["id"],
+                    "track_title": tr["title"],
+                    "color": tr["color"],
+                    "from_id": from_st["id"],
+                    "to_id": to_st["id"],
+                    "from_x": from_st["x"],
+                    "from_y": from_st["y"],
+                    "to_x": to_st["x"],
+                    "to_y": to_st["y"]
+                })
+
+            exit_x = last_st["x"] + 75 + (tr["lane"] % 4) * 20
+            tr["exit_x"] = exit_x
+            tr["exit_y"] = lane_y
+            segments.append({
+                "track_id": tr["id"],
+                "track_title": tr["title"],
+                "color": tr["color"],
+                "from_id": last_st["id"],
+                "to_id": f"exit_{tr['id']}",
+                "from_x": last_st["x"],
+                "from_y": last_st["y"],
+                "to_x": exit_x,
+                "to_y": lane_y,
+                "is_exit": True
+            })
+
+        # Формирование верхних групп этапов (Stage Brackets) и этапов для топбара
+        groups = []
+        stages_out = []
+        for s_idx, (pf, _, _) in enumerate(stages):
+            center_x = margin_x + s_idx * stage_step_x
+            from_x = center_x - stage_step_x / 2 + 15
+            to_x = center_x + stage_step_x / 2 - 15
+            stage_title = pf.stem
+            groups.append({
+                "id": f"stage_{s_idx}",
+                "depth": 0,
+                "title": stage_title,
+                "from_x": from_x,
+                "to_x": to_x,
+                "y": 45,
+                "station_count": len(stage_stations_map.get(s_idx, []))
+            })
+            stages_out.append({
+                "index": s_idx,
+                "title": stage_title,
+                "short_title": f"Э{s_idx + 1}",
+                "x": center_x,
+                "station_count": len(stage_stations_map.get(s_idx, []))
+            })
+
+        xs = [st["x"] for st in raw_stations]
+        ys = [st["y"] for st in raw_stations]
+        for tr in tracks:
+            if "badge_x" in tr:
+                xs.append(tr["badge_x"] - 60)
+            if "exit_x" in tr:
+                xs.append(tr["exit_x"] + 40)
+            if "badge_y" in tr:
+                ys.append(tr["badge_y"])
+
+        min_x = max(0, min(xs) - margin_x) if xs else 0
+        max_x = max(xs) + margin_x + 100 if xs else 1200
+        min_y = max(0, min(ys) - 60) if ys else 0
+        max_y = max(ys) + 120 if ys else 800
+
+        return {
+            "stations": raw_stations,
+            "tracks": tracks,
+            "segments": segments,
+            "groups": groups,
+            "stages": stages_out,
+            "bounds": {
+                "min_x": min_x,
+                "max_x": max_x,
+                "min_y": min_y,
+                "max_y": max_y,
+                "width": max_x - min_x,
+                "height": max_y - min_y
+            }
+        }
+
     def build_metro(self, folder_path: Path | None = None, active_file: Path | str | None = None) -> dict:
         """
-        Строит локальную схему метро для активного файла (или первого файла папки):
-        - Станции: неделимые листовые блоки любой глубины (Том -> Акт -> Глава -> Сцена)
-        - Линия файла: базовый рельс произведения (магистраль)
-        - Ветки участников: персонажи/сущности, упомянутые внутри листовых блоков
-        - Группы (Groups): родительские блоки глав/актов из хлебных крошек
+        Строит схему метро сюжета:
+        - Если в папке несколько файлов с блоками (например, Европа 1453-1648) — строит сквозную многоэтапную схему.
+        - Если один файл — строит локальную схему по иерархии блоков (Том -> Акт -> Глава -> Сцена).
         """
         folder = folder_path or self.project_root
         if isinstance(folder, str):
@@ -85,6 +374,7 @@ class MetroService:
                 "tracks": [],
                 "segments": [],
                 "groups": [],
+                "stages": [],
                 "bounds": {"min_x": 0, "max_x": 800, "min_y": 0, "max_y": 600, "width": 800, "height": 600}
             }
 
@@ -97,7 +387,15 @@ class MetroService:
         if not palette:
             palette = DEFAULT_METRO_PALETTE
 
-        # 1. Разрешаем целевой файл (активный документ или первая заметка проекта)
+        project_files = list_project_notes(folder, config_service=self.config_service)
+        project_files.sort(key=_natural_note_sort_key)
+
+        # 1. Проверяем, является ли папка многоэтапным проектом
+        multi_stage = self._build_multi_stage_metro(folder, project_files, cfg)
+        if multi_stage:
+            return multi_stage
+
+        # 2. Разрешаем целевой файл для локальной схемы одного документа
         target_file = None
         if active_file:
             if isinstance(active_file, str):
@@ -110,9 +408,6 @@ class MetroService:
             if not target_file or not target_file.exists() or not target_file.is_file():
                 target_file = None
 
-        project_files = list_project_notes(folder, config_service=self.config_service)
-        project_files.sort(key=_natural_note_sort_key)
-
         if not target_file and project_files:
             target_file = project_files[0]
 
@@ -122,6 +417,7 @@ class MetroService:
                 "tracks": [],
                 "segments": [],
                 "groups": [],
+                "stages": [],
                 "bounds": {"min_x": 0, "max_x": 800, "min_y": 0, "max_y": 600, "width": 800, "height": 600}
             }
 

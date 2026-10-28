@@ -110,6 +110,19 @@ class ProjectArchitectureTests(unittest.TestCase):
         self.assertEqual(st1["name"], "Ambush")
         self.assertEqual(st1["actors"], ["@Mary", "@Guard"])
 
+    def test_build_metro_multi_stage_transit_map(self):
+        from services.metro_service import MetroService
+        self.write("Эпоха 1.txt", "Station1 {\n    1453 // Epoch 1\n    @King @Knight\n    Content\n}\n")
+        self.write("Эпоха 2.txt", "Station2 {\n    1477 // Epoch 2\n    @King @Bishop\n    Content\n}\n")
+        service = MetroService(config_service=ConfigService())
+        res = service.build_metro(self.root)
+        self.assertEqual(len(res["stations"]), 2)
+        self.assertEqual(len(res["stages"]), 2)
+        self.assertTrue(any(t["id"] == "King" for t in res["tracks"]))
+        king_track = next(t for t in res["tracks"] if t["id"] == "King")
+        self.assertEqual(len(king_track["station_ids"]), 2)
+        self.assertTrue(any(s["track_id"] == "King" and not s.get("is_entry") and not s.get("is_exit") for s in res["segments"]))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -2,7 +2,6 @@ module components.workspace
 WorkspacePane 1.0 WorkspacePane.qml
 PaneHeader 1.0 PaneHeader.qml
 HistoryTimelineBar 1.0 HistoryTimelineBar.qml
-StoryTimelineBar 1.0 StoryTimelineBar.qml
 
 
 CanvasWorkspace 1.0 CanvasWorkspace.qml

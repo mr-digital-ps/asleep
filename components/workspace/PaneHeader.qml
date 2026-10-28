@@ -76,10 +76,6 @@ Item {
         switchMode("history")
     }
 
-    function toggleTimelineMode() {
-        switchMode("timeline")
-    }
-
     function toggleHistoryDiffMode() {
         if (headerRoot.isGraphMode) return
         if (headerMode !== "history") {
@@ -194,20 +190,6 @@ Item {
             Layout.minimumHeight: 44
             spacing: 8
 
-            // 0. РЕЖИМ TIMELINE: заменяет название файла сюжетным ползунком станций и эпох
-            StoryTimelineBar {
-                id: headerTimelineBar
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                visible: headerRoot.headerMode === "timeline"
-                folderUrl: headerRoot.folderUrl
-                fileUrl: headerRoot.fileUrl
-
-                onActivated: headerRoot.paneActivated()
-                onStationSelected: (fUrl, bName, line) => {
-                    headerRoot.paneActivated()
-                }
-            }
 
             // 1. РЕЖИМ HISTORY: заменяет название файла таймлайном
             HistoryTimelineBar {

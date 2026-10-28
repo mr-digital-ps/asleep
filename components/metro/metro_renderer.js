@@ -53,20 +53,57 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
     var stations = (metroData && metroData.stations) ? metroData.stations : []
     var tracks = (metroData && metroData.tracks) ? metroData.tracks : []
     var groups = (metroData && metroData.groups) ? metroData.groups : []
+    var stages = (metroData && metroData.stages) ? metroData.stages : []
 
-    // 2.5 Отрисовка группирующих скобок иерархии блоков (Том -> Акт -> Глава)
+    // 2.3 Отрисовка вертикальных разделителей этапов (Stage Columns)
+    if (stages.length > 0) {
+        ctx.save()
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.04)"
+        ctx.lineWidth = 1
+        ctx.setLineDash([6, 8])
+        for (var sIdx = 0; sIdx < stages.length; sIdx++) {
+            var stgCol = stages[sIdx]
+            var leftX = stgCol.x - 210
+            ctx.beginPath()
+            ctx.moveTo(leftX, 20)
+            ctx.lineTo(leftX, 3000)
+            ctx.stroke()
+        }
+        ctx.restore()
+    }
+
+    // 2.5 Отрисовка группирующих скобок этапов/актов
     renderGroups(ctx, groups, labelFontFamily)
 
-    // 3. Отрисовка соединительных линий (Segments) со скруглениями 45°
+    // Определяем активные ветки при наведении на станцию для умной подсветки линий
+    var hoveredTracks = {}
+    if (hoveredStationId) {
+        for (var hs = 0; hs < stations.length; hs++) {
+            if (stations[hs].id === hoveredStationId) {
+                var hst = stations[hs]
+                if (hst.tracks) {
+                    for (var ht = 0; ht < hst.tracks.length; ht++) {
+                        hoveredTracks[hst.tracks[ht]] = true
+                    }
+                }
+                break
+            }
+        }
+    }
+    var hasHoverFilter = (hoveredStationId && Object.keys(hoveredTracks).length > 0)
+
+    // 3. Отрисовка соединительных линий (Segments) плавными кривыми Безье
     ctx.lineCap = "round"
     ctx.lineJoin = "round"
-    ctx.lineWidth = lineWidth
 
     for (var i = 0; i < segments.length; i++) {
         var seg = segments[i]
+        var isSegHighlighted = !hasHoverFilter || hoveredTracks[seg.track_id]
+        ctx.globalAlpha = isSegHighlighted ? 1.0 : 0.2
+        ctx.lineWidth = isSegHighlighted ? (lineWidth + 0.8) : lineWidth
         ctx.strokeStyle = seg.color || "#A1A1AA"
         ctx.beginPath()
-        drawBeveledMetroLine(ctx, seg.from_x, seg.from_y, seg.to_x, seg.to_y, 14)
+        drawSmoothTransitLine(ctx, seg.from_x, seg.from_y, seg.to_x, seg.to_y)
         ctx.stroke()
 
         // Начальная точка линии — круг (Start Node)
@@ -95,6 +132,7 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
             ctx.fill()
         }
     }
+    ctx.globalAlpha = 1.0
 
     // 4. Отрисовка плашек названий линий (Track Badges) слева
     renderTrackBadges(ctx, tracks, stations, labelFontFamily)
@@ -106,14 +144,17 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
         var st = stations[s]
         var isHov = (st.id === hoveredStationId)
         var isCurrent = (activeFileUrl && st.file_url === activeFileUrl)
+        var isConnectedToHover = hasHoverFilter && st.tracks && st.tracks.some(function(t) { return hoveredTracks[t] })
+        ctx.globalAlpha = (!hasHoverFilter || isHov || isConnectedToHover) ? 1.0 : 0.35
+
         var rad = st.is_interchange ? interchangeRadius : stationRadius
         var rSize = rad * 1.25
 
         // Внешнее свечение при наведении или активном файле
         if (isHov || isCurrent) {
             ctx.beginPath()
-            drawRhombus(ctx, st.x, st.y, rSize + 5.5, rSize + 5.5)
-            ctx.fillStyle = isCurrent ? "rgba(228, 228, 231, 0.3)" : "rgba(255, 255, 255, 0.18)"
+            drawRhombus(ctx, st.x, st.y, rSize + 6, rSize + 6)
+            ctx.fillStyle = isCurrent ? "rgba(228, 228, 231, 0.35)" : "rgba(255, 255, 255, 0.22)"
             ctx.fill()
         }
 
@@ -123,7 +164,7 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
         ctx.fillStyle = stFillColor
         ctx.fill()
         ctx.lineWidth = stBorderWidth
-        ctx.strokeStyle = stBorderColor
+        ctx.strokeStyle = (isHov || isCurrent) ? "#FFFFFF" : stBorderColor
         ctx.stroke()
 
         // Внутренний акцент для пересадочных станций (Interchange)
@@ -134,16 +175,44 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
             ctx.fill()
         }
 
-        // 6. Подписи к станциям — строго только названия
+        // 6. Подписи к станциям
         ctx.textAlign = "center"
-        ctx.textBaseline = "top"
+
+        // Годы над станцией (если есть)
+        if (st.date_str) {
+            ctx.font = "bold 10px " + labelFontFamily
+            ctx.textBaseline = "bottom"
+            ctx.fillStyle = isHov ? "#FAFAFA" : labelSubColor
+            ctx.fillText(st.date_str, st.x, st.y - rSize - 3)
+        }
+
+        // Название под станцией
         ctx.font = fontMain
+        ctx.textBaseline = "top"
         ctx.fillStyle = (isHov || isCurrent) ? "#FFFFFF" : labelColor
-        var titleY = st.y + rSize + 8
+        var titleY = st.y + rSize + 7
         ctx.fillText(st.title, st.x, titleY)
     }
+    ctx.globalAlpha = 1.0
 
     ctx.restore()
+}
+
+/**
+ * Отрисовка плавной транзитной реки Безье (Smooth Cubic Spline)
+ */
+function drawSmoothTransitLine(ctx, x1, y1, x2, y2) {
+    if (Math.abs(y1 - y2) < 1.0) {
+        ctx.moveTo(x1, y1)
+        ctx.lineTo(x2, y2)
+        return
+    }
+
+    var dx = x2 - x1
+    var cp1x = x1 + dx * 0.45
+    var cp2x = x2 - dx * 0.45
+    ctx.moveTo(x1, y1)
+    ctx.bezierCurveTo(cp1x, y1, cp2x, y2, x2, y2)
 }
 
 /**

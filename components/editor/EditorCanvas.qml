@@ -52,7 +52,6 @@ RowLayout {
     signal detachRequested()
     signal syncNoticeRequested(string title)
     signal toggleHistoryRequested()
-    signal toggleTimelineRequested()
     signal toggleInfoRequested()
     signal togglePathRequested()
     signal showFileNameRequested()

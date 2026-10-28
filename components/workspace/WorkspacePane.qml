@@ -63,12 +63,6 @@ Item {
         }
     }
 
-    function toggleTimelineMode() {
-        if (paneHeader) {
-            paneHeader.toggleTimelineMode()
-        }
-    }
-
 
     function toggleHistoryDiffMode() {
         if (paneHeader) {
@@ -591,7 +585,6 @@ Item {
                     onOpenRequested: workspacePane.openRequested()
                     onCursorVisibilityRequested: workspacePane.requestEnsureCursorVisible()
                     onToggleHistoryRequested: workspacePane.toggleHistoryMode()
-                    onToggleTimelineRequested: workspacePane.toggleTimelineMode()
                     onToggleInfoRequested: workspacePane.toggleInfoMode()
                     onTogglePathRequested: workspacePane.togglePathMode()
                     onShowFileNameRequested: workspacePane.showFileNameMode()
@@ -657,11 +650,8 @@ Item {
         // 2.4 Схема метро сюжета (MetroView)
         MetroView {
             id: paneMetroView
-            anchors.top: parent.top
+            anchors.fill: parent
             anchors.topMargin: (paneHeader.visible) ? paneHeader.height : 0
-            anchors.bottom: parent.bottom
-            anchors.horizontalCenter: parent.horizontalCenter
-            width: workspacePane.effectiveSheetWidth
             visible: workspacePane.viewMode === "metro"
             folderUrl: workspacePane.folderUrl
             activeFileUrl: workspacePane.fileUrl
