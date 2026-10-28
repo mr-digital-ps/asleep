@@ -217,26 +217,50 @@ class MetroService:
             stage_stations_map.setdefault(st["stage_idx"], []).append(st)
 
         for s_idx, s_stations in stage_stations_map.items():
-            stage_center_x = margin_x + s_idx * stage_step_x
+            stage_left_x = margin_x + s_idx * stage_step_x
+
+            # Извлекаем годы этапа для точного пропорционального позиционирования станций по стреле времени
+            stage_years = [st["year"] for st in s_stations if st.get("year", 0) > 0]
+            min_y = min(stage_years) if stage_years else 0
+            max_y = max(stage_years) if stage_years else 0
+            year_span = max(1, max_y - min_y)
+
             for st in s_stations:
                 lanes = [track_lane_map[t] for t in st["tracks"] if t in track_lane_map]
                 lane_avg = sum(lanes) / len(lanes) if lanes else s_idx
                 st["lane"] = lane_avg
                 st["target_y"] = top_margin + lane_avg * lane_step
 
-            # Сортируем станции этапа по целевому Y для предотвращения самопересечений
-            s_stations.sort(key=lambda s: s["target_y"])
+            # Сортируем станции по году и целевой высоте
+            s_stations.sort(key=lambda s: (s["year"] if s["year"] > 0 else 9999, s["target_y"]))
 
-            min_gap = 52
-            for i in range(len(s_stations)):
-                if i > 0 and (s_stations[i]["target_y"] - s_stations[i - 1]["y"] < min_gap):
-                    s_stations[i]["y"] = s_stations[i - 1]["y"] + min_gap
+            # Распределение X пропорционально году события внутри эпохи
+            avail_w = stage_step_x - 240
+            for i, st in enumerate(s_stations):
+                if year_span > 0 and st["year"] > 0:
+                    y_prog = (st["year"] - min_y) / year_span
+                    base_x = stage_left_x + 120 + y_prog * avail_w
                 else:
-                    s_stations[i]["y"] = s_stations[i]["target_y"]
+                    base_x = stage_left_x + 120 + (i / max(1, len(s_stations) - 1)) * avail_w
 
-                stagger = ((i % 2) * 50 - 25) if len(s_stations) > 1 else 0
-                s_stations[i]["x"] = stage_center_x + stagger
-                s_stations[i]["col"] = s_idx
+                st["x"] = base_x
+                st["col"] = s_idx
+
+            # Разрешаем горизонтальные наложения для станций одного года
+            for i in range(1, len(s_stations)):
+                if abs(s_stations[i]["x"] - s_stations[i - 1]["x"]) < 50:
+                    s_stations[i]["x"] = s_stations[i - 1]["x"] + 60
+
+            # Разрешаем вертикальные наложения для станций на близких X
+            s_stations.sort(key=lambda s: (s["x"], s["target_y"]))
+            for i in range(len(s_stations)):
+                st = s_stations[i]
+                y_val = st["target_y"]
+                for j in range(max(0, i - 4), i):
+                    prev = s_stations[j]
+                    if abs(st["x"] - prev["x"]) < 100 and abs(y_val - prev["y"]) < 52:
+                        y_val = prev["y"] + 52
+                st["y"] = y_val
 
         # Привязка станций к веткам
         station_dict = {st["id"]: st for st in raw_stations}
@@ -307,9 +331,9 @@ class MetroService:
         groups = []
         stages_out = []
         for s_idx, (pf, _, _) in enumerate(stages):
-            center_x = margin_x + s_idx * stage_step_x
-            from_x = center_x - stage_step_x / 2 + 15
-            to_x = center_x + stage_step_x / 2 - 15
+            from_x = margin_x + s_idx * stage_step_x + 30
+            to_x = from_x + stage_step_x - 60
+            center_x = (from_x + to_x) / 2
             stage_title = pf.stem
             groups.append({
                 "id": f"stage_{s_idx}",

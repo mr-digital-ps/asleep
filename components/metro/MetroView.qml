@@ -196,7 +196,7 @@ Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
         height: 38
         radius: 19
-        color: Theme.bgElevated
+        color: Theme.bgDialog
         border.color: Theme.borderColor
         border.width: 1
         z: 10
@@ -324,7 +324,7 @@ Rectangle {
         width: 320
         implicitHeight: cardLayout.implicitHeight + 20
         radius: 12
-        color: Theme.bgElevated
+        color: Theme.bgDialog
         border.color: Theme.borderColor
         border.width: 1
         z: 10
@@ -388,7 +388,7 @@ Rectangle {
                         implicitWidth: trackText.implicitWidth + 10
                         implicitHeight: 18
                         radius: 9
-                        color: Theme.bgSurface
+                        color: Theme.bgInput
                         border.color: Theme.borderColor
                         border.width: 1
 

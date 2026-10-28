@@ -63,10 +63,10 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
         ctx.setLineDash([6, 8])
         for (var sIdx = 0; sIdx < stages.length; sIdx++) {
             var stgCol = stages[sIdx]
-            var leftX = stgCol.x - 210
+            var leftX = stgCol.x - 550
             ctx.beginPath()
             ctx.moveTo(leftX, 20)
-            ctx.lineTo(leftX, 3000)
+            ctx.lineTo(leftX, 3500)
             ctx.stroke()
         }
         ctx.restore()
@@ -176,22 +176,35 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
         }
 
         // 6. Подписи к станциям
-        ctx.textAlign = "center"
+        // Level of Detail: при мелком масштабе (<0.58) скрываем общие подписи, чтобы не было каши
+        var showText = (zoomScale >= 0.58) || isHov || isCurrent
 
-        // Годы над станцией (если есть)
-        if (st.date_str) {
-            ctx.font = "bold 10px " + labelFontFamily
-            ctx.textBaseline = "bottom"
-            ctx.fillStyle = isHov ? "#FAFAFA" : labelSubColor
-            ctx.fillText(st.date_str, st.x, st.y - rSize - 3)
+        if (showText) {
+            ctx.textAlign = "center"
+
+            // Годы над станцией (если есть)
+            if (st.date_str) {
+                ctx.font = "bold 10px " + labelFontFamily
+                ctx.textBaseline = "bottom"
+                ctx.fillStyle = isHov ? "#FFFFFF" : labelSubColor
+                ctx.fillText(st.date_str, st.x, st.y - rSize - 4)
+            }
+
+            // Название под станцией с полупрозрачной подложкой против перекрытия линий
+            var titleText = st.title
+            ctx.font = fontMain
+            ctx.textBaseline = "top"
+            var titleY = st.y + rSize + 7
+
+            var textW = ctx.measureText(titleText).width
+            ctx.fillStyle = "rgba(18, 18, 18, 0.82)"
+            ctx.beginPath()
+            roundRect(ctx, st.x - textW / 2 - 5, titleY - 2, textW + 10, labelFontSize + 4, 3)
+            ctx.fill()
+
+            ctx.fillStyle = (isHov || isCurrent) ? "#FFFFFF" : labelColor
+            ctx.fillText(titleText, st.x, titleY)
         }
-
-        // Название под станцией
-        ctx.font = fontMain
-        ctx.textBaseline = "top"
-        ctx.fillStyle = (isHov || isCurrent) ? "#FFFFFF" : labelColor
-        var titleY = st.y + rSize + 7
-        ctx.fillText(st.title, st.x, titleY)
     }
     ctx.globalAlpha = 1.0
 
