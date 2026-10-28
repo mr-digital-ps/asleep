@@ -82,19 +82,23 @@ Rectangle {
 
         onPaint: {
             var ctx = getContext("2d")
-            Renderer.renderMetro(
-                ctx,
-                width,
-                height,
-                metroRoot.metroData,
-                metroRoot.metroConfig,
-                metroRoot.panX,
-                metroRoot.panY,
-                metroRoot.zoomScale,
-                metroRoot.hoveredStation ? metroRoot.hoveredStation.id : "",
-                metroRoot.activeFileUrl,
-                metroRoot.hoveredTrackId
-            )
+            try {
+                Renderer.renderMetro(
+                    ctx,
+                    width,
+                    height,
+                    metroRoot.metroData,
+                    metroRoot.metroConfig,
+                    metroRoot.panX,
+                    metroRoot.panY,
+                    metroRoot.zoomScale,
+                    metroRoot.hoveredStation ? metroRoot.hoveredStation.id : "",
+                    metroRoot.activeFileUrl,
+                    metroRoot.hoveredTrackId
+                )
+            } catch (err) {
+                console.error("[MetroView] Error in renderMetro:", err)
+            }
         }
     }
 

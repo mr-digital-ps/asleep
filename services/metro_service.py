@@ -260,7 +260,7 @@ class MetroService:
             if c == 0:
                 col_x[c] = margin_x
             else:
-                entry_extra = 70 if c in cols_with_new_entries else 0
+                entry_extra = 50 if c in cols_with_new_entries else 0
                 cur_x += (step_x + entry_extra)
                 col_x[c] = cur_x
 
@@ -340,10 +340,10 @@ class MetroService:
             n_start = len(tr_list)
 
             if is_initial_col:
-                # На стартовых сценах (col == 0) нет входящего трафика: симметричный горизонтальный веер
+                # Стартовая колонка (col == 0): симметричный веер слева с безопасным отступом
                 for sub_idx, tr in enumerate(tr_list):
                     offset_y = (sub_idx - (n_start - 1) / 2.0) * 18
-                    lead_len = 50 + (sub_idx % 4) * 16
+                    lead_len = 95 + (sub_idx % 4) * 18
                     entry_x = first_st["x"] - lead_len
                     entry_y = first_st["y"] + offset_y
 
@@ -364,63 +364,16 @@ class MetroService:
                         "is_entry": True
                     })
             else:
-                # На промежуточных сценах (col > 0): умный выбор между входом СВЕРХУ и СНИЗУ
-                # 1. Если ветка дальше идет вверх (next_y < cur_y) -> входит снизу (плавный восходящий поток).
-                # 2. Если ветка дальше идет вниз (next_y > cur_y) -> входит сверху (плавный нисходящий поток).
-                # 3. Если идет прямо -> балансируем между сторонами для симметричного ромбовидного захода.
-                col_stations = col_groups.get(first_st.get("col", 0), [first_st])
-                st_idx = col_stations.index(first_st) if first_st in col_stations else 0
-                n_col = len(col_stations)
+                # Промежуточные сцены (col > 0): плавный заход с северо-запада в чистом коридоре
+                # Исключает пересечение с названием станции снизу и обеспечивает читаемость бейджей
+                for sub_idx, tr in enumerate(tr_list):
+                    entry_y = first_st["y"] - (24 + sub_idx * 18)
+                    entry_x = first_st["x"] - (105 + (sub_idx % 3) * 20)
 
-                above_tracks = []
-                below_tracks = []
-
-                for tr in tr_list:
-                    st_ids = tr["station_ids"]
-                    future_delta = 0
-                    if len(st_ids) > 1:
-                        second_st = station_dict[st_ids[1]]
-                        future_delta = second_st["y"] - first_st["y"]
-
-                    if future_delta > 15:
-                        above_tracks.append(tr)
-                    elif future_delta < -15:
-                        below_tracks.append(tr)
-                    else:
-                        # Почти прямо: балансируем верх/низ
-                        if len(above_tracks) <= len(below_tracks):
-                            if st_idx <= (n_col - 1) / 2.0:
-                                above_tracks.append(tr)
-                            else:
-                                below_tracks.append(tr)
-                        else:
-                            below_tracks.append(tr)
-
-                for idx, tr in enumerate(above_tracks):
-                    entry_y = first_st["y"] - (36 + idx * 22)
-                    entry_x = first_st["x"] - (55 + idx * 18)
                     tr["badge_x"] = entry_x
                     tr["badge_y"] = entry_y
                     tr["badge_title"] = tr["title"]
-                    segments.append({
-                        "track_id": tr["id"],
-                        "track_title": tr["title"],
-                        "color": tr["color"],
-                        "from_id": f"entry_{tr['id']}",
-                        "to_id": first_st["id"],
-                        "from_x": entry_x,
-                        "from_y": entry_y,
-                        "to_x": first_st["x"],
-                        "to_y": first_st["y"],
-                        "is_entry": True
-                    })
 
-                for idx, tr in enumerate(below_tracks):
-                    entry_y = first_st["y"] + (48 + idx * 22)
-                    entry_x = first_st["x"] - (55 + idx * 18)
-                    tr["badge_x"] = entry_x
-                    tr["badge_y"] = entry_y
-                    tr["badge_title"] = tr["title"]
                     segments.append({
                         "track_id": tr["id"],
                         "track_title": tr["title"],

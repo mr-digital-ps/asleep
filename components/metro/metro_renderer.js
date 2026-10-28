@@ -320,19 +320,48 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
         }
 
         // 7. Подписи к станциям (Level of Detail)
-        var showText = (zoomScale >= 0.58) || isHov || isCurrent || isPredecessor || isOnHoveredTrack
+        var showText = (zoomScale >= 0.28) || isHov || isCurrent || isPredecessor || isOnHoveredTrack
 
         if (showText && stAlpha > 0.3) {
-            ctx.textAlign = "center"
+            // Год/период над станцией
+            if (st.date_str) {
+                ctx.font = "bold 10px " + labelFontFamily
+                ctx.textAlign = "center"
+                ctx.textBaseline = "bottom"
+                ctx.fillStyle = (isHov || isPredecessor) ? "#FFFFFF" : labelSubColor
+                ctx.fillText(st.date_str, st.x, st.y - rSize - 5)
+            }
+
+            // Название под станцией с элегантной темной защитной плашкой
             ctx.font = fontMain
+            ctx.textAlign = "center"
             ctx.textBaseline = "top"
             var startTitleY = st.y + rSize + 7
 
-            // Название под станцией: чистое имя без плашек, аккуратный блочный перенос
-            var titleLines = wrapText(ctx, st.title, 170)
-            ctx.fillStyle = (isHov || isCurrent || isPredecessor || isOnHoveredTrack) ? "#FFFFFF" : labelColor
+            var titleLines = wrapText(ctx, st.title, 160)
+            var lineH = labelFontSize + 3
+            var totalH = titleLines.length * lineH
+            var maxLineW = 0
             for (var tl = 0; tl < titleLines.length; tl++) {
-                ctx.fillText(titleLines[tl], st.x, startTitleY + tl * (labelFontSize + 3))
+                var lw = ctx.measureText(titleLines[tl]).width
+                if (lw > maxLineW) maxLineW = lw
+            }
+            var plateW = maxLineW + 14
+            var plateH = totalH + 6
+            var plateX = st.x - plateW / 2
+            var plateY = startTitleY - 3
+
+            ctx.fillStyle = "rgba(18, 18, 18, 0.88)"
+            ctx.beginPath()
+            roundRect(ctx, plateX, plateY, plateW, plateH, 4)
+            ctx.fill()
+            ctx.strokeStyle = (isHov || isCurrent) ? "rgba(255, 255, 255, 0.25)" : "rgba(255, 255, 255, 0.08)"
+            ctx.lineWidth = 1
+            ctx.stroke()
+
+            ctx.fillStyle = (isHov || isCurrent || isPredecessor || isOnHoveredTrack) ? "#FFFFFF" : labelColor
+            for (var tl2 = 0; tl2 < titleLines.length; tl2++) {
+                ctx.fillText(titleLines[tl2], st.x, startTitleY + tl2 * lineH)
             }
         }
     }
@@ -459,11 +488,27 @@ function renderTrackBadges(ctx, tracks, stations, fontFamily, hoveredTrackId, di
         ctx.fillStyle = dotColor
         ctx.fill()
 
-        // Чистое имя сущности слева от стартовой точки без плашек и рамок
+        // Плашка сущности слева от стартовой точки
+        var textW = ctx.measureText(text).width
+        var badgeW = Math.max(32, textW + 14)
+        var badgeH = 18
+        var pillRight = badgeX - 6
+        var pillLeft = pillRight - badgeW
+        var pillTop = badgeY - badgeH / 2
+
+        ctx.fillStyle = (isTrHov || isDirect) ? "#27272A" : "#18181B"
+        ctx.beginPath()
+        roundRect(ctx, pillLeft, pillTop, badgeW, badgeH, 4)
+        ctx.fill()
+        ctx.lineWidth = (isTrHov || isDirect) ? 1.5 : 1.0
+        ctx.strokeStyle = (isTrHov || isDirect) ? "#FFFFFF" : "#3F3F46"
+        ctx.stroke()
+
+        // Текст названия сущности
         ctx.fillStyle = textColor
-        ctx.textAlign = "right"
+        ctx.textAlign = "center"
         ctx.textBaseline = "middle"
-        ctx.fillText(text, badgeX - 8, badgeY)
+        ctx.fillText(text, pillLeft + badgeW / 2, badgeY)
         ctx.restore()
     }
 }
@@ -699,13 +744,13 @@ function fitToBounds(bounds, viewWidth, viewHeight) {
         return { panX: 50, panY: 50, zoomScale: 1.0 }
     }
 
-    var padding = 80
+    var padding = 60
     var availW = Math.max(100, viewWidth - padding * 2)
     var availH = Math.max(100, viewHeight - padding * 2)
 
     var scaleX = availW / bounds.width
     var scaleY = availH / bounds.height
-    var scale = Math.min(1.2, Math.max(0.4, Math.min(scaleX, scaleY)))
+    var scale = Math.min(1.1, Math.max(0.28, Math.min(scaleX, scaleY)))
 
     var centerX = bounds.min_x + bounds.width / 2
     var centerY = bounds.min_y + bounds.height / 2

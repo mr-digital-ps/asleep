@@ -1,8 +1,8 @@
 {
   "layout": {
-    "stepX": 380,
+    "stepX": 300,
     "stepY": 52,
-    "margin": 260,
+    "margin": 220,
     "bevelRadius": 14,
     "bevelAngle": 45
   },
