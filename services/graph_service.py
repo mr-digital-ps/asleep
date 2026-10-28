@@ -320,14 +320,13 @@ class GraphService:
         for b_key, b_info in all_blocks_defs.items():
             b_id = b_info["id"]
             owner_url = b_info["fileUrl"]
-            owner_label = nodes_map.get(owner_url, {}).get("label", b_info["stem_norm"])
             block_pure_name = b_info["name"]
-            block_full_label = f"{owner_label}.{block_pure_name}"
+            block_clean_label = block_pure_name.replace("_", " ")
 
             if b_id not in nodes_map:
                 nodes_map[b_id] = {
                     "id": b_id,
-                    "label": block_full_label,
+                    "label": block_clean_label,
                     "blockName": block_pure_name,
                     "fileUrl": owner_url,
                     "sourceFileUrl": owner_url,

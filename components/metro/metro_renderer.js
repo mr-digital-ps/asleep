@@ -56,11 +56,6 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
     var segments = (metroData && metroData.segments) ? metroData.segments : []
     var stations = (metroData && metroData.stations) ? metroData.stations : []
     var tracks = (metroData && metroData.tracks) ? metroData.tracks : []
-    var groups = (metroData && metroData.groups) ? metroData.groups : []
-    // 2.5 Отрисовка группирующих скобок этапов/актов
-    if (groups && groups.length > 0) {
-        renderGroups(ctx, groups, labelFontFamily)
-    }
 
     // 3. Вычисление причинно-следственного конуса предыстории (Causal Upstream Cone)
     var targetStation = null
@@ -112,59 +107,121 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
     }
 
     // 4. Отрисовка соединительных линий (Segments) в 2 прохода
-    // Исключает потемнение на пересечениях и выравнивает яркость веток
+    // Исключает потемнение на пересечениях и масштабирует толщину магистралей (Bundling)
     ctx.lineCap = "round"
     ctx.lineJoin = "round"
     ctx.globalAlpha = 1.0
+
+    // 4.1 Группировка сегментов по коридорам: несколько веток между двумя станциями идут параллельными путями
+    var corridorSegments = {}
+    for (var ci = 0; ci < segments.length; ci++) {
+        var s = segments[ci]
+        if (!s.is_entry && s.from_id && s.to_id) {
+            var cKey = s.from_id + "->" + s.to_id
+            if (!corridorSegments[cKey]) corridorSegments[cKey] = []
+            corridorSegments[cKey].push(s)
+        }
+    }
 
     var pass1Segments = []
     var pass2Segments = []
 
     var COLOR_ACTIVE    = "#FFFFFF"  // 100% чистый белый для активной ветки к сцене
-    var COLOR_TRIBUTARY = "#A1A1AA"  // Чистое серебро для предшествующих притоков
+    var COLOR_TRIBUTARY = "#63636E"  // Сдержанный графит для предшествующих притоков
     var COLOR_RESTING   = "#404044"  // Однородный темный графит для дефолтного состояния
     var COLOR_DIMMED    = "#222226"  // Фоновый глубокий антрацит для неактивных линий
 
     for (var i = 0; i < segments.length; i++) {
         var seg = segments[i]
         var segColor = COLOR_RESTING
-        var segLineWidth = lineWidth
         var isPass2 = false
+
+        // Расчет вертикального смещения и адаптивной ширины внутри коридора
+        var cCount = 1
+        var k = 0
+        var isCorridorActive = false
+
+        if (!seg.is_entry && seg.from_id && seg.to_id) {
+            var cList = corridorSegments[seg.from_id + "->" + seg.to_id] || [seg]
+            cCount = cList.length
+            k = cList.indexOf(seg)
+            if (k === -1) k = 0
+
+            // Коридор раскрывается на параллельные нити ТОЛЬКО при наведении на него
+            if (hoveredTrackId) {
+                for (var ch = 0; ch < cList.length; ch++) {
+                    if (cList[ch].track_id === hoveredTrackId) {
+                        isCorridorActive = true
+                        break
+                    }
+                }
+            } else if (targetStation) {
+                for (var cs = 0; cs < cList.length; cs++) {
+                    var tId = cList[cs].track_id
+                    if (directTracks[tId] || indirectTrackCutoffs[tId]) {
+                        isCorridorActive = true
+                        break
+                    }
+                }
+            }
+        }
+
+        var baseW = lineWidth || 3.6
+        var trackWidth = baseW
+        var offset = 0
+
+        if (cCount > 1 && isCorridorActive) {
+            // ИНТЕРАКТИВНЫЙ РЕЖИМ: элегантно раскрываемся на аккуратные параллельные нити
+            var trackGap = (cCount === 2) ? 4.5 : (cCount === 3 ? 4.0 : 3.5)
+            trackWidth = (cCount === 2) ? 2.8 : (cCount === 3 ? 2.4 : 2.0)
+            offset = (k - (cCount - 1) / 2.0) * trackGap
+        } else if (cCount > 1) {
+            // РЕЖИМ ПОКОЯ: единая монолитная спокойная толстая магистраль (без ряби)
+            offset = 0
+            trackWidth = Math.min(6.2, baseW + (cCount - 1) * 1.4)
+        }
+
+        seg.offsetY = offset
+        var segLineWidth = trackWidth
 
         if (targetStation) {
             // Режим фокуса на станции: конус причинно-следственной связи
             if (directTracks[seg.track_id]) {
                 if (seg.to_x <= targetStation.x + 8) {
                     segColor = COLOR_ACTIVE
-                    segLineWidth = lineWidth + 1.8
+                    segLineWidth = trackWidth + 1.2
                     isPass2 = true
                 } else {
                     segColor = COLOR_DIMMED
-                    segLineWidth = lineWidth * 0.85
+                    segLineWidth = trackWidth * 0.8
                 }
             } else if (indirectTrackCutoffs[seg.track_id]) {
                 var cutoffX = indirectTrackCutoffs[seg.track_id]
                 if (seg.to_x <= cutoffX + 8) {
                     segColor = COLOR_TRIBUTARY
-                    segLineWidth = lineWidth + 0.6
+                    segLineWidth = trackWidth
                     isPass2 = true
                 } else {
                     segColor = COLOR_DIMMED
-                    segLineWidth = lineWidth * 0.85
+                    segLineWidth = trackWidth * 0.8
                 }
             } else {
                 segColor = COLOR_DIMMED
-                segLineWidth = lineWidth * 0.85
+                segLineWidth = trackWidth * 0.8
             }
         } else if (hoveredTrackId) {
             // Режим фокуса на линии
             if (seg.track_id === hoveredTrackId) {
                 segColor = COLOR_ACTIVE
-                segLineWidth = lineWidth + 1.8
+                segLineWidth = trackWidth + 1.4
                 isPass2 = true
+            } else if (isCorridorActive) {
+                // Нити-спутники в активном коридоре видны рядом в сдержанном тоне
+                segColor = "#52525B"
+                segLineWidth = trackWidth
             } else {
                 segColor = COLOR_DIMMED
-                segLineWidth = lineWidth * 0.85
+                segLineWidth = trackWidth * 0.8
             }
         }
 
@@ -176,23 +233,25 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
         }
     }
 
-    // Проход 1: фоновые и пассивные линии
+    // Проход 1: фоновые и пассивные параллельные нити
     for (var p1 = 0; p1 < pass1Segments.length; p1++) {
         var it1 = pass1Segments[p1]
+        var off1 = it1.seg.offsetY || 0
         ctx.lineWidth = it1.width
         ctx.strokeStyle = it1.color
         ctx.beginPath()
-        drawSmoothTransitLine(ctx, it1.seg.from_x, it1.seg.from_y, it1.seg.to_x, it1.seg.to_y)
+        drawSmoothTransitLine(ctx, it1.seg.from_x, it1.seg.from_y + off1, it1.seg.to_x, it1.seg.to_y + off1)
         ctx.stroke()
     }
 
-    // Проход 2: активные и притоковые линии строго ПОВЕРХ фоновых
+    // Проход 2: активные и притоковые нити строго ПОВЕРХ фоновых с ярким акцентом
     for (var p2 = 0; p2 < pass2Segments.length; p2++) {
         var it2 = pass2Segments[p2]
+        var off2 = it2.seg.offsetY || 0
         ctx.lineWidth = it2.width
         ctx.strokeStyle = it2.color
         ctx.beginPath()
-        drawSmoothTransitLine(ctx, it2.seg.from_x, it2.seg.from_y, it2.seg.to_x, it2.seg.to_y)
+        drawSmoothTransitLine(ctx, it2.seg.from_x, it2.seg.from_y + off2, it2.seg.to_x, it2.seg.to_y + off2)
         ctx.stroke()
     }
 
@@ -265,40 +324,16 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
 
         if (showText && stAlpha > 0.3) {
             ctx.textAlign = "center"
-
-            // Годы над станцией (если не отображены в фигурной скобке параллельной группы)
-            if (st.date_str) {
-                var isCoveredByGroup = false
-                if (groups) {
-                    for (var gi = 0; gi < groups.length; gi++) {
-                        if (groups[gi].col === st.col && groups[gi].title === st.date_str) {
-                            isCoveredByGroup = true
-                            break
-                        }
-                    }
-                }
-                if (!isCoveredByGroup) {
-                    ctx.font = "bold 10px " + labelFontFamily
-                    ctx.textBaseline = "bottom"
-                    ctx.fillStyle = (isHov || isPredecessor) ? "#FFFFFF" : labelSubColor
-                    ctx.fillText(st.date_str, st.x, st.y - rSize - 4)
-                }
-            }
-
-            // Название под станцией с полупрозрачной подложкой против перекрытия линий
-            var titleText = st.title
             ctx.font = fontMain
             ctx.textBaseline = "top"
-            var titleY = st.y + rSize + 7
+            var startTitleY = st.y + rSize + 7
 
-            var textW = ctx.measureText(titleText).width
-            ctx.fillStyle = "rgba(18, 18, 18, 0.82)"
-            ctx.beginPath()
-            roundRect(ctx, st.x - textW / 2 - 5, titleY - 2, textW + 10, labelFontSize + 4, 3)
-            ctx.fill()
-
+            // Название под станцией: чистое имя без плашек, аккуратный блочный перенос
+            var titleLines = wrapText(ctx, st.title, 170)
             ctx.fillStyle = (isHov || isCurrent || isPredecessor || isOnHoveredTrack) ? "#FFFFFF" : labelColor
-            ctx.fillText(titleText, st.x, titleY)
+            for (var tl = 0; tl < titleLines.length; tl++) {
+                ctx.fillText(titleLines[tl], st.x, startTitleY + tl * (labelFontSize + 3))
+            }
         }
     }
     ctx.globalAlpha = 1.0
@@ -385,47 +420,32 @@ function renderTrackBadges(ctx, tracks, stations, fontFamily, hoveredTrackId, di
 
         var badgeX = (tr.badge_x !== undefined) ? tr.badge_x : (firstSt.x - 60)
         var badgeY = (tr.badge_y !== undefined) ? tr.badge_y : firstSt.y
-        var text = tr.badge_title || ("@" + (tr.title || tr.id))
-        var textW = ctx.measureText(text).width
-        var badgeW = Math.max(36, textW + 16)
-        var badgeH = 18
+        var text = (tr.badge_title || tr.title || tr.id).replace(/^@/, "").replace(/_/g, " ")
 
         var isTrHov = (hoveredTrackId === tr.id)
         var isDirect = directTracks && directTracks[tr.id]
         var isIndirect = indirectTracks && indirectTracks[tr.id]
 
-        var strokeColor = "#404044"
         var textColor = "#A1A1AA"
-        var bgColor = "#18181B"
         var dotColor = "#52525B"
 
         if (hoveredTrackId) {
             if (isTrHov) {
-                strokeColor = "#FFFFFF"
                 textColor = "#FFFFFF"
-                bgColor = "#27272A"
                 dotColor = "#FFFFFF"
             } else {
-                strokeColor = "#222226"
                 textColor = "#3F3F46"
-                bgColor = "#141416"
                 dotColor = "#222226"
             }
         } else if (hasDirect) {
             if (isDirect) {
-                strokeColor = "#FFFFFF"
                 textColor = "#FFFFFF"
-                bgColor = "#27272A"
                 dotColor = "#FFFFFF"
             } else if (isIndirect) {
-                strokeColor = "#A1A1AA"
-                textColor = "#E4E4E7"
-                bgColor = "#1E1E22"
-                dotColor = "#A1A1AA"
+                textColor = "#8E8E96"
+                dotColor = "#63636E"
             } else {
-                strokeColor = "#222226"
                 textColor = "#3F3F46"
-                bgColor = "#141416"
                 dotColor = "#222226"
             }
         }
@@ -435,28 +455,15 @@ function renderTrackBadges(ctx, tracks, stations, fontFamily, hoveredTrackId, di
 
         // Стартовая точка начала ветки
         ctx.beginPath()
-        ctx.arc(badgeX, badgeY, 3, 0, Math.PI * 2)
+        ctx.arc(badgeX, badgeY, 3.5, 0, Math.PI * 2)
         ctx.fillStyle = dotColor
         ctx.fill()
 
-        // Плашка сущности слева от стартовой точки
-        var pillRight = badgeX - 6
-        var pillLeft = pillRight - badgeW
-        var pillTop = badgeY - badgeH / 2
-
-        ctx.beginPath()
-        roundRect(ctx, pillLeft, pillTop, badgeW, badgeH, 4)
-        ctx.fillStyle = bgColor
-        ctx.fill()
-        ctx.lineWidth = (isTrHov || isDirect) ? 1.5 : 1.0
-        ctx.strokeStyle = strokeColor
-        ctx.stroke()
-
-        // Текст @Сущность
+        // Чистое имя сущности слева от стартовой точки без плашек и рамок
         ctx.fillStyle = textColor
-        ctx.textAlign = "center"
+        ctx.textAlign = "right"
         ctx.textBaseline = "middle"
-        ctx.fillText(text, pillLeft + badgeW / 2, badgeY)
+        ctx.fillText(text, badgeX - 8, badgeY)
         ctx.restore()
     }
 }
@@ -583,7 +590,7 @@ function findTrackBadgeAt(tracks, stations, worldX, worldY) {
 
         var badgeX = (tr.badge_x !== undefined) ? tr.badge_x : (firstSt.x - 45)
         var badgeY = (tr.badge_y !== undefined) ? tr.badge_y : firstSt.y
-        var text = tr.title || tr.id
+        var text = (tr.badge_title || tr.title || tr.id).replace(/^@/, "").replace(/_/g, " ")
         var approxW = Math.max(40, text.length * 8 + 16)
         var badgeH = 22
 
@@ -603,12 +610,36 @@ function findSegmentTrackAt(segments, worldX, worldY, hitDist) {
     var bestTrackId = null
     var bestDist = hitDist || 10
 
+    // Обеспечиваем учет параллельных нитей коридоров
+    var corridorSegments = {}
+    for (var ci = 0; ci < segments.length; ci++) {
+        var s = segments[ci]
+        if (!s.is_entry && s.from_id && s.to_id) {
+            var cKey = s.from_id + "->" + s.to_id
+            if (!corridorSegments[cKey]) corridorSegments[cKey] = []
+            corridorSegments[cKey].push(s)
+        }
+    }
+
     for (var i = 0; i < segments.length; i++) {
         var seg = segments[i]
+        var offY = 0
+
+        if (!seg.is_entry && seg.from_id && seg.to_id) {
+            var cList = corridorSegments[seg.from_id + "->" + seg.to_id] || [seg]
+            var cCount = cList.length
+            var k = cList.indexOf(seg)
+            if (k === -1) k = 0
+            if (cCount > 1) {
+                var trackGap = (cCount === 2) ? 4.5 : (cCount === 3 ? 4.0 : 3.5)
+                offY = (k - (cCount - 1) / 2.0) * trackGap
+            }
+        }
+
         var x1 = seg.from_x
-        var y1 = seg.from_y
+        var y1 = seg.from_y + offY
         var x2 = seg.to_x
-        var y2 = seg.to_y
+        var y2 = seg.to_y + offY
 
         var minX = Math.min(x1, x2) - bestDist
         var maxX = Math.max(x1, x2) + bestDist
@@ -683,4 +714,30 @@ function fitToBounds(bounds, viewWidth, viewHeight) {
     var pY = (viewHeight / 2) - centerY * scale
 
     return { panX: pX, panY: pY, zoomScale: scale }
+}
+
+/**
+ * Разбивка длинного текста на строки с ограничением максимальной ширины
+ */
+function wrapText(ctx, text, maxWidth) {
+    if (!text) return []
+    var cleanText = text.replace(/_/g, " ")
+    var words = cleanText.split(" ")
+    if (words.length <= 1) return [cleanText]
+
+    var lines = []
+    var curLine = words[0]
+
+    for (var i = 1; i < words.length; i++) {
+        var word = words[i]
+        var testLine = curLine + " " + word
+        if (ctx.measureText(testLine).width <= maxWidth) {
+            curLine = testLine
+        } else {
+            lines.push(curLine)
+            curLine = word
+        }
+    }
+    lines.push(curLine)
+    return lines
 }

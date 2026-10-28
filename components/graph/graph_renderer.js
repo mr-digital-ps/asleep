@@ -418,8 +418,9 @@ function renderGraph(ctx, width, height, sim, state) {
             }
         }
 
-        // Текстовая подпись узла
-        var shouldDrawLabel = isHover || isConnected || isActivePlayer || isOpenAdjacent || (q && matchesSearch) || (zoomScale > 0.9)
+        // Текстовая подпись узла (всегда отображается под круглыми узлами файлов и блоками)
+        var shouldDrawLabel = isHover || isConnected || isActivePlayer || isOpenAdjacent || (q && matchesSearch) || (zoomScale > 0.60)
+
         if (shouldDrawLabel && nodeAlpha > 0.20) {
             if (isActivePlayer) {
                 applyFont(fontPlayer)
@@ -431,7 +432,12 @@ function renderGraph(ctx, width, height, sim, state) {
                 applyFont(isHover ? fontHover : fontNormal)
                 ctx.fillStyle = isHover ? labelHoverCol : (isConnected ? textSecondary : labelCol)
             }
-            ctx.fillText(n.label || "", n.x, n.y + (n.radius || 4.5) + 11)
+            var rawLabel = (n.blockName || n.label || "").replace(/_/g, " ")
+            var wrappedLines = wrapGraphText(ctx, rawLabel, 150)
+            var startY = n.y + (n.radius || 4.5) + 11
+            for (var wl = 0; wl < wrappedLines.length; wl++) {
+                ctx.fillText(wrappedLines[wl], n.x, startY + wl * 13)
+            }
         }
     }
 
@@ -440,4 +446,27 @@ function renderGraph(ctx, width, height, sim, state) {
     }
 
     ctx.restore()
+}
+
+/**
+ * Разбивка длинной подписи узла графа на компактный блок
+ */
+function wrapGraphText(ctx, text, maxWidth) {
+    if (!text) return []
+    var words = text.split(" ")
+    if (words.length <= 1) return [text]
+    var lines = []
+    var curLine = words[0]
+    for (var i = 1; i < words.length; i++) {
+        var word = words[i]
+        var testLine = curLine + " " + word
+        if (ctx.measureText(testLine).width <= maxWidth) {
+            curLine = testLine
+        } else {
+            lines.push(curLine)
+            curLine = word
+        }
+    }
+    lines.push(curLine)
+    return lines
 }

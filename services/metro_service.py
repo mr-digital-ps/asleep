@@ -88,7 +88,7 @@ class MetroService:
 
         layout_cfg = cfg.get("layout", {})
         palette = cfg.get("palette", DEFAULT_METRO_PALETTE) or DEFAULT_METRO_PALETTE
-        step_x = layout_cfg.get("stepX", 280)
+        step_x = layout_cfg.get("stepX", 380)
         lane_step = layout_cfg.get("stepY", 48)
         margin_x = layout_cfg.get("margin", 260)
         top_margin = 120
@@ -242,15 +242,30 @@ class MetroService:
             col = (max(shared_cols) + 1) if shared_cols else 0
             cols[i] = col
             st["col"] = col
-            st["x"] = margin_x + col * step_x
+
+        # Умный расчет координат X колонок с учетом входящих новых линий
+        seen_tracks = set()
+        cols_with_new_entries = set()
+        for st in raw_stations:
+            for t in st["tracks"]:
+                if t not in seen_tracks:
+                    seen_tracks.add(t)
+                    if st["col"] > 0:
+                        cols_with_new_entries.add(st["col"])
+
+        max_c = max(cols.values()) if cols else 0
+        col_x = {}
+        cur_x = margin_x
+        for c in range(max_c + 1):
+            if c == 0:
+                col_x[c] = margin_x
+            else:
+                entry_extra = 70 if c in cols_with_new_entries else 0
+                cur_x += (step_x + entry_extra)
+                col_x[c] = cur_x
 
         for st in raw_stations:
-            lanes = [track_lane_map[t] for t in st["tracks"] if t in track_lane_map]
-            if lanes:
-                avg_lane = sum(lanes) / len(lanes)
-            else:
-                avg_lane = 0
-            st["target_y"] = top_margin + avg_lane * lane_step
+            st["x"] = col_x.get(st["col"], margin_x + st["col"] * step_x)
 
         col_groups = {}
         for st in raw_stations:
@@ -259,16 +274,46 @@ class MetroService:
                 col_groups[c] = []
             col_groups[c].append(st)
 
-        for c, st_list in col_groups.items():
-            st_list.sort(key=lambda s: s["target_y"])
-            for idx in range(len(st_list)):
-                cur = st_list[idx]
-                y_val = cur["target_y"]
-                for p_idx in range(idx):
-                    prev = st_list[p_idx]
-                    if abs(y_val - prev["y"]) < 60:
-                        y_val = prev["y"] + 60
-                cur["y"] = y_val
+        # Барицентрическая укладка станций по Y (Barycentric Anti-Tangle Ordering)
+        # Обрабатываем колонки строго слева направо для минимизации перекрестков
+        sorted_cols = sorted(col_groups.keys())
+        min_station_gap = 160
+        placed_stations = {}
+
+        for c in sorted_cols:
+            st_list = col_groups[c]
+            if c == 0:
+                st_list.sort(key=lambda s: s.get("start_line", 0))
+                for idx, st in enumerate(st_list):
+                    st["y"] = top_margin + idx * min_station_gap
+                    placed_stations[st["id"]] = st
+            else:
+                for st in st_list:
+                    incoming_ys = []
+                    for prev_id, prev_st in placed_stations.items():
+                        if any(t in prev_st["tracks"] for t in st["tracks"]):
+                            incoming_ys.append(prev_st["y"])
+                    if incoming_ys:
+                        st["target_y"] = sum(incoming_ys) / len(incoming_ys)
+                    else:
+                        st["target_y"] = top_margin + st_list.index(st) * min_station_gap
+
+                # Сортируем станции по барицентру входящих веток (исключает перекрестки крест-накрест)
+                st_list.sort(key=lambda s: s["target_y"])
+
+                if len(st_list) == 1:
+                    st_list[0]["y"] = st_list[0]["target_y"]
+                    placed_stations[st_list[0]["id"]] = st_list[0]
+                else:
+                    total_span = (len(st_list) - 1) * min_station_gap
+                    avg_target = sum(s["target_y"] for s in st_list) / len(st_list)
+                    cluster_start = max(top_margin, avg_target - total_span / 2.0)
+                    for idx, cur in enumerate(st_list):
+                        if idx == 0:
+                            cur["y"] = cluster_start
+                        else:
+                            cur["y"] = st_list[idx - 1]["y"] + min_station_gap
+                        placed_stations[cur["id"]] = cur
 
         station_dict = {st["id"]: st for st in raw_stations}
         for st in raw_stations:
@@ -276,40 +321,123 @@ class MetroService:
                 if t_name in track_lane_map:
                     tracks[track_lane_map[t_name]]["station_ids"].append(st["id"])
 
-        segments = []
+        # Собираем ветки, берущие начало на каждой станции
+        starting_tracks_by_station = {}
         for tr in tracks:
             st_ids = tr["station_ids"]
             if not st_ids:
                 continue
-
             st_ids.sort(key=lambda sid: station_dict[sid]["x"])
-            first_st = station_dict[st_ids[0]]
-            lane_y = top_margin + tr["lane"] * lane_step
+            first_sid = st_ids[0]
+            if first_sid not in starting_tracks_by_station:
+                starting_tracks_by_station[first_sid] = []
+            starting_tracks_by_station[first_sid].append(tr)
 
-            # Начало линии: lead-in ветка к первой станции с бейджем @сущности
-            first_st_tracks = first_st.get("tracks", [])
-            sub_idx = first_st_tracks.index(tr["id"]) if tr["id"] in first_st_tracks else 0
-            lead_len = 90 + (sub_idx % 4) * 20
-            entry_x = first_st["x"] - lead_len
-            entry_y = lane_y
+        segments = []
+        for first_sid, tr_list in starting_tracks_by_station.items():
+            first_st = station_dict[first_sid]
+            is_initial_col = (first_st.get("col", 0) == 0)
+            n_start = len(tr_list)
 
-            tr["badge_x"] = entry_x
-            tr["badge_y"] = entry_y
-            tr["badge_title"] = "@" + tr["id"]
+            if is_initial_col:
+                # На стартовых сценах (col == 0) нет входящего трафика: симметричный горизонтальный веер
+                for sub_idx, tr in enumerate(tr_list):
+                    offset_y = (sub_idx - (n_start - 1) / 2.0) * 18
+                    lead_len = 50 + (sub_idx % 4) * 16
+                    entry_x = first_st["x"] - lead_len
+                    entry_y = first_st["y"] + offset_y
 
-            segments.append({
-                "track_id": tr["id"],
-                "track_title": tr["title"],
-                "color": tr["color"],
-                "from_id": f"entry_{tr['id']}",
-                "to_id": first_st["id"],
-                "from_x": entry_x,
-                "from_y": entry_y,
-                "to_x": first_st["x"],
-                "to_y": first_st["y"],
-                "is_entry": True
-            })
+                    tr["badge_x"] = entry_x
+                    tr["badge_y"] = entry_y
+                    tr["badge_title"] = tr["title"]
 
+                    segments.append({
+                        "track_id": tr["id"],
+                        "track_title": tr["title"],
+                        "color": tr["color"],
+                        "from_id": f"entry_{tr['id']}",
+                        "to_id": first_st["id"],
+                        "from_x": entry_x,
+                        "from_y": entry_y,
+                        "to_x": first_st["x"],
+                        "to_y": first_st["y"],
+                        "is_entry": True
+                    })
+            else:
+                # На промежуточных сценах (col > 0): умный выбор между входом СВЕРХУ и СНИЗУ
+                # 1. Если ветка дальше идет вверх (next_y < cur_y) -> входит снизу (плавный восходящий поток).
+                # 2. Если ветка дальше идет вниз (next_y > cur_y) -> входит сверху (плавный нисходящий поток).
+                # 3. Если идет прямо -> балансируем между сторонами для симметричного ромбовидного захода.
+                col_stations = col_groups.get(first_st.get("col", 0), [first_st])
+                st_idx = col_stations.index(first_st) if first_st in col_stations else 0
+                n_col = len(col_stations)
+
+                above_tracks = []
+                below_tracks = []
+
+                for tr in tr_list:
+                    st_ids = tr["station_ids"]
+                    future_delta = 0
+                    if len(st_ids) > 1:
+                        second_st = station_dict[st_ids[1]]
+                        future_delta = second_st["y"] - first_st["y"]
+
+                    if future_delta > 15:
+                        above_tracks.append(tr)
+                    elif future_delta < -15:
+                        below_tracks.append(tr)
+                    else:
+                        # Почти прямо: балансируем верх/низ
+                        if len(above_tracks) <= len(below_tracks):
+                            if st_idx <= (n_col - 1) / 2.0:
+                                above_tracks.append(tr)
+                            else:
+                                below_tracks.append(tr)
+                        else:
+                            below_tracks.append(tr)
+
+                for idx, tr in enumerate(above_tracks):
+                    entry_y = first_st["y"] - (36 + idx * 22)
+                    entry_x = first_st["x"] - (55 + idx * 18)
+                    tr["badge_x"] = entry_x
+                    tr["badge_y"] = entry_y
+                    tr["badge_title"] = tr["title"]
+                    segments.append({
+                        "track_id": tr["id"],
+                        "track_title": tr["title"],
+                        "color": tr["color"],
+                        "from_id": f"entry_{tr['id']}",
+                        "to_id": first_st["id"],
+                        "from_x": entry_x,
+                        "from_y": entry_y,
+                        "to_x": first_st["x"],
+                        "to_y": first_st["y"],
+                        "is_entry": True
+                    })
+
+                for idx, tr in enumerate(below_tracks):
+                    entry_y = first_st["y"] + (48 + idx * 22)
+                    entry_x = first_st["x"] - (55 + idx * 18)
+                    tr["badge_x"] = entry_x
+                    tr["badge_y"] = entry_y
+                    tr["badge_title"] = tr["title"]
+                    segments.append({
+                        "track_id": tr["id"],
+                        "track_title": tr["title"],
+                        "color": tr["color"],
+                        "from_id": f"entry_{tr['id']}",
+                        "to_id": first_st["id"],
+                        "from_x": entry_x,
+                        "from_y": entry_y,
+                        "to_x": first_st["x"],
+                        "to_y": first_st["y"],
+                        "is_entry": True
+                    })
+
+        for tr in tracks:
+            st_ids = tr["station_ids"]
+            if not st_ids:
+                continue
             for i in range(len(st_ids) - 1):
                 from_st = station_dict[st_ids[i]]
                 to_st = station_dict[st_ids[i + 1]]
@@ -322,32 +450,12 @@ class MetroService:
                     "from_x": from_st["x"],
                     "from_y": from_st["y"],
                     "to_x": to_st["x"],
-                    "to_y": to_st["y"]
+                    "to_y": to_st["y"],
+                    "is_entry": False
                 })
 
-        # Группировка параллельных станций одной колонки (например, сцены одного времени)
+        # Группы скобок отключены по запросу пользователя для максимальной чистоты схемы
         groups = []
-        for c, st_list in col_groups.items():
-            if len(st_list) > 1:
-                col_x = st_list[0]["x"]
-                min_y = min(s["y"] for s in st_list)
-                max_y = max(s["y"] for s in st_list)
-                years = [s["year"] for s in st_list if s.get("year", 0) > 0]
-                if years:
-                    min_yr = min(years)
-                    max_yr = max(years)
-                    yr_str = f"{min_yr}" if min_yr == max_yr else f"{min_yr}–{max_yr}"
-                else:
-                    yr_str = ""
-                groups.append({
-                    "id": f"group_col_{c}",
-                    "col": c,
-                    "x": col_x,
-                    "top_y": min_y - 25,
-                    "bottom_y": max_y + 25,
-                    "station_count": len(st_list),
-                    "title": yr_str
-                })
 
         xs = [st["x"] for st in raw_stations]
         ys = [st["y"] for st in raw_stations]
