@@ -191,3 +191,15 @@ class GraphHistoryHandlerMixin:
         if hasattr(self, "metro_service"):
             return self.metro_service.get_config(folder)
         return {}
+
+    @pyqtSlot(result="QVariantMap")
+    @pyqtSlot(str, result="QVariantMap")
+    @pyqtSlot(str, str, result="QVariantMap")
+    def get_story_timeline(self, folder_url: str = "", active_file_url: str = "") -> dict:
+        """Возвращает хронологическую последовательность станций (блоков) для таймлайна в хедере"""
+        folder = self.file_service.to_path(folder_url) if folder_url else self._current_folder
+        active_file = self.file_service.to_path(active_file_url) if active_file_url else None
+        if hasattr(self, "metro_service"):
+            return self.metro_service.get_story_timeline(folder, active_file=active_file)
+        return {"stations": [], "min_year": 0, "max_year": 0, "total": 0}
+

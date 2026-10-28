@@ -92,6 +92,25 @@ class ProjectArchitectureTests(unittest.TestCase):
         self.assertFalse(engine.get_block("Old")["found"])
         self.assertTrue(engine.get_block("New")["found"])
 
+    def test_get_story_timeline_extracts_stations_and_actors(self):
+        from services.metro_service import MetroService
+        self.write("01_Chapter.txt", "Duel {\n    1453 // The First Encounter\n    @John @Mary\n    Sword clash.\n}\n")
+        self.write("02_Chapter.txt", "Ambush {\n    1455\n    @Mary @Guard\n    In the woods.\n}\n")
+        service = MetroService(config_service=ConfigService())
+        data = service.get_story_timeline(self.root)
+        self.assertEqual(data["total"], 2)
+        self.assertEqual(data["min_year"], 1453)
+        self.assertEqual(data["max_year"], 1455)
+        st0 = data["stations"][0]
+        self.assertEqual(st0["name"], "Duel")
+        self.assertEqual(st0["year"], 1453)
+        self.assertEqual(st0["actors"], ["@John", "@Mary"])
+        self.assertEqual(st0["note"], "The First Encounter")
+        st1 = data["stations"][1]
+        self.assertEqual(st1["name"], "Ambush")
+        self.assertEqual(st1["actors"], ["@Mary", "@Guard"])
+
 
 if __name__ == "__main__":
     unittest.main()
+

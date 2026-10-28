@@ -20,6 +20,7 @@ function dispatchAction(root, backend, action) {
     var methods = {
         toggle_header: "toggleHeaderOnly", toggle_history: "toggleHistoryMode",
         toggle_history_diff: "toggleHistoryDiffMode",
+        toggle_timeline: "toggleTimelineMode",
         toggle_info: "toggleInfoMode",
         toggle_path: "togglePathMode",
         toggle_centered_mode: "toggleCenteredMode", toggle_scrollbar: "toggleScrollbar",

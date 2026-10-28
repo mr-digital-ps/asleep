@@ -63,6 +63,13 @@ Item {
         }
     }
 
+    function toggleTimelineMode() {
+        if (paneHeader) {
+            paneHeader.toggleTimelineMode()
+        }
+    }
+
+
     function toggleHistoryDiffMode() {
         if (paneHeader) {
             paneHeader.toggleHistoryDiffMode()
@@ -584,6 +591,7 @@ Item {
                     onOpenRequested: workspacePane.openRequested()
                     onCursorVisibilityRequested: workspacePane.requestEnsureCursorVisible()
                     onToggleHistoryRequested: workspacePane.toggleHistoryMode()
+                    onToggleTimelineRequested: workspacePane.toggleTimelineMode()
                     onToggleInfoRequested: workspacePane.toggleInfoMode()
                     onTogglePathRequested: workspacePane.togglePathMode()
                     onShowFileNameRequested: workspacePane.showFileNameMode()

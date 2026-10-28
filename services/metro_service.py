@@ -441,3 +441,108 @@ class MetroService:
                 "height": max_y - min_y
             }
         }
+
+    def get_story_timeline(self, folder_path: Path | None = None, active_file: Path | str | None = None) -> dict:
+        """
+        Извлекает хронологическую последовательность станций (блоков) для таймлайна в хедере:
+        - Сканирует все заметки папки в естественном порядке
+        - Извлекает блоки Имя { ... }, годы/даты, участников @актеров и аннотации
+        - Возвращает структурированный словарь с массивом станций, min_year и max_year
+        """
+        folder = folder_path
+        if not folder and active_file:
+            af_path = Path(QUrl(active_file).toLocalFile()) if isinstance(active_file, str) and active_file.startswith("file://") else Path(active_file)
+            if af_path.exists():
+                folder = af_path.parent if af_path.is_file() else af_path
+
+        folder = folder or self.project_root
+        if isinstance(folder, str):
+            folder = Path(QUrl(folder).toLocalFile()) if folder.startswith("file://") else Path(folder)
+
+        if not folder or not folder.exists() or not folder.is_dir():
+            return {"stations": [], "min_year": 0, "max_year": 0, "total": 0}
+
+        project_files = list_project_notes(folder, config_service=self.config_service)
+        project_files.sort(key=_natural_note_sort_key)
+
+        re_block = re.compile(r"^([a-zA-Zа-яА-ЯёЁ0-9_]+)\s*\{([^}]*)\}", re.MULTILINE)
+        re_year = re.compile(r"^\s*(\d{4}(?:[-–]\d{4})?)(?:\s*//\s*(.*))?", re.MULTILINE)
+        re_actors = re.compile(r"@[a-zA-Zа-яА-ЯёЁ0-9_]+")
+
+        stations = []
+        station_idx = 0
+        all_years = []
+
+        for f in project_files:
+            try:
+                text = f.read_text(encoding="utf-8")
+            except Exception:
+                continue
+
+            file_url = QUrl.fromLocalFile(str(f.resolve())).toString()
+
+            # Вычисление номеров строк для каждого совпадения
+            lines_offsets = [0]
+            for line_str in text.splitlines(keepends=True):
+                lines_offsets.append(lines_offsets[-1] + len(line_str))
+
+            for m in re_block.finditer(text):
+                block_name = m.group(1).strip()
+                body = m.group(2)
+                start_char = m.start()
+                
+                # Приблизительный номер строки
+                line_no = 1
+                for idx_l, off in enumerate(lines_offsets):
+                    if off > start_char:
+                        line_no = max(1, idx_l)
+                        break
+
+                # Парсинг года и подписи
+                m_y = re_year.search(body)
+                date_str = m_y.group(1).replace("–", "-").strip() if m_y else ""
+                note = m_y.group(2).strip() if (m_y and m_y.group(2)) else ""
+
+                year_num = 0
+                if date_str:
+                    m_dig = re.search(r"\d{4}", date_str)
+                    if m_dig:
+                        year_num = int(m_dig.group(0))
+                        all_years.append(year_num)
+
+                # Парсинг участников @актеров
+                actors = re_actors.findall(body)
+
+                # Краткое описание (первые строки без служебных маркеров)
+                body_lines = [l.strip() for l in body.splitlines() if l.strip()]
+                clean_lines = [l for l in body_lines if not l.startswith("@") and not re_year.match(l) and not l.startswith("Ключевые") and not l.startswith("-") and not l.startswith("Интрига") and not l.startswith(">")]
+                summary = clean_lines[0] if clean_lines else ""
+
+                st_obj = {
+                    "id": f"st_{station_idx}",
+                    "index": station_idx,
+                    "name": block_name,
+                    "title": block_name.replace("_", " "),
+                    "year": year_num,
+                    "date_str": date_str if date_str else (str(year_num) if year_num else ""),
+                    "note": note,
+                    "actors": actors,
+                    "summary": summary,
+                    "file_url": file_url,
+                    "file_name": f.name,
+                    "block_name": block_name,
+                    "line": line_no
+                }
+                stations.append(st_obj)
+                station_idx += 1
+
+        min_y = min(all_years) if all_years else 0
+        max_y = max(all_years) if all_years else 0
+
+        return {
+            "stations": stations,
+            "min_year": min_y,
+            "max_year": max_y,
+            "total": len(stations)
+        }
+
