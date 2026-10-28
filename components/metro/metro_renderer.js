@@ -242,11 +242,7 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
         ctx.lineWidth = it1.width
         ctx.strokeStyle = it1.color
         ctx.beginPath()
-        if (it1.seg.is_entry) {
-            drawBeveledMetroLine(ctx, it1.seg.from_x, it1.seg.from_y + off1, it1.seg.to_x, it1.seg.to_y + off1, 12)
-        } else {
-            drawSmoothTransitLine(ctx, it1.seg.from_x, it1.seg.from_y + off1, it1.seg.to_x, it1.seg.to_y + off1)
-        }
+        drawBeveledMetroLine(ctx, it1.seg.from_x, it1.seg.from_y + off1, it1.seg.to_x, it1.seg.to_y + off1, 14, it1.seg.is_entry)
         ctx.stroke()
     }
 
@@ -257,11 +253,7 @@ function renderMetro(ctx, width, height, metroData, config, panX, panY, zoomScal
         ctx.lineWidth = it2.width
         ctx.strokeStyle = it2.color
         ctx.beginPath()
-        if (it2.seg.is_entry) {
-            drawBeveledMetroLine(ctx, it2.seg.from_x, it2.seg.from_y + off2, it2.seg.to_x, it2.seg.to_y + off2, 12)
-        } else {
-            drawSmoothTransitLine(ctx, it2.seg.from_x, it2.seg.from_y + off2, it2.seg.to_x, it2.seg.to_y + off2)
-        }
+        drawBeveledMetroLine(ctx, it2.seg.from_x, it2.seg.from_y + off2, it2.seg.to_x, it2.seg.to_y + off2, 14, it2.seg.is_entry)
         ctx.stroke()
     }
 
@@ -373,7 +365,7 @@ function drawSmoothTransitLine(ctx, x1, y1, x2, y2) {
 /**
  * Отрисовка 45-градусной линии метро со скруглением углов
  */
-function drawBeveledMetroLine(ctx, x1, y1, x2, y2, radius) {
+function drawBeveledMetroLine(ctx, x1, y1, x2, y2, radius, isEntry) {
     if (Math.abs(y1 - y2) < 1.0) {
         // Строго горизонтальная линия
         ctx.moveTo(x1, y1)
@@ -386,17 +378,22 @@ function drawBeveledMetroLine(ctx, x1, y1, x2, y2, radius) {
     var absDy = Math.abs(dy)
     var signY = dy > 0 ? 1 : -1
 
-    // Полка перед станцией
-    var endShelf = 16
-    var midX2 = x2 - endShelf
-    // Диагональ имеет ровно 45 градусов: DeltaX = absDy
-    var midX1 = midX2 - absDy
-
-    // Защита, если горизонтальный отрезок слишком короткий
-    if (midX1 < x1 + 4) {
-        var availDx = dx - absDy
-        if (availDx > 0) {
+    var midX1, midX2
+    if (isEntry) {
+        // Для входа: диагональ прижата к станции, чтобы все входящие ветки сливались в одну
+        var endShelf = 16
+        midX2 = x2 - endShelf
+        midX1 = midX2 - absDy
+        if (midX1 < x1 + 4) {
+            var availDx = dx - absDy
             midX1 = x1 + availDx * 0.4
+            midX2 = midX1 + absDy
+        }
+    } else {
+        // Для межстанционных сегментов: 45° диагональ центрирована между станциями
+        var shelfX = dx - absDy
+        if (shelfX > 0) {
+            midX1 = x1 + shelfX * 0.5
             midX2 = midX1 + absDy
         } else {
             drawSmoothTransitLine(ctx, x1, y1, x2, y2)
@@ -406,7 +403,7 @@ function drawBeveledMetroLine(ctx, x1, y1, x2, y2, radius) {
 
     var leadLen = midX1 - x1
     var tailLen = x2 - midX2
-    var r = Math.min(radius || 10, absDy * 0.45, leadLen * 0.45, tailLen * 0.45)
+    var r = Math.min(radius || 12, absDy * 0.45, leadLen * 0.45, tailLen * 0.45)
 
     ctx.moveTo(x1, y1)
     if (r > 1.0) {
@@ -484,17 +481,11 @@ function renderTrackBadges(ctx, tracks, stations, fontFamily, hoveredTrackId, di
         ctx.save()
         ctx.globalAlpha = 1.0
 
-        // Стартовая точка начала ветки
-        ctx.beginPath()
-        ctx.arc(badgeX, badgeY, 3.5, 0, Math.PI * 2)
-        ctx.fillStyle = dotColor
-        ctx.fill()
-
-        // Плашка сущности слева от стартовой точки
+        // Плашка сущности соединена вплотную с началом линии (без висящего зазора)
         var textW = ctx.measureText(text).width
         var badgeW = Math.max(32, textW + 14)
         var badgeH = 18
-        var pillRight = badgeX - 6
+        var pillRight = badgeX
         var pillLeft = pillRight - badgeW
         var pillTop = badgeY - badgeH / 2
 
@@ -505,6 +496,12 @@ function renderTrackBadges(ctx, tracks, stations, fontFamily, hoveredTrackId, di
         ctx.lineWidth = (isTrHov || isDirect) ? 1.5 : 1.0
         ctx.strokeStyle = (isTrHov || isDirect) ? "#FFFFFF" : "#3F3F46"
         ctx.stroke()
+
+        // Стартовая точка начала ветки на стыке с линией
+        ctx.beginPath()
+        ctx.arc(badgeX, badgeY, 3.0, 0, Math.PI * 2)
+        ctx.fillStyle = dotColor
+        ctx.fill()
 
         // Текст названия сущности
         ctx.fillStyle = textColor
@@ -586,12 +583,23 @@ function roundRect(ctx, x, y, w, h, r) {
 /**
  * Отрисовка ромба (Diamond / Rhombus) с центром в (cx, cy)
  */
-function drawRhombus(ctx, cx, cy, rx, ry) {
+function drawRhombus(ctx, cx, cy, rx, ry, radius) {
     if (ry === undefined) ry = rx
-    ctx.moveTo(cx, cy - ry)
-    ctx.lineTo(cx + rx, cy)
-    ctx.lineTo(cx, cy + ry)
-    ctx.lineTo(cx - rx, cy)
+    var r = Math.min(radius !== undefined ? radius : 2.5, rx * 0.35, ry * 0.35)
+    if (r <= 0.5) {
+        ctx.moveTo(cx, cy - ry)
+        ctx.lineTo(cx + rx, cy)
+        ctx.lineTo(cx, cy + ry)
+        ctx.lineTo(cx - rx, cy)
+        ctx.closePath()
+        return
+    }
+
+    ctx.moveTo(cx + rx / 2, cy - ry / 2)
+    ctx.arcTo(cx + rx, cy, cx, cy + ry, r)
+    ctx.arcTo(cx, cy + ry, cx - rx, cy, r)
+    ctx.arcTo(cx - rx, cy, cx, cy - ry, r)
+    ctx.arcTo(cx, cy - ry, cx + rx, cy, r)
     ctx.closePath()
 }
 
