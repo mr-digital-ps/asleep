@@ -167,7 +167,7 @@ class BlockEngine:
         # 2. Если в кэше не найден, ищем файл в workspace_folder
         if self.workspace_folder and self.workspace_folder.exists():
             for p in self.workspace_folder.glob(f"**/{file_stem}.*"):
-                if p.suffix.lower() in (".txt", ".md"):
+                if p.suffix.lower() in (".af", ".txt", ".md"):
                     try:
                         text = p.read_text(encoding="utf-8")
                         blocks = parse_syntax_blocks(text)

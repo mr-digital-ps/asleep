@@ -76,7 +76,7 @@ def list_project_notes(folder_path: Path, *, config_service=None) -> list[Path]:
     config = config_service or ConfigService()
     app = config.get_app_config(folder_path)
     syntax = config.get_syntax_config(folder_path).get("system_files", {})
-    extensions = {ext.lower() for ext in app.get("supported_extensions", [".txt", ".md"])}
+    extensions = {ext.lower() for ext in app.get("supported_extensions", [".af", ".txt", ".md"])}
     ignored = {name.lower() for name in app.get("ignored_directories", [])}
     ignored.update({".git", ".asleep", "__pycache__", ".obsidian", "node_modules"})
     prefixes = tuple(syntax.get("ignore_prefixes", [".", "_"]))
@@ -143,7 +143,7 @@ class FileService:
                     return {ext.lower().strip() for ext in app_cfg["supported_extensions"] if ext}
             except Exception:
                 pass
-        return {".txt", ".md"}
+        return {".af", ".txt", ".md"}
 
     def get_folder_files(self, folder_url: str) -> list:
         """Возвращает список файлов в рабочей папке с учетом настроек ignored_directories и supported_extensions"""

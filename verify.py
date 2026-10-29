@@ -1,3 +1,4 @@
+import tempfile
 """
 verify.py — скрипт быстрой самодиагностики проекта.
 Запуск: uv run python verify.py
@@ -495,6 +496,7 @@ tags:
     print("  -> Сервисы Python: OK")
 
 def test_qml():
+    import tempfile
     print("[2/3] Проверка компонентов QML...")
     import os
     os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
@@ -540,6 +542,8 @@ def test_qml():
     workspace = web_item.property("workspace")
     app.processEvents()
     primary_bar = workspace.property("activePane")
+    init_file_url = primary_bar.property("fileUrl")
+    init_file_name = primary_bar.property("fileName")
     init_mode = primary_bar.property("isCenteredMode")
     assert init_mode is True, "isCenteredMode по умолчанию должен быть True"
     primary_bar.toggleCenteredMode()
@@ -595,10 +599,17 @@ def test_qml():
     web_item.toggleGraph()
     assert primary_bar.property("isGraphMode") is True
     panels_before = workspace.property("panelCount")
-    backend.open_wiki_link("Новая заметка", primary_bar.property("folderUrl"))
+    backend.open_wiki_link("Новая заметка", QUrl.fromLocalFile(tempfile.gettempdir()).toString())
     assert workspace.property("panelCount") == panels_before, "Клик по узлу в графе должен открывать заметку в текущей вкладке без создания дубликата панели"
     assert primary_bar.property("isGraphMode") is False, "Панель должна вернуться в source mode"
     assert primary_bar.property("fileName") == "Новая заметка", "Текущая панель должна загрузить выбранную заметку"
+    # Удаляем созданный тестовый файл, чтобы не загрязнять рабочую папку пользователя
+    test_note_path = backend.file_service.to_path(primary_bar.property("fileUrl"))
+    if test_note_path and test_note_path.exists() and test_note_path.name == "Новая заметка.txt":
+        try:
+            test_note_path.unlink()
+        except Exception:
+            pass
 
     # 2.3.1. Тест сворачивания блоков только в Live Mode и автоматического разворачивания в Source Mode
     active_canvas = primary_bar.property("editorCanvas")

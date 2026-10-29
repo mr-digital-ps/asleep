@@ -3,10 +3,10 @@
   "auto_save_delay_ms": 1000,
 
   // Поддерживаемые расширения текстовых файлов
-  "supported_extensions": [".txt", ".md"],
+  "supported_extensions": [".af", ".txt", ".md"],
 
   // Игнорируемые служебные папки (скрываются из проводника)
-  "ignored_directories": [".git", ".venv", "__pycache__", "node_modules", ".asleep"],
+  "ignored_directories": [".git", ".venv", "__pycache__", "node_modules", ".asleep", "archive", "_archive"],
 
   // Язык интерфейса
   "language": "ru",
