@@ -61,7 +61,19 @@ function renderGraph(ctx, width, height, sim, state) {
 
     var panX = state.panX || 0
     var panY = state.panY || 0
-    var zoomScale = state.zoomScale || 1.0
+    var zoomScale = (state.zoomScale && state.zoomScale > 0.001) ? state.zoomScale : 1.0
+
+    // Расчет границ видимой области экрана в мировых координатах (Frustum Culling)
+    // Добавляем запас margin = 120px для предотвращения резкого появления подписей и узлов
+    var margin = 120
+    var invZs = 1.0 / zoomScale
+    var halfW = width / 2
+    var halfH = height / 2
+    var minVisibleX = halfW + (-halfW - panX) * invZs - margin
+    var maxVisibleX = halfW + (halfW - panX) * invZs + margin
+    var minVisibleY = halfH + (-halfH - panY) * invZs - margin
+    var maxVisibleY = halfH + (halfH - panY) * invZs + margin
+
     var hoveredNode = state.hoveredNode
     var draggedNode = state.draggedNode
     var highlightedNodeIds = state.highlightedNodeIds || {}
@@ -172,8 +184,16 @@ function renderGraph(ctx, width, height, sim, state) {
         ctx.lineWidth = 0.8
         for (var ni = 0; ni < normalLinks.length; ni++) {
             var nl = normalLinks[ni]
-            ctx.moveTo(nl.source.x, nl.source.y)
-            ctx.lineTo(nl.target.x, nl.target.y)
+            var ns = nl.source
+            var nt = nl.target
+            if ((ns.x < minVisibleX && nt.x < minVisibleX) ||
+                (ns.x > maxVisibleX && nt.x > maxVisibleX) ||
+                (ns.y < minVisibleY && nt.y < minVisibleY) ||
+                (ns.y > maxVisibleY && nt.y > maxVisibleY)) {
+                continue
+            }
+            ctx.moveTo(ns.x, ns.y)
+            ctx.lineTo(nt.x, nt.y)
         }
         ctx.stroke()
     }
@@ -186,8 +206,16 @@ function renderGraph(ctx, width, height, sim, state) {
         ctx.setLineDash([4, 4])
         for (var ti = 0; ti < transclusionLinks.length; ti++) {
             var tl = transclusionLinks[ti]
-            ctx.moveTo(tl.source.x, tl.source.y)
-            ctx.lineTo(tl.target.x, tl.target.y)
+            var ts = tl.source
+            var tt = tl.target
+            if ((ts.x < minVisibleX && tt.x < minVisibleX) ||
+                (ts.x > maxVisibleX && tt.x > maxVisibleX) ||
+                (ts.y < minVisibleY && tt.y < minVisibleY) ||
+                (ts.y > maxVisibleY && tt.y > maxVisibleY)) {
+                continue
+            }
+            ctx.moveTo(ts.x, ts.y)
+            ctx.lineTo(tt.x, tt.y)
         }
         ctx.stroke()
         ctx.setLineDash([])
@@ -266,6 +294,12 @@ function renderGraph(ctx, width, height, sim, state) {
         var n = nodes[j]
         var isDragged = (draggedNode && draggedNode.id === n.id)
         var isHover = ((hoveredNode && hoveredNode.id === n.id) || isDragged)
+        var isVisible = (n.x >= minVisibleX && n.x <= maxVisibleX && n.y >= minVisibleY && n.y <= maxVisibleY)
+
+        // Frustum culling: пропуск узлов за пределами экрана
+        if (!isVisible && !isHover && !isDragged) {
+            continue
+        }
         var isConnected = highlightedNodeIds[n.id] === true
         var isActivePlayer = (n.type === "file") && (
             (activeNodeId && n.id === activeNodeId) ||
@@ -432,8 +466,15 @@ function renderGraph(ctx, width, height, sim, state) {
                 applyFont(isHover ? fontHover : fontNormal)
                 ctx.fillStyle = isHover ? labelHoverCol : (isConnected ? textSecondary : labelCol)
             }
-            var rawLabel = (n.blockName || n.label || "").replace(/_/g, " ")
-            var wrappedLines = wrapGraphText(ctx, rawLabel, 150)
+            var rawLabel = (n.blockName || n.label || "")
+            var wrappedLines = n._wrappedLines
+            if (!wrappedLines || n._cachedLabel !== rawLabel || n._cachedFontSize !== labelFontSize) {
+                n._cachedLabel = rawLabel
+                n._cachedFontSize = labelFontSize
+                var cleanLabel = rawLabel.replace(/_/g, " ")
+                n._wrappedLines = wrapGraphText(ctx, cleanLabel, 150)
+                wrappedLines = n._wrappedLines
+            }
             var startY = n.y + (n.radius || 4.5) + 11
             for (var wl = 0; wl < wrappedLines.length; wl++) {
                 ctx.fillText(wrappedLines[wl], n.x, startY + wl * 13)
