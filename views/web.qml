@@ -28,6 +28,11 @@ Rectangle {
     }
     readonly property string currentFileUrl: canvasLayout.activePane ? canvasLayout.activePane.fileUrl : ""
     readonly property string currentFileName: canvasLayout.activePane ? canvasLayout.activePane.fileName : ""
+    onCurrentFileUrlChanged: {
+        if (currentFileUrl && typeof backend !== "undefined" && backend && typeof backend.save_last_file === "function") {
+            backend.save_last_file(currentFileUrl)
+        }
+    }
     property bool initialStateApplied: false
     property int targetFps: (typeof backend !== "undefined" && backend && typeof backend.get_target_fps === "function") ? backend.get_target_fps() : 60
     readonly property int animIntervalMs: targetFps <= 0 ? 1 : Math.max(1, Math.round(1000 / targetFps))
@@ -141,8 +146,27 @@ Rectangle {
         }
         function onSpacePanToggled(active) { canvasLayout.isSpacePanning = active }
         function onActionRequested(action) {
+            if (!root.appWindow || root.appWindow.active) {
+                root.executeAction(action)
+                return
+            }
             var isSingle = (typeof backend !== "undefined" && backend && typeof backend.get_window_count === "function") ? (backend.get_window_count() <= 1) : true
-            if (!root.appWindow || root.appWindow.active || isSingle) root.executeAction(action)
+            if (isSingle) root.executeAction(action)
+        }
+    }
+
+    Connections {
+        target: root.appWindow
+        function onActiveChanged() {
+            if (root.appWindow && root.appWindow.active) {
+                if (canvasLayout && canvasLayout.activePane && canvasLayout.activePane.editorArea) {
+                    if (!canvasLayout.activePane.isGraphMode && !canvasLayout.activePane.isMetroMode) {
+                        canvasLayout.activePane.editorArea.forceActiveFocus()
+                    }
+                }
+            } else {
+                canvasLayout.isSpacePanning = false
+            }
         }
     }
     HotkeyManager {

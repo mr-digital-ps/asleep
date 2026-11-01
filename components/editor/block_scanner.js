@@ -24,46 +24,67 @@ function scanBlocks(text) {
     var pos = 0
 
     // Регулярные выражения блоков по канону asleep
-    var reBlockStart = /^([^{}\n\r]+?)\s*\{[ \t]*$/
+    var reSingleLineBlock = /^([^{}\n\r]+?)\s*\{\s*(.*?)\s*\}\s*$/
+    var reBlockStart = /^([^{}\n\r]+?)\s*\{(.*)$/
     var reBlockEnd = /^[ \t]*\}[ \t]*$/
 
     for (var i = 0; i < lines.length; i++) {
         var line = lines[i]
         var lineLen = line.length
 
-        // Проверка открытия блока
-        var matchStart = line.match(reBlockStart)
-        if (matchStart) {
-            var blockName = matchStart[1].trim()
-            var braceIdx = line.lastIndexOf("{")
-            stack.push({
-                id: "block_" + i + "_" + blockName,
-                name: blockName,
+        // 1. Проверка однострочного блока: Имя { текст }
+        var matchSingle = line.match(reSingleLineBlock)
+        if (matchSingle) {
+            var singleName = matchSingle[1].trim()
+            var singleOpenBrace = line.indexOf("{")
+            var singleCloseBrace = line.lastIndexOf("}")
+            blocks.push({
+                id: "block_" + i + "_" + singleName,
+                name: singleName,
                 startLine: i,
+                endLine: i,
                 startPos: pos,
-                openBracePos: pos + braceIdx,
+                openBracePos: pos + singleOpenBrace,
+                endPos: pos,
+                closeBracePos: pos + singleCloseBrace,
                 lineCount: 1
             })
-        } else if (reBlockEnd.test(line) && stack.length > 0) {
-            // Закрытие блока
-            var top = stack.pop()
-            var closeBraceIdx = line.indexOf("}")
-            blocks.push({
-                id: top.id,
-                name: top.name,
-                startLine: top.startLine,
-                endLine: i,
-                startPos: top.startPos,
-                openBracePos: top.openBracePos,
-                endPos: pos,
-                closeBracePos: pos + closeBraceIdx,
-                lineCount: (i - top.startLine + 1)
-            })
+        } else {
+            // 2. Проверка открытия многострочного блока: Имя { или Имя { текст...
+            var matchStart = line.match(reBlockStart)
+            if (matchStart) {
+                var blockName = matchStart[1].trim()
+                var braceIdx = line.indexOf("{")
+                stack.push({
+                    id: "block_" + i + "_" + blockName,
+                    name: blockName,
+                    startLine: i,
+                    startPos: pos,
+                    openBracePos: pos + braceIdx,
+                    lineCount: 1
+                })
+            } else if (reBlockEnd.test(line) && stack.length > 0) {
+                // Закрытие блока
+                var top = stack.pop()
+                var closeBraceIdx = line.indexOf("}")
+                blocks.push({
+                    id: top.id,
+                    name: top.name,
+                    startLine: top.startLine,
+                    endLine: i,
+                    startPos: top.startPos,
+                    openBracePos: top.openBracePos,
+                    endPos: pos,
+                    closeBracePos: pos + closeBraceIdx,
+                    lineCount: (i - top.startLine + 1)
+                })
+            }
         }
 
         pos += lineLen + 1 // +1 для \n
     }
 
+    blocks.sort(function(a, b) { return a.startLine - b.startLine })
     return blocks
 }
 

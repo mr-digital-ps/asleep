@@ -60,6 +60,96 @@ ApplicationWindow {
                 ColorAnimation { duration: Theme.animDurationNormal }
             }
         }
+
+        // Нативные грани изменения размера окна (аппаратный SceneGraph без оверхеда Python)
+        MouseArea {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.leftMargin: windowFrame.cornerMargin
+            anchors.rightMargin: windowFrame.cornerMargin
+            height: windowFrame.resizeMargin
+            cursorShape: Qt.SizeVerCursor
+            acceptedButtons: Qt.LeftButton
+            onPressed: (mouse) => root.startSystemResize(Qt.TopEdge)
+        }
+
+        MouseArea {
+            anchors.bottom: parent.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.leftMargin: windowFrame.cornerMargin
+            anchors.rightMargin: windowFrame.cornerMargin
+            height: windowFrame.resizeMargin
+            cursorShape: Qt.SizeVerCursor
+            acceptedButtons: Qt.LeftButton
+            onPressed: (mouse) => root.startSystemResize(Qt.BottomEdge)
+        }
+
+        MouseArea {
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            anchors.topMargin: windowFrame.cornerMargin
+            anchors.bottomMargin: windowFrame.cornerMargin
+            width: windowFrame.resizeMargin
+            cursorShape: Qt.SizeHorCursor
+            acceptedButtons: Qt.LeftButton
+            onPressed: (mouse) => root.startSystemResize(Qt.LeftEdge)
+        }
+
+        MouseArea {
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            anchors.topMargin: windowFrame.cornerMargin
+            anchors.bottomMargin: windowFrame.cornerMargin
+            width: windowFrame.resizeMargin
+            cursorShape: Qt.SizeHorCursor
+            acceptedButtons: Qt.LeftButton
+            onPressed: (mouse) => root.startSystemResize(Qt.RightEdge)
+        }
+
+        // Углы изменения размера
+        MouseArea {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            width: windowFrame.cornerMargin
+            height: windowFrame.cornerMargin
+            cursorShape: Qt.SizeFDiagCursor
+            acceptedButtons: Qt.LeftButton
+            onPressed: (mouse) => root.startSystemResize(Qt.TopEdge | Qt.LeftEdge)
+        }
+
+        MouseArea {
+            anchors.top: parent.top
+            anchors.right: parent.right
+            width: windowFrame.cornerMargin
+            height: windowFrame.cornerMargin
+            cursorShape: Qt.SizeBDiagCursor
+            acceptedButtons: Qt.LeftButton
+            onPressed: (mouse) => root.startSystemResize(Qt.TopEdge | Qt.RightEdge)
+        }
+
+        MouseArea {
+            anchors.bottom: parent.bottom
+            anchors.left: parent.left
+            width: windowFrame.cornerMargin
+            height: windowFrame.cornerMargin
+            cursorShape: Qt.SizeBDiagCursor
+            acceptedButtons: Qt.LeftButton
+            onPressed: (mouse) => root.startSystemResize(Qt.BottomEdge | Qt.LeftEdge)
+        }
+
+        MouseArea {
+            anchors.bottom: parent.bottom
+            anchors.right: parent.right
+            width: windowFrame.cornerMargin
+            height: windowFrame.cornerMargin
+            cursorShape: Qt.SizeFDiagCursor
+            acceptedButtons: Qt.LeftButton
+            onPressed: (mouse) => root.startSystemResize(Qt.BottomEdge | Qt.RightEdge)
+        }
     }
 
     Timer {

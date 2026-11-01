@@ -293,7 +293,11 @@ class FileService:
                     return last_folder
 
             def_folder_str = cfg.get("default_folder", "~/Documents/Notes")
-            def_path = Path(os.path.expanduser(def_folder_str)).resolve()
+            def_path = Path(os.path.expanduser(def_folder_str))
+            if not def_path.is_absolute():
+                def_path = (_root / def_path).resolve()
+            else:
+                def_path = def_path.resolve()
             try:
                 def_path.mkdir(parents=True, exist_ok=True)
                 return QUrl.fromLocalFile(str(def_path)).toString()
@@ -316,7 +320,12 @@ class FileService:
                     start_dir = str(self.to_path(last_f).resolve())
                 else:
                     def_folder_str = cfg.get("default_folder", "~/Documents/Notes")
-                    start_dir = str(Path(os.path.expanduser(def_folder_str)).resolve())
+                    def_path = Path(os.path.expanduser(def_folder_str))
+                    if not def_path.is_absolute():
+                        def_path = (_root / def_path).resolve()
+                    else:
+                        def_path = def_path.resolve()
+                    start_dir = str(def_path)
 
             chosen = QFileDialog.getExistingDirectory(None, "Выберите рабочую папку", start_dir)
             if chosen:

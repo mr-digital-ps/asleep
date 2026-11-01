@@ -20,8 +20,16 @@ RowLayout {
     property bool hasFooter: true
 
     property bool isLiveMode: true
+    property var editorScroll: null
     property var blocks: []
     property var collapsedBlocks: ({})
+
+    Timer {
+        id: blocksScanDebounceTimer
+        interval: 100
+        repeat: false
+        onTriggered: canvasRoot.updateBlocks()
+    }
     onCollapsedBlocksChanged: {
         if (editorGutter) {
             editorGutter.collapsedBlocks = collapsedBlocks
@@ -163,7 +171,7 @@ RowLayout {
         reapplyLineHeight()
     }
 
-    function unfoldAllBlocks() {
+    function unfoldAllBlocks(clearFoldState) {
         if (!editorArea || !editorArea.text) {
             collapsedBlocks = ({})
             if (editorGutter) editorGutter.collapsedBlocks = ({})
@@ -197,6 +205,7 @@ RowLayout {
 
         collapsedBlocks = ({})
         if (editorGutter) editorGutter.collapsedBlocks = ({})
+        if (clearFoldState === true) blockFoldState = ({})
 
         if (changed) {
             var curPos = editorArea.cursorPosition
@@ -207,15 +216,97 @@ RowLayout {
         }
     }
 
+    function foldAllBlocks() {
+        if (!isLiveMode || !editorArea || !editorArea.text) return
+        var allBlocks = BlockScanner.scanBlocks(editorArea.text)
+        if (!allBlocks || allBlocks.length === 0) return
+
+        // Выбираем только верхнеуровневые блоки (не вложенные в другие блоки)
+        var topLevel = []
+        for (var i = 0; i < allBlocks.length; i++) {
+            var b = allBlocks[i]
+            var isNested = false
+            for (var j = 0; j < allBlocks.length; j++) {
+                if (i === j) continue
+                var other = allBlocks[j]
+                if (b.startLine > other.startLine && b.endLine <= other.endLine) {
+                    isNested = true
+                    break
+                }
+            }
+            if (!isNested) topLevel.push(b)
+        }
+        if (topLevel.length === 0) return
+
+        // Сортируем снизу вверх, чтобы не нарушать строковые индексы
+        topLevel.sort(function(a, b) { return b.startLine - a.startLine })
+
+        var lines = editorArea.text.split("\n")
+        var newCollapsed = Object.assign({}, collapsedBlocks || {})
+        var newFoldState = Object.assign({}, blockFoldState || {})
+
+        for (var k = 0; k < topLevel.length; k++) {
+            var blk = topLevel[k]
+            var sL = blk.startLine
+            var eL = blk.endLine
+            if (sL >= 0 && eL < lines.length && sL < eL) {
+                var blockLines = lines.slice(sL, eL + 1)
+                var matchIndent = lines[sL].match(/^(\s*)/)
+                var indent = matchIndent ? matchIndent[1] : ""
+                var headerLine = indent + blk.name + " ...."
+
+                for (var cKey in newCollapsed) {
+                    var entry = newCollapsed[cKey]
+                    if (entry && entry.headerLine > sL && entry.headerLine <= eL) {
+                        delete newCollapsed[cKey]
+                    }
+                }
+
+                newCollapsed[blk.id] = {
+                    id: blk.id,
+                    name: blk.name,
+                    headerLine: sL,
+                    lines: blockLines
+                }
+                newFoldState[blk.name] = true
+                lines = lines.slice(0, sL).concat([headerLine]).concat(lines.slice(eL + 1))
+            }
+        }
+
+        collapsedBlocks = newCollapsed
+        if (editorGutter) editorGutter.collapsedBlocks = newCollapsed
+        blockFoldState = newFoldState
+
+        var curPos = editorArea.cursorPosition
+        editorArea.text = lines.join("\n")
+        editorArea.cursorPosition = Math.min(curPos, editorArea.text.length)
+        updateBlocks()
+        reapplyLineHeight()
+
+        if (editorScroll && editorScroll.contentItem) {
+            var maxScroll = Math.max(0, editorScroll.contentItem.contentHeight - editorScroll.height)
+            editorScroll.contentItem.contentY = Math.min(editorScroll.contentItem.contentY, maxScroll)
+        }
+    }
+
+    function toggleFoldAllBlocks() {
+        if (!isLiveMode) return
+        if (!editorArea || !editorArea.text) return
+        var allBlocks = BlockScanner.scanBlocks(editorArea.text)
+        if (allBlocks && allBlocks.length > 0) {
+            foldAllBlocks()
+        } else if (collapsedBlocks && Object.keys(collapsedBlocks).length > 0) {
+            unfoldAllBlocks(true)
+        }
+    }
+
     function reapplyLineHeight() {
         if (typeof backend !== "undefined" && backend && typeof backend.set_editor_line_height === "function" && editorArea) {
-            Qt.callLater(function() {
-                var lh = (typeof workspacePane !== "undefined" && workspacePane && workspacePane.editorLineHeightPercent)
-                    ? workspacePane.editorLineHeightPercent
-                    : (Theme.defaultLineHeightPercent || 135.0)
-                backend.set_editor_line_height(editorArea, lh)
-                updateOverlays()
-            })
+            var lh = (typeof workspacePane !== "undefined" && workspacePane && workspacePane.editorLineHeightPercent)
+                ? workspacePane.editorLineHeightPercent
+                : (Theme.defaultLineHeightPercent || 135.0)
+            backend.set_editor_line_height(editorArea, lh)
+            updateOverlays()
         }
     }
 
@@ -227,7 +318,7 @@ RowLayout {
     }
 
     function resetFolding() {
-        unfoldAllBlocks()
+        unfoldAllBlocks(true)
         activeTransclusions = ({})
         blockFoldState = ({})
         hasInitializedLiveMode = false
@@ -274,6 +365,10 @@ RowLayout {
         if (!isLiveMode) return // Сворачивание и разворачивание работает ТОЛЬКО в Live Mode!
         if (!editorArea || !editorArea.text) return
         var lines = editorArea.text.split("\n")
+        var savedScrollY = (editorScroll && editorScroll.contentItem) ? editorScroll.contentItem.contentY : -1
+        var estLineHeight = (editorArea.contentHeight && lines.length > 0) ? (editorArea.contentHeight / lines.length) : (editorArea.font.pixelSize * 1.5)
+        var targetScrollY = savedScrollY
+        var targetCharPos = 0
 
         if (collapsedBlocks && collapsedBlocks[block.id]) {
             // Развертывание блока
@@ -300,7 +395,28 @@ RowLayout {
                 newFoldState[saved.name] = false
                 blockFoldState = newFoldState
 
+                for (var k = 0; k < targetL && k < newLines.length; k++) {
+                    targetCharPos += newLines[k].length + 1
+                }
+                var headerY = targetL * estLineHeight
+                var linesAdded = saved.lines.length - 1
+                if (savedScrollY > headerY) {
+                    targetScrollY = savedScrollY + (linesAdded * estLineHeight)
+                } else {
+                    targetScrollY = savedScrollY
+                }
+
                 editorArea.text = newLines.join("\n")
+                editorArea.cursorPosition = targetCharPos
+                if (editorScroll && editorScroll.contentItem && targetScrollY >= 0) {
+                    editorScroll.contentItem.contentY = targetScrollY
+                }
+                Qt.callLater(function() {
+                    if (editorScroll && editorScroll.contentItem && targetScrollY >= 0) {
+                        var maxScroll = Math.max(0, editorScroll.contentItem.contentHeight - editorScroll.height)
+                        editorScroll.contentItem.contentY = Math.max(0, Math.min(targetScrollY, maxScroll))
+                    }
+                })
             }
         } else {
             // Сворачивание блока
@@ -335,7 +451,28 @@ RowLayout {
             blockFoldState = newFoldState
 
             var newLines = lines.slice(0, startL).concat([collapsedHeader]).concat(lines.slice(endL + 1))
+            for (var m = 0; m < startL && m < newLines.length; m++) {
+                targetCharPos += newLines[m].length + 1
+            }
+            var headerYCollapse = startL * estLineHeight
+            var linesRemoved = endL - startL
+            if (savedScrollY > headerYCollapse) {
+                targetScrollY = Math.max(headerYCollapse, savedScrollY - (linesRemoved * estLineHeight))
+            } else {
+                targetScrollY = savedScrollY
+            }
+
             editorArea.text = newLines.join("\n")
+            editorArea.cursorPosition = targetCharPos
+            if (editorScroll && editorScroll.contentItem && targetScrollY >= 0) {
+                editorScroll.contentItem.contentY = targetScrollY
+            }
+            Qt.callLater(function() {
+                if (editorScroll && editorScroll.contentItem && targetScrollY >= 0) {
+                    var maxScroll = Math.max(0, editorScroll.contentItem.contentHeight - editorScroll.height)
+                    editorScroll.contentItem.contentY = Math.max(0, Math.min(targetScrollY, maxScroll))
+                }
+            })
         }
         updateBlocks()
         reapplyLineHeight()
@@ -529,13 +666,23 @@ RowLayout {
 
         cursorDelegate: Item {
             id: cursorWrapper
-            visible: editorArea.activeFocus
+            visible: editorArea.activeFocus && (editorArea.selectionStart === editorArea.selectionEnd)
+            width: 2
+            height: (editorArea.cursorRectangle.height > 0) ? editorArea.cursorRectangle.height : (editorArea.font.pixelSize * 1.35)
+
             Rectangle {
                 id: customCursor
                 width: 2
                 height: parent.height
                 anchors.centerIn: parent
                 color: Theme.cursorColor
+
+                SequentialAnimation on opacity {
+                    loops: Animation.Infinite
+                    running: editorArea.activeFocus
+                    PropertyAnimation { to: 1.0; duration: 530 }
+                    PropertyAnimation { to: 0.0; duration: 530 }
+                }
             }
         }
 
@@ -657,39 +804,23 @@ RowLayout {
 
         Keys.onTabPressed: (event) => {
             if (event.modifiers & Qt.AltModifier) {
-                event.accepted = false
+                Shortcuts.handleTab(editorArea, true, canvasRoot.tabSize)
+                canvasRoot.reapplyLineHeight()
+                event.accepted = true
                 return
             }
             Shortcuts.handleTab(editorArea, false, canvasRoot.tabSize)
+            canvasRoot.reapplyLineHeight()
             event.accepted = true
         }
         Keys.onBacktabPressed: (event) => {
-            if (event.modifiers & Qt.AltModifier) {
-                event.accepted = false
-                return
-            }
             Shortcuts.handleTab(editorArea, true, canvasRoot.tabSize)
+            canvasRoot.reapplyLineHeight()
             event.accepted = true
         }
 
         Keys.onBackPressed: (event) => {
-            if (Shortcuts.handleSmartBackspace(editorArea)) {
-                event.accepted = true
-                return
-            }
-            event.accepted = false
-        }
-
-        Keys.onDeletePressed: (event) => {
-            if (Shortcuts.handleSmartDelete(editorArea)) {
-                event.accepted = true
-                return
-            }
-            event.accepted = false
-        }
-
-        Keys.onSpacePressed: (event) => {
-            if (Shortcuts.handleAutoPair(editorArea, " ")) {
+            if (Shortcuts.handleAutoPairBackspace(editorArea)) {
                 event.accepted = true
                 return
             }
@@ -732,7 +863,7 @@ RowLayout {
 
         onTextChanged: {
             canvasRoot.textChangedByUser()
-            canvasRoot.updateBlocks()
+            blocksScanDebounceTimer.restart()
             bracketHighlightOverlay.updateBracketHighlights()
         }
 
@@ -740,11 +871,10 @@ RowLayout {
 
         Component.onCompleted: {
             if (typeof backend !== "undefined" && backend && typeof backend.set_editor_live_mode === "function") {
-                Qt.callLater(function() {
-                    backend.set_editor_live_mode(editorArea, canvasRoot.isLiveMode)
-                    canvasRoot.initializeLiveModeIfReady()
-                })
+                backend.set_editor_live_mode(editorArea, canvasRoot.isLiveMode)
+                canvasRoot.initializeLiveModeIfReady()
             }
+            canvasRoot.reapplyLineHeight()
         }
     }
 

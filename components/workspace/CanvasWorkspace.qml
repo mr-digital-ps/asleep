@@ -56,6 +56,11 @@ Rectangle {
         if (!panel) return
         activePanel = panel
         panel.z = ++nextZ
+        if (panel && panel.pane && panel.pane.fileUrl) {
+            if (typeof backend !== "undefined" && backend && typeof backend.save_last_file === "function") {
+                backend.save_last_file(panel.pane.fileUrl)
+            }
+        }
         if (panel.pane.isGraphMode) {
             if (panel.pane.paneGraphView) panel.pane.paneGraphView.forceActiveFocus()
         } else if (panel.pane.isMetroMode) {

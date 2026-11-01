@@ -28,6 +28,11 @@ Item {
     property real editorLineHeightPercent: Theme.defaultLineHeightPercent
     property bool showLineDots: true
     property bool isLiveMode: true
+    onIsLiveModeChanged: {
+        if (typeof backend !== "undefined" && backend && typeof backend.save_live_mode === "function") {
+            backend.save_live_mode(workspacePane.isLiveMode)
+        }
+    }
     property int tabSize: Theme.defaultTabSize
     readonly property var targetWindow: Window.window
 
@@ -147,6 +152,22 @@ Item {
         if (editorArea) editorArea.forceActiveFocus()
     }
 
+    function toggleFoldAllBlocks() {
+        if (paperSheet && typeof paperSheet.toggleFoldAllBlocks === "function") {
+            paperSheet.toggleFoldAllBlocks()
+        }
+    }
+    function foldAllBlocks() {
+        if (paperSheet && typeof paperSheet.foldAllBlocks === "function") {
+            paperSheet.foldAllBlocks()
+        }
+    }
+    function unfoldAllBlocks() {
+        if (paperSheet && typeof paperSheet.unfoldAllBlocks === "function") {
+            paperSheet.unfoldAllBlocks()
+        }
+    }
+
     // Режим локального графа заметки
     property bool isLocalGraphMode: false
 
@@ -239,17 +260,15 @@ Item {
         text = content
         isGraphMode = false
         if (typeof backend !== "undefined" && backend) {
-            Qt.callLater(function() {
-                if (typeof backend.set_editor_line_height === "function") {
-                    backend.set_editor_line_height(editorArea, workspacePane.editorLineHeightPercent)
-                }
-                if (typeof backend.set_editor_live_mode === "function") {
-                    backend.set_editor_live_mode(editorArea, workspacePane.isLiveMode)
-                }
-                if (editorCanvas && typeof editorCanvas.initializeLiveModeIfReady === "function") {
-                    editorCanvas.initializeLiveModeIfReady()
-                }
-            })
+            if (typeof backend.set_editor_line_height === "function") {
+                backend.set_editor_line_height(editorArea, workspacePane.editorLineHeightPercent)
+            }
+            if (typeof backend.set_editor_live_mode === "function") {
+                backend.set_editor_live_mode(editorArea, workspacePane.isLiveMode)
+            }
+            if (editorCanvas && typeof editorCanvas.initializeLiveModeIfReady === "function") {
+                editorCanvas.initializeLiveModeIfReady()
+            }
         }
     }
     function getDocumentState() {
@@ -348,10 +367,11 @@ Item {
     property string activeBlockName: _editorBlockName
     property string _editorBlockName: ""
 
-    // Отслеживание текущего активного блока по положению курсора
-    Connections {
-        target: editorArea
-        function onCursorPositionChanged() {
+    Timer {
+        id: cursorBlockUpdateTimer
+        interval: 120
+        repeat: false
+        onTriggered: {
             if (workspacePane.isGraphMode) return
             var b = BlockSync.getCurrentBlockInfo(editorArea, (typeof backend !== "undefined" ? backend : null))
             var bName = (b && b.heading) ? b.heading : ""
@@ -361,6 +381,14 @@ Item {
             if (paneHeader && paneHeader.headerMode === "info") {
                 workspacePane.updateStats()
             }
+        }
+    }
+
+    // Отслеживание текущего активного блока по положению курсора (дебаунс 120мс для нулевой задержки ввода)
+    Connections {
+        target: editorArea
+        function onCursorPositionChanged() {
+            cursorBlockUpdateTimer.restart()
         }
     }
 

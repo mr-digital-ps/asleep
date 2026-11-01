@@ -129,14 +129,10 @@ Item {
                 gutterItem.updateBlocks()
                 gutterCanvas.requestPaint()
             }
-            function onTextChanged() {
-                gutterItem.updateBlocks()
-                gutterCanvas.requestPaint()
-            }
             function onCursorRectangleChanged() {
                 if (!gutterItem.editorArea) return
                 let curY = gutterItem.editorArea.cursorRectangle.y
-                if (Math.abs(curY - gutterCanvas.lastCursorY) > 2) {
+                if (Math.abs(curY - gutterCanvas.lastCursorY) >= 12) {
                     gutterCanvas.lastCursorY = curY
                     gutterCanvas.requestPaint()
                 }

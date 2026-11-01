@@ -2,8 +2,9 @@ import json
 import copy
 import math
 from pathlib import Path
-from PyQt6.QtCore import QObject, pyqtSignal, QFileSystemWatcher, QTimer, Qt, QEvent, QPointF
-from PyQt6.QtGui import QKeyEvent, QGuiApplication, QMouseEvent, QCursor
+from PyQt6.QtCore import QObject, pyqtSignal, QFileSystemWatcher, QTimer, Qt, QEvent, QPointF, QRect
+from PyQt6.QtGui import QKeyEvent, QGuiApplication, QMouseEvent, QCursor, QPainter, QColor, QPen
+from PyQt6.QtWidgets import QWidget
 
 from services.storage.config_service import parse_json_with_comments
 from services.system.key_mapper import (
@@ -131,11 +132,16 @@ class HotkeyMatcher:
     def match_event(self, event: QKeyEvent) -> str | None:
         mods = event.modifiers()
         ctrl = bool(mods & Qt.KeyboardModifier.ControlModifier)
-        shift = bool(mods & Qt.KeyboardModifier.ShiftModifier)
         alt = bool(mods & Qt.KeyboardModifier.AltModifier)
+        qt_key = event.key()
+
+        # Быстрый выход: обычный набор текста без модификаторов Ctrl/Alt (кроме F-клавиш)
+        if not ctrl and not alt and qt_key not in (Qt.Key.Key_F9.value, Qt.Key.Key_F11.value):
+            return None
+
+        shift = bool(mods & Qt.KeyboardModifier.ShiftModifier)
         scan = event.nativeScanCode()
         vk = event.nativeVirtualKey()
-        qt_key = event.key()
         txt = (event.text() or "").upper()
 
         for rule in self.rules:
@@ -154,6 +160,33 @@ class HotkeyMatcher:
                     return rule["action"]
         return None
 
+
+
+
+class SnapOverlayWidget(QWidget):
+    """
+    Полупрозрачный силуэт-индикатор прилипания окна (Aero Snap Silhouette).
+    Показывает точную область, в которую развернется или примагнитится окно при отпускании ПКМ.
+    """
+    def __init__(self):
+        super().__init__()
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint |
+            Qt.WindowType.Tool |
+            Qt.WindowType.WindowTransparentForInput |
+            Qt.WindowType.WindowStaysOnTopHint
+        )
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.fillRect(self.rect(), QColor(255, 255, 255, 25))
+        pen = QPen(QColor(255, 255, 255, 140))
+        pen.setWidth(2)
+        painter.setPen(pen)
+        painter.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), 6, 6)
 
 class GlobalHotkeyFilter(QObject):
     """
@@ -174,6 +207,7 @@ class GlobalHotkeyFilter(QObject):
         self._press_pos = None
         self._last_pos = None
         self._snap_target = None
+        self._snap_overlay = None
 
         self._is_window_resizing = False
         self._resize_edges = []
@@ -181,6 +215,12 @@ class GlobalHotkeyFilter(QObject):
         self._resize_press_pos = None
         self._resize_init_geo = None
         self._cursor_overridden = False
+        self._cache_config()
+
+    def _get_snap_overlay(self) -> SnapOverlayWidget:
+        if self._snap_overlay is None:
+            self._snap_overlay = SnapOverlayWidget()
+        return self._snap_overlay
 
     def _find_window(self, obj, event):
         if hasattr(obj, "startSystemMove") and hasattr(obj, "setX"):
@@ -188,41 +228,32 @@ class GlobalHotkeyFilter(QObject):
         pt = event.globalPosition().toPoint()
         return QGuiApplication.topLevelAt(pt) or QGuiApplication.activeWindow()
 
-    def _is_drag_enabled(self) -> bool:
+    def _cache_config(self):
+        self._drag_enabled = True
+        self._drag_deadzone = 3.0
+        self._resize_margin = 10
+        self._corner_margin = 20
         if self.backend and hasattr(self.backend, "get_app_config"):
             try:
                 cfg = self.backend.get_app_config()
-                return bool(cfg.get("window_drag_enabled", True))
+                self._drag_enabled = bool(cfg.get("window_drag_enabled", True))
+                self._drag_deadzone = float(cfg.get("window_drag_deadzone", 3.0))
+                self._resize_margin = int(cfg.get("window_resize_margin", 10))
+                self._corner_margin = int(cfg.get("window_corner_margin", 20))
             except Exception:
                 pass
-        return True
+
+    def _is_drag_enabled(self) -> bool:
+        return self._drag_enabled
 
     def _get_drag_deadzone(self) -> float:
-        if self.backend and hasattr(self.backend, "get_app_config"):
-            try:
-                cfg = self.backend.get_app_config()
-                return float(cfg.get("window_drag_deadzone", 3.0))
-            except Exception:
-                pass
-        return 3.0
+        return self._drag_deadzone
 
     def _get_resize_margin(self) -> int:
-        if self.backend and hasattr(self.backend, "get_app_config"):
-            try:
-                cfg = self.backend.get_app_config()
-                return int(cfg.get("window_resize_margin", 10))
-            except Exception:
-                pass
-        return 10
+        return self._resize_margin
 
     def _get_corner_margin(self) -> int:
-        if self.backend and hasattr(self.backend, "get_app_config"):
-            try:
-                cfg = self.backend.get_app_config()
-                return int(cfg.get("window_corner_margin", 20))
-            except Exception:
-                pass
-        return 20
+        return self._corner_margin
 
     def _get_resize_edges(self, win, global_pos: QPointF | None) -> list[str]:
         if not win or global_pos is None:
@@ -290,6 +321,7 @@ class GlobalHotkeyFilter(QObject):
 
     def _on_hotkeys_changed(self, hotkeys: dict):
         self.matcher = HotkeyMatcher(hotkeys)
+        self._cache_config()
 
     def eventFilter(self, a0: QObject | None, a1: QEvent | None) -> bool:
         if not a1:
@@ -370,15 +402,63 @@ class GlobalHotkeyFilter(QObject):
                     # Определение достижения краев экрана для прилипания (Aero Snap)
                     avail = self._get_screen_work_area(cur, self._target_win)
                     if avail:
-                        snap_thresh = 10
-                        if cur.y() <= avail.top() + snap_thresh:
+                        snap_thresh = 32
+                        corner_thresh = 64
+                        is_near_top = cur.y() <= avail.top() + snap_thresh
+                        is_near_bottom = cur.y() >= avail.bottom() - snap_thresh
+                        is_near_left = cur.x() <= avail.left() + snap_thresh
+                        is_near_right = cur.x() >= avail.right() - snap_thresh
+                        is_corner_top = cur.y() <= avail.top() + corner_thresh
+                        is_corner_bottom = cur.y() >= avail.bottom() - corner_thresh
+
+                        # 1. Снап в углы на четверти экрана (Snap Quarters)
+                        if is_near_left and is_corner_top:
+                            self._snap_target = "top_left"
+                        elif is_near_right and is_corner_top:
+                            self._snap_target = "top_right"
+                        elif is_near_left and is_corner_bottom:
+                            self._snap_target = "bottom_left"
+                        elif is_near_right and is_corner_bottom:
+                            self._snap_target = "bottom_right"
+                        # 2. Снап к верхнему краю (распахивание на весь экран)
+                        elif is_near_top:
                             self._snap_target = "maximize"
-                        elif cur.x() <= avail.left() + snap_thresh:
+                        # 3. Снап к боковым краям (половина экрана)
+                        elif is_near_left:
                             self._snap_target = "left"
-                        elif cur.x() >= avail.right() - snap_thresh:
+                        elif is_near_right:
                             self._snap_target = "right"
                         else:
                             self._snap_target = None
+
+                        # Обновление визуального оверлея предпросмотра Aero Snap
+                        if self._snap_target:
+                            half_w = avail.width() // 2
+                            half_h = avail.height() // 2
+                            geo = None
+                            if self._snap_target == "maximize":
+                                geo = avail
+                            elif self._snap_target == "left":
+                                geo = QRect(avail.left(), avail.top(), half_w, avail.height())
+                            elif self._snap_target == "right":
+                                geo = QRect(avail.left() + half_w, avail.top(), half_w, avail.height())
+                            elif self._snap_target == "top_left":
+                                geo = QRect(avail.left(), avail.top(), half_w, half_h)
+                            elif self._snap_target == "top_right":
+                                geo = QRect(avail.left() + half_w, avail.top(), half_w, half_h)
+                            elif self._snap_target == "bottom_left":
+                                geo = QRect(avail.left(), avail.top() + half_h, half_w, half_h)
+                            elif self._snap_target == "bottom_right":
+                                geo = QRect(avail.left() + half_w, avail.top() + half_h, half_w, half_h)
+
+                            if geo:
+                                overlay = self._get_snap_overlay()
+                                overlay.setGeometry(geo)
+                                if not overlay.isVisible():
+                                    overlay.show()
+                        else:
+                            if self._snap_overlay and self._snap_overlay.isVisible():
+                                self._snap_overlay.hide()
                 a1.accept()
                 return True
 
@@ -421,14 +501,7 @@ class GlobalHotkeyFilter(QObject):
                 a1.accept()
                 return True
 
-            # 1.3 Индикация формы курсора при наведении на границу окна
-            elif not self._is_window_dragging and not self._is_window_resizing and a1.buttons() == Qt.MouseButton.NoButton:
-                win = self._find_window(a0, a1)
-                if win:
-                    edges = self._get_resize_edges(win, a1.globalPosition())
-                    self._update_cursor_for_edges(edges)
-                else:
-                    self._restore_cursor()
+
 
         elif evt_type == QEvent.Type.MouseButtonRelease and isinstance(a1, QMouseEvent):
             if self._is_window_dragging:
@@ -443,17 +516,34 @@ class GlobalHotkeyFilter(QObject):
                 self._last_pos = None
                 self._snap_target = None
 
+                if self._snap_overlay and self._snap_overlay.isVisible():
+                    self._snap_overlay.hide()
+
                 if target_win:
                     if drag_started:
                         avail = self._get_screen_work_area(a1.globalPosition(), target_win)
+                        half_w = avail.width() // 2 if avail else 0
+                        half_h = avail.height() // 2 if avail else 0
                         if snap == "maximize":
                             target_win.showMaximized()
                         elif snap == "left" and avail:
                             target_win.showNormal()
-                            target_win.setGeometry(avail.left(), avail.top(), avail.width() // 2, avail.height())
+                            target_win.setGeometry(avail.left(), avail.top(), half_w, avail.height())
                         elif snap == "right" and avail:
                             target_win.showNormal()
-                            target_win.setGeometry(avail.left() + avail.width() // 2, avail.top(), avail.width() // 2, avail.height())
+                            target_win.setGeometry(avail.left() + half_w, avail.top(), half_w, avail.height())
+                        elif snap == "top_left" and avail:
+                            target_win.showNormal()
+                            target_win.setGeometry(avail.left(), avail.top(), half_w, half_h)
+                        elif snap == "top_right" and avail:
+                            target_win.showNormal()
+                            target_win.setGeometry(avail.left() + half_w, avail.top(), half_w, half_h)
+                        elif snap == "bottom_left" and avail:
+                            target_win.showNormal()
+                            target_win.setGeometry(avail.left(), avail.top() + half_h, half_w, half_h)
+                        elif snap == "bottom_right" and avail:
+                            target_win.showNormal()
+                            target_win.setGeometry(avail.left() + half_w, avail.top() + half_h, half_w, half_h)
                         elif avail:
                             # Ограничение границ экрана: окно не должно улететь за пределы видимости
                             wx = target_win.x()
@@ -510,7 +600,6 @@ class GlobalHotkeyFilter(QObject):
                 if has_alt:
                     self._consumed_alt = True
 
-                print(f"[Hotkey] Действие: {action}")
                 if hasattr(self.backend, "actionRequested"):
                     self.backend.actionRequested.emit(action)
                 a1.accept()

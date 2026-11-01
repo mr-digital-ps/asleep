@@ -29,6 +29,11 @@ Canvas {
         function onFontChanged() { root.rebuild() }
     }
 
+    function getSingleRowStep(r) {
+        let lhPercent = (typeof Theme !== "undefined" && Theme && Theme.defaultLineHeightPercent) ? Theme.defaultLineHeightPercent : 135.0
+        return Math.round(r.h * (lhPercent / 100.0))
+    }
+
     function collectRows(start, end) {
         let rows = []
         let pos = start
@@ -87,8 +92,8 @@ Canvas {
                         let addSpace = (r.w <= 0) || (!isLastRow)
                         let rowW = Math.max(0, r.w) + (addSpace ? cw : 0)
 
-                        let rowStep = (i < n - 1) ? (rows[i + 1].y - rows[i].y) : (n > 1 ? (rows[i].y - rows[i - 1].y) : rows[i].h)
-                        if (rowStep <= 0) rowStep = rows[i].h
+                        let rowStep = (i < n - 1) ? (rows[i + 1].y - rows[i].y) : (n > 1 ? (rows[i].y - rows[i - 1].y) : getSingleRowStep(r))
+                        if (rowStep <= 0) rowStep = getSingleRowStep(r)
                         if (rowStep <= 0) rowStep = Math.max(1, fm.height)
 
                         let step = Math.max(r.h, rowStep)

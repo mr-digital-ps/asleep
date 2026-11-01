@@ -158,6 +158,12 @@
     "description": "Переключить сухой текстовый режим (Source Mode)"
   },
 
+  // Свернуть / развернуть все блоки текста (Fold All / Unfold All)
+  "toggle_fold_all": {
+    "keys": ["Alt+F"],
+    "description": "Свернуть / развернуть все блоки текста (Fold All / Unfold All)"
+  },
+
   // Привязка активной вкладки к левой половине (Left 50%)
   "tile_left": {
     "keys": ["Alt+Left"],

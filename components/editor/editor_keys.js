@@ -44,9 +44,17 @@ function isToggleSourceModeKey(event) {
     return (event.key === Qt.Key_S || event.nativeScanCode === 31 || event.key === 1067 || event.key === 1099 || event.text === 's' || event.text === 'S' || event.text === 'ы' || event.text === 'Ы')
 }
 
+function isToggleFoldAllKey(event) {
+    if (!(event.modifiers & Qt.AltModifier)) return false
+    // Alt + F (scan 33, 'а') или Alt + C (scan 46, 'с')
+    var isF = (event.key === Qt.Key_F || event.nativeScanCode === 33 || event.key === 1040 || event.key === 1072 || event.text === 'f' || event.text === 'F' || event.text === 'а' || event.text === 'А')
+    var isC = (event.key === Qt.Key_C || event.nativeScanCode === 46 || event.key === 1057 || event.key === 1089 || event.text === 'c' || event.text === 'C' || event.text === 'с' || event.text === 'С')
+    return isF || isC
+}
+
 // Перехват шорткатов на уровне ShortcutOverride сообщает Qt, что активный редактор забирает комбинацию себе (только текст и форматирование)
 function handleShortcutOverride(event, canvasRoot, editorArea, Shortcuts) {
-    if (isBoldKey(event) || isItalicKey(event)) {
+    if (isBoldKey(event) || isItalicKey(event) || isToggleFoldAllKey(event)) {
         event.accepted = true
         return true
     }
@@ -65,6 +73,10 @@ function handleShortcutOverride(event, canvasRoot, editorArea, Shortcuts) {
     }
 
     if (event.modifiers & Qt.AltModifier) {
+        if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
+            event.accepted = true
+            return true
+        }
         return false
     }
 
@@ -122,6 +134,11 @@ function handleKeyPressed(event, canvasRoot, editorArea, Shortcuts) {
             editorArea.redo()
             return true
         }
+    }
+    if (isToggleFoldAllKey(event)) {
+        event.accepted = true
+        canvasRoot.toggleFoldAllBlocks()
+        return true
     }
     if (isSaveKey(event)) {
         event.accepted = true

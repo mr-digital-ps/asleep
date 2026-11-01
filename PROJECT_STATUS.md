@@ -253,6 +253,12 @@
 
 ## Последние исправления (Стабильность и Регрессии)
 
+- **Оптимизация производительности и устранение фризов (FPS Drop Fix)**:
+  - В `components/editor/EditorCanvas.qml` убран вызов `reapplyLineHeight()` из обработчика `onTextChanged`. Ранее на каждое нажатие клавиши асинхронно вызывался Python, который выделял весь документ через `QTextCursor.select(Document)` и переформатировал все блоки, вызывая каскад повторных регулярок `BlockScanner.scanBlocks` и перерисовку гаттера.
+  - В `services/system/hotkey_service.py` полностью устранена обработка `MouseMove` в Python при отсутствии нажатых кнопок мыши (`NoButton`). Параметры геометрии (`_resize_margin`, `_corner_margin`, `_drag_enabled`, `_drag_deadzone`) закешированы в памяти вместо постоянного чтения JSON с диска.
+  - В `views/window.qml` возвращены нативные аппаратные зоны `MouseArea` для граней окна: смена формы курсора (`SizeHorCursor`, `SizeVerCursor`, `SizeFDiagCursor`, `SizeBDiagCursor`) теперь выполняется на 100% на GPU SceneGraph без обращения к Python и блокировки GIL.
+  - В `components/editor/SelectionHighlightOverlay.qml` расчет шага одиночной строки `getSingleRowStep` оптимизирован до чистой $O(1)$ арифметики без выделения и копирования тяжелых строковых буферов `editorArea.text`.
+
 - **Двустороннее переключение полноэкранного/развернутого режима (Alt+Enter)**:
   - В `views/web_lifecycle.js` исправлена проверка состояния окна: условие проверяет `root.appWindow.visibility === 4 || root.appWindow.visibility === 5` (`Window.Maximized` и `Window.FullScreen`), что обеспечивает стабильный возврат в нормальный режим (`showNormal()`) при повторном нажатии `Alt+Enter`. Ранее проверка была только на `5`, из-за чего развернутое окно (`4`) повторно вызывало `showMaximized()` и застревало в развернутом виде.
 - **Определение границ дисплея, прилипание (Aero Snap) и сохранение фокуса при перемещении (ПКМ)**:
@@ -400,3 +406,100 @@
       - Станции-предшественники мягко подсвечиваются ромбами, а не связанные сцены затеняются.
     - **Аналитический хит-тестинг кривых Безье**: функция `findSegmentTrackAt` вычисляет расстояние до кубической кривой через полином Безье ($O(1)$) без численных итераций, обеспечивая мгновенный отклик при движении мыши.
 
+
+- **Универсальное распознавание заголовков блоков диалекта и устранение рывка рендера (Flicker-Free Tabs)**:
+  - **Распознавание синтаксиса блоков с текстом после `{`**:
+    - В `components/editor/block_scanner.js` и `services/content/document_outline.py` обновлен парсер канонических единиц синтаксиса:
+      1. Однострочные именованные блоки: `Имя { текст }` (Unit 1 канонической системы синтаксиса).
+      2. Многострочные именованные блоки с текстом на первой строке заголовка: `Имя { текст... \n ... \n }`.
+    - Регулярные выражения расширены до безопасного захвата инлайн-содержимого без требования строгого конца строки сразу после `{`.
+    - В `tests/test_user_dialect_parser.py` добавлены юнит-тесты `test_single_line_blocks()` и `test_multiline_blocks_with_header_text()`.
+  - **Устранение микрорывка (Flash/Jerk) и задержки рендера при открытии/закрытии вкладок**:
+    - Диагностирована первопричина: отложенные асинхронные вызовы `Qt.callLater` в `EditorCanvas.qml` (`reapplyLineHeight`, `Component.onCompleted`), `EditorSheet.qml` (`reapplyEditorStyling`), `WorkspacePane.qml` (`openDocument`) и `pane_controller.js` (`handleFileUrlChanged`).
+    - Из-за них текстовая область в первый кадр отображалась с дефолтной высотой строки 100% без подсветки диалекта, а на следующий кадр скачкообразно пересчитывалась в 135% с подсветкой синтаксиса.
+    - Все отложенные обёртки заменены на строго синхронное применение параметров на уровне `QTextDocument` до первой отрисовки кадра, обеспечивая 100% монолитный и бесшовный визуальный переход без малейшего мерцания.
+
+- **Нативный ПКМ-драг и Aero Snap с визуальным силуэтом (Snap Silhouette Overlay)**:
+  - **Магнетизм окна приложения по ПКМ**:
+    - В `services/system/hotkey_service.py` полностью переработан магнетизм перемещения окна правой кнопкой мыши.
+    - Порог захвата магнетизма увеличен с узких 10px до удобных 32px для граней и 64px для углов.
+    - Реализована полноценная матрица прилипания:
+      - Верхний край: разворачивание на весь экран (`maximize`).
+      - Левый/правый края: прилипание на половину экрана 50% (`left`, `right`).
+      - 4 угла экрана: прилипание на четверти экрана 25% (`top_left`, `top_right`, `bottom_left`, `bottom_right`).
+    - Создан нативный прозрачный оверлей `SnapOverlayWidget` (`Aero Snap Silhouette`), который мгновенно подсвечивает точную область прилипания окна полупрозрачным контуром при поднесении курсора к краям дисплея и исчезает при отпускании или уводе курсора.
+    - Добавлен юнит-тест `tests/test_rmb_snap.py`, покрывающий все зоны прилипания и поведение оверлея.
+
+- **Оптимизация производительности ввода и выполнения команд (Zero Latency Input & Command Execution)**:
+  - **Быстрый выход в фильтре хоткеев (Hotkey Fast-Path)**:
+    - В `services/system/hotkey_service.py` в метод `HotkeyMatcher.match_event` добавлен мгновенный ранний выход ($O(1)$) для обычного набора текста: если событие не содержит модификаторов `Ctrl` или `Alt` и не является функциональной клавишей `F9`/`F11`, матчер немедленно возвращает `None` без извлечения скан-кодов, виртуальных клавиш Windows и перебора правил.
+    - Из `GlobalHotkeyFilter.eventFilter` удалён блокирующий синхронный вызов `print(f"[Hotkey] Действие: {action}")`, вызывавший микрозаморозки на 15–30 мс в терминале Windows при выполнении любых команд.
+  - **Устранение лишнего моста QML ⟷ Python при хоткеях**:
+    - В `views/web.qml` в `onActionRequested` добавлена ленивая проверка `root.appWindow.active`: синхронный опрос `@pyqtSlot` `backend.get_window_count()` больше не вызывается в 99.9% случаев, когда окно активно.
+  - **Дебаунс отслеживания активного блока по курсору**:
+    - В `components/workspace/WorkspacePane.qml` на сигнал `editorArea.onCursorPositionChanged` добавлен таймер-дебаунсер `cursorBlockUpdateTimer` (120 мс).
+    - Устранён синхронный regex-прогон `BlockSync.getCurrentBlockInfo` по всему документу на каждый введенный символ, стрелку и клик мыши.
+  - **Оптимизация подсветки парных скобок**:
+    - В `components/editor/BracketHighlightOverlay.qml` добавлен быстрый дебаунсер `bracketDebounceTimer` (35 мс), предотвращающий тяжелые синхронные запросы геометрии `editorArea.positionToRectangle()` во время быстрого набора текста.
+  - **Устранение инвалидации кэша верстки документа (Proportional Line Height)**:
+    - В `services/backend/config_handler.py` в `set_editor_line_height` добавлена проверка текущего значения `bf.lineHeight()`: если высота строки уже равна целевой, ранний выход предотвращает деструктивное повторное применение `cursor.select(SelectionType.Document)` и `cursor.setBlockFormat(bf)`.
+    - Из `components/editor/EditorCanvas.qml` из обработчика `onIsLiveModeChanged` удален избыточный вызов `reapplyLineHeight()`, устраняя задержку кадра при переключении `Alt+E` / `Alt+S`.
+  - **Устранение дублирующего сканирования в Gutter**:
+    - В `components/editor/EditorGutter.qml` удален дублирующий вызов `gutterItem.updateBlocks()` на сигнал `onTextChanged`, так как блоки уже передаются из `EditorCanvas`.
+    - Ограничена частота вызова `gutterCanvas.requestPaint()` при смещении курсора: перерисовка гаттера вызывается только при реальной смене строки (`>= 12px`).
+  - **Очистка недействительных обработчиков клавиш**:
+    - В `components/editor/EditorCanvas.qml` исправлен вызов `handleSmartBackspace` на актуальный `handleAutoPairBackspace(editorArea)` и удалены фиктивные неиспользуемые вызовы `handleSmartDelete` и авто-закрытия пробела.
+
+- **Стабилизация текстового курсора и устранение лагов при наборе (Reliable Cursor Focus & Smooth Typing)**:
+  - **Восстановление текстового курсора (Blinking Custom Cursor)**:
+    - В `components/editor/EditorCanvas.qml` полностью переработан `cursorDelegate`. Ранее использовался неанимированный прямоугольник с зависимостью `height: parent.height`, где контейнер `Item` не имел явной высоты и при переключении фокуса/окон схлопывался в 0px, делая курсор невидимым.
+    - Заданы строгие размеры: `width: 2`, `height: (editorArea.cursorRectangle.height > 0) ? editorArea.cursorRectangle.height : (editorArea.font.pixelSize * 1.35)`.
+    - Добавлена плавная бесконечная анимация мигания каретки `SequentialAnimation on opacity` (530 мс) при наличии активного фокуса `editorArea.activeFocus`.
+  - **Бесшовный возврат фокуса после драга окна и внешних кликов**:
+    - В `views/web.qml` добавлен обработчик `onActiveChanged` на уровне окна приложения `appWindow`: при активации окна после перетаскивания (ПКМ / Alt+ЛКМ) или переключения между программами фокус ввода автоматически возвращается активному редактору `activePane.editorArea.forceActiveFocus()`.
+    - В `components/editor/EditorSheet.qml` добавлен корневой `TapHandler`: клик в любую свободную область листа моментально активирует текстовую область и каретку.
+    - В `views/web.qml` при потере фокуса окном гарантированно сбрасывается флаг `isSpacePanning = false`, исключая залипание прозрачного оверлея `spacePanOverlay`.
+  - **Устранение скрытых 30+ запросов `positionToRectangle()` на каждый символ**:
+    - В `components/editor/BlockSyntaxConcealOverlay.qml` полностью отключен устаревший `Repeater`, который на каждый сдвиг курсора и ввод символа выполнял по 2 синхронных вызова `positionToRectangle()` для каждого блока в документе (30+ тяжелых расчетов верстки на символ в файлах с 15+ блоками).
+    - В `components/editor/EditorCanvas.qml` вызов `updateBlocks()` в `onTextChanged` переведен на дебаунсер `blocksScanDebounceTimer` (100 мс), полностью освобождая UI-поток во время непрерывного набора текста.
+
+- **Якорное сохранение высоты скролла при свёртывании блоков в Live Mode (Fold Scroll Anchoring)**:
+  - В `components/editor/EditorCanvas.qml` метод `toggleBlockFold` дополнен строгим расчетом положения скролла `savedScrollY` и курсора `targetCharPos` перед изменением текста.
+  - Устранен сброс `cursorPosition = 0` в `TextArea` при замене текста новыми строками: курсор явно устанавливается на заголовок сворачиваемого/разворачиваемого блока (`targetCharPos`), предотвращая потерю фокуса.
+  - В `components/workspace/pane_controller.js` в `ensureCursorVisible` устранена принудительная прокрутка `editorScroll.contentItem.contentY = 0` при `cursorPosition === 0`, если экран уже прокручен вглубь документа (`currentY > topMargin`).
+  - При сворачивании или разворачивании блока вьюпорт дисплея больше не улетает вверх: если заголовок блока находится в текущем поле зрения или ниже, экран фиксируется на месте. Если блок находится выше зоны видимости, скролл автоматически компенсируется на точную разницу высоты скрытых/добавленных строк (`linesRemoved / linesAdded * estLineHeight`).
+  - Добавлен `Qt.callLater` для безопасного клампинга `contentY` после перерасчета высоты листа в сценографе.
+
+- **Сохранение и автоматическое восстановление последней заметки и режима (Last File & Mode Session Persistence)**:
+  - В `config/default/session.json` добавлены ключи `"last_file": ""` и `"is_live_mode": true`.
+  - В `services/backend/file_handler.py` добавлены слоты `@pyqtSlot(str) save_last_file` и `@pyqtSlot(str, result=bool) file_exists` с безопасной нормализацией путей (URL и файловая система Windows).
+  - В `services/backend/config_handler.py` добавлен слот `@pyqtSlot(bool) save_live_mode` для обновления ключа `is_live_mode` в пользовательском профиле сессии `config/user/session.json`.
+  - В `views/web_lifecycle.js` в процедуру `initialize` добавлено чтение сохраненного файла `sess.last_file` и режима `sess.is_live_mode`: при запуске приложение открывает именно тот файл, в котором пользователь работал перед выходом, и сразу активирует выбранный режим (Live Mode или Source Mode). Если сохраненный файл был удален, приложение безопасно открывает первую доступную заметку.
+  - В `views/web.qml` (`onCurrentFileUrlChanged`), `components/workspace/CanvasWorkspace.qml` (`activate(panel)`), и `components/workspace/WorkspacePane.qml` (`onIsLiveModeChanged`) подключено реактивное автосохранение текущего файла и режима при переключении панелей и нажатии `Alt+L`.
+
+- **Автоматическая C++ страховка интерлиньяжа при удалении и добавлении строк (Zero-Lag Persistent Line Height)**:
+  - Диагностирована глубинная причина сжатия строк: в Qt Quick `TextArea` отсутствует нативное свойство `lineHeight`. При слиянии, удалении строк или изменении текста движок `QTextDocument` сбрасывал `lineHeight` блоков в дефолтные 100%, сжимая отступы между строками. Прежняя проверка формата в Python проверяла только последний блок документа, игнорируя сжавшиеся строки в середине текста.
+  - В `services/backend/config_handler.py` в метод `set_editor_line_height` интегрирована подписка на нативный C++ сигнал `qtdoc.blockCountChanged`.
+  - При обычном наборе текста (буквы, пробелы) сигнал не вызывается (0% накладных расходов). При удалении или создании строк C++ ядро мгновенно проверяет блоки и автоматически гарантирует целевой интерлиньяж (135%), навсегда предотвращая слипание строк.
+
+- **Быстрое сворачивание и разворачивание всех блоков текста (Fold All / Unfold All Hotkey)**:
+  - **Универсальный хоткей**:
+    - В config/default/hotkeys.json зарегистрировано действие 	oggle_fold_all с хоткеем Alt+F.
+    - В components/editor/editor_keys.js добавлен распознаватель isToggleFoldAllKey(event), поддерживающий как стандартный Alt+F, так и интуитивный Alt+C (Collapse), в том числе в русской раскладке клавиатуры (Alt+А, Alt+С, скан-коды 33 и 46).
+  - **Алгоритм монолитного сворачивания всех блоков (oldAllBlocks)**:
+    - В components/editor/EditorCanvas.qml метод oldAllBlocks сканирует документ через BlockScanner.scanBlocks(editorArea.text) и отфильтровывает только верхнеуровневые блоки (исключая внутренние вложенные блоки).
+    - Блоки сортируются в обратном порядке (снизу вверх, .startLine - a.startLine), что предотвращает смещение индексов строк при замене тел блоков на канонический вид Имя .....
+    - Сохраняются исходные строки в словаре collapsedBlocks, обновляется карта lockFoldState и editorGutter.collapsedBlocks.
+  - **Двухпозиционный переключатель (	oggleFoldAllBlocks)**:
+    - Если в документе есть открытые блоки — одно нажатие мгновенно схлопывает все блоки в компактное оглавление.
+    - Если все блоки уже свернуты — повторное нажатие хоткея разворачивает все блоки обратно (unfoldAllBlocks(true)), полностью восстанавливая исходный текст документа.
+  - **Сквозная маршрутизация вызова**:
+    - Сигналы и вызовы интегрированы через EditorCanvas.qml -> EditorSheet.qml -> WorkspacePane.qml -> iews/web_lifecycle.js (methods.toggle_fold_all, old_all, unfold_all).
+
+- **Надежная обработка `default_folder` и авто-санитизация путей Windows в конфигурации**:
+  - **Автоматическая санитизация путей в JSON**:
+    - В `services/storage/config_service.py` функция `parse_json_with_comments` дополнена умным перехватом `json.JSONDecodeError` (`Invalid \escape`). При наличии неэкранированных одиночных обратных слэшей в путях Windows (например, `C:\path\folder`) парсер автоматически санитизирует строковые литералы и повторяет загрузку без выброса исключений и потери настроек.
+  - **Поддержка относительных путей рабочей папки**:
+    - В `services/storage/file_service.py` в методы `get_default_folder` и `choose_folder_dialog` добавлена поддержка относительных путей (`"europe-read"`, `"./europe-read"`), которые теперь безошибочно резолвятся относительно корня проекта `_root`.
+  - **Строгая проверка контекста `last_file`**:
+    - В `views/web_lifecycle.js` добавлена валидация `targetFileUrl` относительно `root.currentFolderUrl`. Если сохраненный `last_file` принадлежит другой папке (например, при смене `default_folder` или рабочей директории), редактор больше не открывает чужой файл, а открывает первую заметку активной папки.

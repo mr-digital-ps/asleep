@@ -96,6 +96,17 @@ Rectangle {
         NumberAnimation { duration: Theme.animDurationNormal }
     }
 
+    // Клик в любую свободную область листа моментально активирует текстовый редактор
+    TapHandler {
+        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+        onTapped: {
+            sheetRoot.paneActivated()
+            if (editorArea) {
+                editorArea.forceActiveFocus()
+            }
+        }
+    }
+
     // Фокус-режим: затемнение неактивных строк
     EditorFocusDimmer {
         editorArea: editorCanvas.editorArea
@@ -120,6 +131,7 @@ Rectangle {
         folderUrl: sheetRoot.folderUrl
         fileUrl: sheetRoot.fileUrl
         historyDiffData: sheetRoot.historyDiffData
+        editorScroll: sheetRoot.editorScroll
 
         onOpenLinkRequested: (target, linkType) => sheetRoot.openLinkRequested(target, linkType)
         onPaneActivated: sheetRoot.paneActivated()
@@ -150,25 +162,23 @@ Rectangle {
 
     function reapplyEditorStyling() {
         if (typeof backend !== "undefined" && backend && editorArea) {
-            Qt.callLater(function() {
-                var lh = (typeof workspacePane !== "undefined" && workspacePane && workspacePane.editorLineHeightPercent)
-                    ? workspacePane.editorLineHeightPercent
-                    : (Theme.defaultLineHeightPercent || 135.0)
-                if (typeof backend.set_editor_line_height === "function") {
-                    backend.set_editor_line_height(editorArea, lh)
+            var lh = (typeof workspacePane !== "undefined" && workspacePane && workspacePane.editorLineHeightPercent)
+                ? workspacePane.editorLineHeightPercent
+                : (Theme.defaultLineHeightPercent || 135.0)
+            if (typeof backend.set_editor_line_height === "function") {
+                backend.set_editor_line_height(editorArea, lh)
+            }
+            if (typeof backend.set_editor_live_mode === "function") {
+                backend.set_editor_live_mode(editorArea, sheetRoot.isLiveMode)
+            }
+            if (editorCanvas) {
+                if (typeof editorCanvas.updateOverlays === "function") {
+                    editorCanvas.updateOverlays()
                 }
-                if (typeof backend.set_editor_live_mode === "function") {
-                    backend.set_editor_live_mode(editorArea, sheetRoot.isLiveMode)
+                if (typeof editorCanvas.initializeLiveModeIfReady === "function") {
+                    editorCanvas.initializeLiveModeIfReady()
                 }
-                if (editorCanvas) {
-                    if (typeof editorCanvas.updateOverlays === "function") {
-                        editorCanvas.updateOverlays()
-                    }
-                    if (typeof editorCanvas.initializeLiveModeIfReady === "function") {
-                        editorCanvas.initializeLiveModeIfReady()
-                    }
-                }
-            })
+            }
         }
     }
 
@@ -261,6 +271,22 @@ Rectangle {
         } else if (editorArea) {
             editorArea.readOnly = false
             reapplyEditorStyling()
+        }
+    }
+
+    function toggleFoldAllBlocks() {
+        if (editorCanvas && typeof editorCanvas.toggleFoldAllBlocks === "function") {
+            editorCanvas.toggleFoldAllBlocks()
+        }
+    }
+    function foldAllBlocks() {
+        if (editorCanvas && typeof editorCanvas.foldAllBlocks === "function") {
+            editorCanvas.foldAllBlocks()
+        }
+    }
+    function unfoldAllBlocks() {
+        if (editorCanvas && typeof editorCanvas.unfoldAllBlocks === "function") {
+            editorCanvas.unfoldAllBlocks()
         }
     }
 }

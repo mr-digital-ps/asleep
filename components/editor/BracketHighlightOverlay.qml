@@ -26,7 +26,16 @@ Item {
         radius: 2
     }
 
+    Timer {
+        id: bracketDebounceTimer
+        interval: 35
+        repeat: false
+        onTriggered: {
+            Shortcuts.updateBracketHighlights(editorArea, primaryBracketHighlight, matchBracketHighlight)
+        }
+    }
+
     function updateBracketHighlights() {
-        Shortcuts.updateBracketHighlights(editorArea, primaryBracketHighlight, matchBracketHighlight)
+        bracketDebounceTimer.restart()
     }
 }

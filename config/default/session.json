@@ -1,9 +1,15 @@
 {
-	// Дефолтная рабочая папка (используется при первом запуске или если last_folder недоступна)
-	"default_folder": "C:/.personal/.development/asleep-pyqt/europe",
+	// Дефолтная рабочая папка (поддерживаются относительные "europe-read", кроссплатформенные "C:/..." и Windows пути)
+	"default_folder": "C:/.personal/.development/asleep-pyqt/europe-write",
 
 	// Последняя открытая рабочая папка (переопределяется в config/user/session.json)
 	"last_folder": "",
+
+	// Последний открытый файл заметки (переопределяется в config/user/session.json)
+	"last_file": "",
+
+	// Режим редактора по умолчанию (true = Live Mode, false = Source Mode)
+	"is_live_mode": true,
 
 	// Геометрия окна по умолчанию
 	"win_width": 1000,

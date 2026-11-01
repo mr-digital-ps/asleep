@@ -30,9 +30,19 @@ def strip_json_comments(text: str) -> str:
     return cleaned
 
 def parse_json_with_comments(text: str) -> dict:
-    """Безопасно парсит JSON с комментариями и висячими запятыми."""
+    """Безопасно парсит JSON с комментариями, висячими запятыми и авто-санитизацией Windows путей."""
     import json
-    return json.loads(strip_json_comments(text))
+    cleaned = strip_json_comments(text)
+    try:
+        return json.loads(cleaned)
+    except Exception as e:
+        if "escape" in str(e).lower():
+            def fix_str(m):
+                raw = m.group(0)
+                return re.sub(r'\\(?![/\\\"bfnrtu]|u[0-9a-fA-F]{4})', r'\\\\', raw)
+            sanitized = re.sub(r'"(?:[^"\\]|\\.)*"', fix_str, cleaned)
+            return json.loads(sanitized)
+        raise e
 
 FRONTMATTER_REGEX = re.compile(r"^---\r?\n(.*?)\r?\n---", re.DOTALL)
 

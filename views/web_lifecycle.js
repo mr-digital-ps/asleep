@@ -4,10 +4,40 @@
 function initialize(root, backend) {
     backend.watch_folder(root.currentFolderUrl)
     if (root.initialStateApplied || root.applyInitialState()) return
+
+    var sess = (typeof backend !== "undefined" && backend && typeof backend.get_session_config === "function") ? backend.get_session_config() : {}
+    var targetFileUrl = sess.last_file || ""
+    var targetLiveMode = (sess.is_live_mode !== undefined) ? Boolean(sess.is_live_mode) : true
+
+    // 1. Пытаемся открыть последний сохраненный файл заметки, если он принадлежит текущей рабочей папке
+    var isInsideCurrentFolder = false
+    if (targetFileUrl && root.currentFolderUrl) {
+        var normCurFolder = root.currentFolderUrl.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase() + "/"
+        var normTargetFile = targetFileUrl.replace(/\\/g, "/").toLowerCase()
+        if (normTargetFile.indexOf(normCurFolder) === 0) {
+            isInsideCurrentFolder = true
+        }
+    } else if (targetFileUrl && !root.currentFolderUrl) {
+        isInsideCurrentFolder = true
+    }
+
+    if (isInsideCurrentFolder && backend && typeof backend.file_exists === "function" && backend.file_exists(targetFileUrl)) {
+        var fileName = backend.get_filename(targetFileUrl)
+        var panel = root.openFileFromFolder(targetFileUrl, fileName)
+        if (panel && panel.pane) {
+            panel.pane.isLiveMode = targetLiveMode
+        }
+        return
+    }
+
+    // 2. Fallback: первый не-системный файл из текущей папки
     var files = backend.get_folder_files(root.currentFolderUrl)
     for (var i = 0; i < files.length; i++) {
         if (!files[i].isSystem) {
-            root.openFileFromFolder(files[i].fileUrl, files[i].name)
+            var panel2 = root.openFileFromFolder(files[i].fileUrl, files[i].name)
+            if (panel2 && panel2.pane) {
+                panel2.pane.isLiveMode = targetLiveMode
+            }
             return
         }
     }
@@ -25,7 +55,7 @@ function dispatchAction(root, backend, action) {
         toggle_path: "togglePathMode",
         toggle_centered_mode: "toggleCenteredMode", toggle_scrollbar: "toggleScrollbar",
         toggle_line_dots: "toggleLineDots", toggle_live_mode: "toggleLiveMode",
-        toggle_source_mode: "toggleSourceMode"
+        toggle_source_mode: "toggleSourceMode", toggle_fold_all: "toggleFoldAllBlocks", fold_all: "foldAllBlocks", unfold_all: "unfoldAllBlocks"
     }
     if (methods[action]) {
         if (pane) pane[methods[action]]()

@@ -135,6 +135,20 @@ class FileHandlerMixin:
         if folder_url:
             save_session_config({"last_folder": folder_url})
 
+    @pyqtSlot(str)
+    def save_last_file(self, file_url: str):
+        if file_url:
+            save_session_config({"last_file": file_url})
+
+    @pyqtSlot(str, result=bool)
+    def file_exists(self, file_url: str) -> bool:
+        if not file_url:
+            return False
+        try:
+            return self.file_service.to_path(file_url).is_file()
+        except Exception:
+            return False
+
     @pyqtSlot(str, result=str)
     def get_folder_name(self, folder_url: str) -> str:
         path = self.file_service.to_path(folder_url)

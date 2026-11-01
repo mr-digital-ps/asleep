@@ -42,7 +42,8 @@ class DialectParseResult(TypedDict):
 
 # Регулярные выражения пользовательского диалекта
 RE_CODE_FENCE = re.compile(r'^[ \t]*```')
-RE_BLOCK_START = re.compile(r'^([^{}\n\r]+?)\s*\{[ \t]*$')
+RE_SINGLE_LINE_BLOCK = re.compile(r'^([^{}\n\r]+?)\s*\{\s*(.*?)\s*\}\s*$')
+RE_BLOCK_START = re.compile(r'^([^{}\n\r]+?)\s*\{(.*)$')
 RE_BLOCK_END = re.compile(r'^[ \t]*\}[ \t]*$')
 
 # Вызовы блоков: Файл.Блок() и Блок()
@@ -138,10 +139,11 @@ def parse_user_dialect(text: str) -> DialectParseResult:
             current_char_offset += line_len
             continue
 
-        # 3. Проверка на открытие блока (верхнеуровневого или вложенного)
-        block_match = RE_BLOCK_START.match(stripped)
-        if block_match:
-            raw_name = block_match.group(1).strip()
+        # 3. Однострочный именованный блок: Имя { текст }
+        single_match = RE_SINGLE_LINE_BLOCK.match(stripped)
+        if single_match:
+            raw_name = single_match.group(1).strip()
+            block_content = single_match.group(2)
             if "." in raw_name:
                 errors.append(f"Line {line_idx}: Block name cannot contain '.' ('{raw_name}')")
             elif not raw_name:
@@ -159,6 +161,46 @@ def parse_user_dialect(text: str) -> DialectParseResult:
                     block_stack[-1]["children"].append(raw_name)
                     block_stack[-1]["lines"].append(line_raw)
 
+                blocks.append({
+                    "name": raw_name,
+                    "name_norm": name_norm,
+                    "content": block_content,
+                    "start_line": line_idx,
+                    "end_line": line_idx,
+                    "start_char": current_char_offset,
+                    "end_char": current_char_offset + line_len,
+                    "level": len(block_stack) + 1,
+                    "parent_name": parent_name,
+                    "parent_norm": parent_norm,
+                    "children": []
+                })
+            _extract_links_and_calls(line_raw, line_idx, local_calls, external_calls, wikilinks)
+            current_char_offset += line_len
+            continue
+
+        # 4. Проверка на открытие многострочного блока: Имя { или Имя { текст...
+        block_match = RE_BLOCK_START.match(stripped)
+        if block_match:
+            raw_name = block_match.group(1).strip()
+            inline_tail = block_match.group(2).strip()
+            if "." in raw_name:
+                errors.append(f"Line {line_idx}: Block name cannot contain '.' ('{raw_name}')")
+            elif not raw_name:
+                errors.append(f"Line {line_idx}: Empty block name")
+            else:
+                name_norm = raw_name.lower()
+                if name_norm in seen_block_names:
+                    errors.append(f"Line {line_idx}: Duplicate block name '{raw_name}'")
+                else:
+                    seen_block_names.add(name_norm)
+
+                parent_name = block_stack[-1]["name"] if block_stack else ""
+                parent_norm = block_stack[-1]["name_norm"] if block_stack else ""
+                if block_stack:
+                    block_stack[-1]["children"].append(raw_name)
+                    block_stack[-1]["lines"].append(line_raw)
+
+                initial_lines = [inline_tail + "\n"] if inline_tail else []
                 block_stack.append({
                     "name": raw_name,
                     "name_norm": name_norm,
@@ -167,9 +209,11 @@ def parse_user_dialect(text: str) -> DialectParseResult:
                     "level": len(block_stack) + 1,
                     "parent_name": parent_name,
                     "parent_norm": parent_norm,
-                    "lines": [],
+                    "lines": initial_lines,
                     "children": []
                 })
+                if inline_tail:
+                    _extract_links_and_calls(inline_tail, line_idx, local_calls, external_calls, wikilinks)
                 current_char_offset += line_len
                 continue
 

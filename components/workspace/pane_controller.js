@@ -107,7 +107,7 @@ function ensureCursorVisible(mainBar, editorArea, editorScroll) {
         editorScroll.contentItem.contentY = Math.max(0, Math.min(maxY, currentY + diff))
     } else if (cursorTop < topMargin) {
         let diff = topMargin - cursorTop
-        if (editorArea.cursorPosition === 0) {
+        if (editorArea.cursorPosition === 0 && currentY <= topMargin) {
             editorScroll.contentItem.contentY = 0
         } else {
             editorScroll.contentItem.contentY = Math.max(0, Math.min(maxY, currentY - diff))
@@ -318,7 +318,7 @@ function handleLineHeightChanged(editorArea, mainBar, backend) {
 function handleFileUrlChanged(editorArea, mainBar, backend) {
     if (backend) {
         if (typeof backend.set_editor_line_height === "function") {
-            Qt.callLater(function() { backend.set_editor_line_height(editorArea, mainBar.editorLineHeightPercent) })
+            backend.set_editor_line_height(editorArea, mainBar.editorLineHeightPercent)
         }
     }
 }

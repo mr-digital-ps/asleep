@@ -10,6 +10,7 @@ from services.storage.file_service import save_session_config, load_session_conf
 from services.backend.app_initializer import safe_print
 
 _active_highlighters: dict[int, DialectHighlighter] = {}
+_doc_line_height_handlers: dict[int, any] = {}
 
 
 class ConfigHandlerMixin:
@@ -29,19 +30,50 @@ class ConfigHandlerMixin:
     @pyqtSlot(QObject)
     @pyqtSlot(QObject, float)
     def set_editor_line_height(self, editor_area_item: QObject, percent: float = 135.0):
-        """Устанавливает высоту строки пропорционально размеру шрифта (ProportionalHeight)"""
+        """Устанавливает высоту строки пропорционально размеру шрифта (ProportionalHeight) и страхует от сжатия при удалении строк."""
         try:
             if not editor_area_item:
                 return
             doc_wrapper = editor_area_item.property("textDocument")
             if isinstance(doc_wrapper, QQuickTextDocument):
                 qtdoc = doc_wrapper.textDocument()
-                cursor = QTextCursor(qtdoc)
-                cursor.select(QTextCursor.SelectionType.Document)
-                bf = cursor.blockFormat()
+                if not qtdoc:
+                    return
                 target_percent = float(percent) if (percent and percent > 0) else 135.0
-                bf.setLineHeight(target_percent, 1)
-                cursor.setBlockFormat(bf)
+                doc_key = unwrapinstance(qtdoc)
+
+                def apply_lh():
+                    try:
+                        if isdeleted(qtdoc):
+                            return
+                        b = qtdoc.firstBlock()
+                        needs_apply = False
+                        while b.isValid():
+                            bf = b.blockFormat()
+                            if bf.lineHeight() != target_percent or bf.lineHeightType() != 1:
+                                needs_apply = True
+                                break
+                            b = b.next()
+                        if needs_apply:
+                            cursor = QTextCursor(qtdoc)
+                            cursor.select(QTextCursor.SelectionType.Document)
+                            bf = cursor.blockFormat()
+                            bf.setLineHeight(target_percent, 1)
+                            cursor.setBlockFormat(bf)
+                    except Exception:
+                        pass
+
+                old_handler = _doc_line_height_handlers.get(doc_key)
+                if old_handler:
+                    try:
+                        qtdoc.blockCountChanged.disconnect(old_handler)
+                    except (TypeError, RuntimeError):
+                        pass
+
+                _doc_line_height_handlers[doc_key] = apply_lh
+                qtdoc.blockCountChanged.connect(apply_lh)
+                apply_lh()
+
                 opt = qtdoc.defaultTextOption()
                 if opt.flags() & QTextOption.Flag.AddSpaceForLineAndParagraphSeparators:
                     opt.setFlags(opt.flags() & ~QTextOption.Flag.AddSpaceForLineAndParagraphSeparators)
@@ -159,6 +191,11 @@ class ConfigHandlerMixin:
     def save_show_line_dots(self, show: bool):
         """Сохраняет отображение точек строк в сессию"""
         save_session_config({"show_line_dots": show})
+
+    @pyqtSlot(bool)
+    def save_live_mode(self, is_live_mode: bool):
+        """Сохраняет активный режим отображения в сессию (true = Live Mode, false = Source Mode)"""
+        save_session_config({"is_live_mode": is_live_mode})
 
     @pyqtSlot(result="QVariantMap")
     def get_session_config(self) -> dict:

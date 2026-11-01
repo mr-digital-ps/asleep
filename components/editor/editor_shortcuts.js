@@ -70,11 +70,21 @@ function handleTabIndent(editor, isShift, tabSize) {
             if (lineEnd === -1) lineEnd = fullText.length
             let currentLine = fullText.substring(blockStart, lineEnd)
             if (currentLine.startsWith(tabSpaces)) {
-                editor.text = fullText.substring(0, blockStart) + currentLine.substring(size) + fullText.substring(lineEnd)
-                editor.cursorPosition = Math.max(blockStart, start - size)
+                if (typeof editor.remove === "function") {
+                    editor.remove(blockStart, blockStart + size)
+                    editor.cursorPosition = Math.max(blockStart, start - size)
+                } else {
+                    editor.text = fullText.substring(0, blockStart) + currentLine.substring(size) + fullText.substring(lineEnd)
+                    editor.cursorPosition = Math.max(blockStart, start - size)
+                }
             } else if (currentLine.startsWith("\t")) {
-                editor.text = fullText.substring(0, blockStart) + currentLine.substring(1) + fullText.substring(lineEnd)
-                editor.cursorPosition = Math.max(blockStart, start - 1)
+                if (typeof editor.remove === "function") {
+                    editor.remove(blockStart, blockStart + 1)
+                    editor.cursorPosition = Math.max(blockStart, start - 1)
+                } else {
+                    editor.text = fullText.substring(0, blockStart) + currentLine.substring(1) + fullText.substring(lineEnd)
+                    editor.cursorPosition = Math.max(blockStart, start - 1)
+                }
             }
         }
     } else {
