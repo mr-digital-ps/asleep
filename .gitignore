@@ -32,6 +32,7 @@ config/user/
 *_vault/
 test_notes/
 archive/
+docs/archive/
 .asleep/
 *.db
 *.sqlite
