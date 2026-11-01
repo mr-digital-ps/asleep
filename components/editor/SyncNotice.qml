@@ -48,8 +48,9 @@ Rectangle {
         onTriggered: noticeRoot.opacity = 0.0
     }
 
-    function showNotice(title) {
-        noticeText = "Синхронизирован блок: " + title
+    function showNotice(title, prefix) {
+        var p = (prefix !== undefined) ? prefix : "Синхронизирован блок: "
+        noticeText = p + title
         opacity = 1.0
         hideTimer.restart()
     }

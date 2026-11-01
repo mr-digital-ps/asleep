@@ -119,6 +119,14 @@ RowLayout {
         applyBlockFoldState()
     }
 
+    function setEditorTextAtomic(newText) {
+        if (typeof backend !== "undefined" && backend && typeof backend.replace_editor_text_atomic === "function" && editorArea) {
+            backend.replace_editor_text_atomic(editorArea, newText)
+        } else {
+            editorArea.text = newText
+        }
+    }
+
     function applyBlockFoldState() {
         if (!isLiveMode || !editorArea || !editorArea.text) return
         var currentBlocks = BlockScanner.scanBlocks(editorArea.text)
@@ -165,7 +173,7 @@ RowLayout {
         if (editorGutter) editorGutter.collapsedBlocks = newCollapsed
 
         var curPos = editorArea.cursorPosition
-        editorArea.text = lines.join("\n")
+        setEditorTextAtomic(lines.join("\n"))
         editorArea.cursorPosition = Math.min(curPos, editorArea.text.length)
         updateBlocks()
         reapplyLineHeight()
@@ -209,7 +217,7 @@ RowLayout {
 
         if (changed) {
             var curPos = editorArea.cursorPosition
-            editorArea.text = lines.join("\n")
+            setEditorTextAtomic(lines.join("\n"))
             editorArea.cursorPosition = Math.min(curPos, editorArea.text.length)
             updateBlocks()
             reapplyLineHeight()
@@ -278,7 +286,7 @@ RowLayout {
         blockFoldState = newFoldState
 
         var curPos = editorArea.cursorPosition
-        editorArea.text = lines.join("\n")
+        setEditorTextAtomic(lines.join("\n"))
         editorArea.cursorPosition = Math.min(curPos, editorArea.text.length)
         updateBlocks()
         reapplyLineHeight()
@@ -330,7 +338,7 @@ RowLayout {
         if (res.changed) {
             var curPos = editorArea.cursorPosition
             activeTransclusions = res.map
-            editorArea.text = res.text
+            setEditorTextAtomic(res.text)
             editorArea.cursorPosition = Math.min(curPos, res.text.length)
             updateBlocks()
             reapplyLineHeight()
@@ -343,7 +351,7 @@ RowLayout {
         if (res.changed) {
             var curPos = editorArea.cursorPosition
             activeTransclusions = ({})
-            editorArea.text = res.text
+            setEditorTextAtomic(res.text)
             editorArea.cursorPosition = Math.min(curPos, res.text.length)
             updateBlocks()
             reapplyLineHeight()
@@ -406,7 +414,7 @@ RowLayout {
                     targetScrollY = savedScrollY
                 }
 
-                editorArea.text = newLines.join("\n")
+                setEditorTextAtomic(newLines.join("\n"))
                 editorArea.cursorPosition = targetCharPos
                 if (editorScroll && editorScroll.contentItem && targetScrollY >= 0) {
                     editorScroll.contentItem.contentY = targetScrollY
@@ -462,7 +470,7 @@ RowLayout {
                 targetScrollY = savedScrollY
             }
 
-            editorArea.text = newLines.join("\n")
+            setEditorTextAtomic(newLines.join("\n"))
             editorArea.cursorPosition = targetCharPos
             if (editorScroll && editorScroll.contentItem && targetScrollY >= 0) {
                 editorScroll.contentItem.contentY = targetScrollY

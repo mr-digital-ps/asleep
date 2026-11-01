@@ -192,6 +192,12 @@
   "tile_workspace": {
     "keys": ["Alt+Shift+M"],
     "description": "Разложить все открытые вкладки плиткой по видимой области экрана (Tiling Split)"
+  },
+
+  // Экспорт текущей заметки или всей папки в стандартный Markdown (.md)
+  "export_markdown": {
+    "keys": ["Ctrl+Shift+E", "Alt+Shift+E"],
+    "description": "Экспорт текущей заметки в стандартный Markdown (.md)"
   }
 }
 

@@ -414,8 +414,8 @@ Item {
         id: syncNotice
     }
 
-    function showSyncNotice(title) {
-        syncNotice.showNotice(title)
+    function showSyncNotice(title, prefix) {
+        syncNotice.showNotice(title, prefix)
     }
 
     readonly property real effectiveSheetWidth: width

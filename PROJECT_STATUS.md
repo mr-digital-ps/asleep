@@ -503,3 +503,17 @@
     - В `services/storage/file_service.py` в методы `get_default_folder` и `choose_folder_dialog` добавлена поддержка относительных путей (`"europe-read"`, `"./europe-read"`), которые теперь безошибочно резолвятся относительно корня проекта `_root`.
   - **Строгая проверка контекста `last_file`**:
     - В `views/web_lifecycle.js` добавлена валидация `targetFileUrl` относительно `root.currentFolderUrl`. Если сохраненный `last_file` принадлежит другой папке (например, при смене `default_folder` или рабочей директории), редактор больше не открывает чужой файл, а открывает первую заметку активной папки.
+
+- **Подготовка и стабилизация к релизу v1.0.0 (Release Readiness & Freedom of Data)**:
+  - **Сохранение стека Undo/Redo (`Ctrl+Z`) при сворачивании**:
+    - В `services/backend/config_handler.py` реализован слот `@pyqtSlot(QObject, str) replace_editor_text_atomic` на базе C++ `QTextCursor` (`beginEditBlock` / `endEditBlock`).
+    - В `components/editor/EditorCanvas.qml` внедрен метод `setEditorTextAtomic`, заменивший физическую нарезку и сброс текстового буфера. Операции сворачивания/разворачивания блоков теперь записываются в стек Qt как один неделимый шаг отмены, сохраняя историю набора текста пользователя.
+  - **Двусторонний экспортёр в стандартный Markdown**:
+    - Создан сервис `services/content/markdown_exporter.py`, транслирующий все 14 единиц диалекта (блоки `###`, трансклюзии `![[#]]`, акторы `**@**`) в чистый Markdown, совместимый с Obsidian, GitHub и Notion.
+    - В `services/backend/file_handler.py` добавлены слоты `export_to_markdown` и `export_folder_to_markdown`.
+    - Зарегистрирован хоткей `Ctrl+Shift+E` / `Alt+Shift+E` в `config/default/hotkeys.json` и нативное всплывающее уведомление в `components/workspace/WorkspacePane.qml` (`SyncNotice.qml`).
+    - Написан изолированный набор тестов `tests/test_markdown_exporter.py`.
+  - **1-клик запуск без терминала**:
+    - Добавлены лаунчеры `asleep.vbs` (бесшумный старт Windows без окна консоли) и `asleep.bat`.
+  - **Витринная документация**:
+    - Написан фирменный `README.md` со структурой проекта, шпаргалкой по 14 единицам синтаксиса, схемой метро и картой хоткеев.

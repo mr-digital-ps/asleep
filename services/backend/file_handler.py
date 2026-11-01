@@ -288,3 +288,15 @@ class FileHandlerMixin:
         except Exception as e:
             safe_print(f"[Backend] Ошибка чтения времени создания файла: {e}")
             return {}
+
+    @pyqtSlot(str, result="QVariantMap")
+    def export_to_markdown(self, file_url: str) -> dict:
+        """Экспортирует заметку диалекта в стандартный файл .md"""
+        from services.content.markdown_exporter import MarkdownExporter
+        return MarkdownExporter.export_file(file_url)
+
+    @pyqtSlot(str, result="QVariantMap")
+    def export_folder_to_markdown(self, folder_url: str) -> dict:
+        """Экспортирует всю папку заметок диалекта в стандартные файлы .md"""
+        from services.content.markdown_exporter import MarkdownExporter
+        return MarkdownExporter.export_folder(folder_url)

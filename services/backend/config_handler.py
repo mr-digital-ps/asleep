@@ -26,6 +26,25 @@ class ConfigHandlerMixin:
         path = self.file_service.to_path(file_url)
         return self.config_service.is_config_filename(path.name)
 
+    @pyqtSlot(QObject, str)
+    def replace_editor_text_atomic(self, editor_area_item: QObject, new_text: str):
+        """Атомарно заменяет текст документа в QTextDocument как один неделимый шаг, сохраняя историю Undo/Redo (Ctrl+Z)."""
+        try:
+            if not editor_area_item:
+                return
+            doc_wrapper = editor_area_item.property("textDocument")
+            if isinstance(doc_wrapper, QQuickTextDocument):
+                qtdoc = doc_wrapper.textDocument()
+                if not qtdoc or isdeleted(qtdoc):
+                    return
+                cursor = QTextCursor(qtdoc)
+                cursor.beginEditBlock()
+                cursor.select(QTextCursor.SelectionType.Document)
+                cursor.insertText(new_text)
+                cursor.endEditBlock()
+        except Exception as e:
+            safe_print(f"[ConfigHandler] Ошибка атомарной замены текста: {e}")
+
     @pyqtSlot(QObject, float)
     @pyqtSlot(QObject)
     @pyqtSlot(QObject, float)

@@ -66,6 +66,17 @@ function dispatchAction(root, backend, action) {
     case "open_file": root.openDialog.open(); break
     case "open_folder": root.folderDialog.open(); break
     case "save_file": Documents.savePanel(workspace, backend, workspace.activePanel); break
+    case "export_markdown":
+        var activePanel = workspace.activePanel;
+        var fileUrl = (activePanel && activePanel.pane) ? activePanel.pane.fileUrl : "";
+        if (fileUrl && backend && typeof backend.export_to_markdown === "function") {
+            Documents.savePanel(workspace, backend, activePanel);
+            var res = backend.export_to_markdown(fileUrl);
+            if (res && res.success && pane && typeof pane.showSyncNotice === "function") {
+                pane.showSyncNotice(res.fileName || "заметка", "Экспортировано в exports/: ");
+            }
+        }
+        break;
     case "close_tab": root.closeActiveTab(); break
     case "toggle_graph": root.toggleGraph(); break
     case "toggle_local_graph": root.toggleLocalGraph(); break
