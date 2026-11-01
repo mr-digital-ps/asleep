@@ -33,6 +33,9 @@ config/user/
 test_notes/
 archive/
 docs/archive/
+europe/
+europe-read/
+europe-write/
 .asleep/
 *.db
 *.sqlite
